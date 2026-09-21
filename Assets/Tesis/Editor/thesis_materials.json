@@ -1,0 +1,658 @@
+{
+    "variants":  [
+                     {
+                         "name":  "eprubeta_7",
+                         "model":  "Assets/Tesis/Models/eprubeta.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7511558181221131132,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "pipette",
+                         "model":  "Assets/Tesis/Models/pipette.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7511558181221131132,
+                                           "isMesh":  false,
+                                           "index":  1,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "berzelius_1",
+                         "model":  "Assets/Tesis/Models/berzelius.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7511558181221131132,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  -7511558181221131132,
+                                           "isMesh":  false,
+                                           "index":  1,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "erlenmeyer_1",
+                         "model":  "Assets/Tesis/Models/erlenmeyer.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7511558181221131132,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "eprubeta_-_with_-_substance",
+                         "model":  "Assets/Tesis/Models/eprubeta - with - substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -1461304994638716399,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/green_substance.mat"
+                                       },
+                                       {
+                                           "id":  -4683669308469848369,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "tree",
+                         "model":  "Assets/Tesis/Models/tree.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  7293059144023096718,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Textures/Hand Painted Grass  Texture/Material/Gtass_mobile.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "eprubeta_-_with_-_substance_LabAssistantScene",
+                         "model":  "Assets/Tesis/Models/eprubeta - with - substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  4493585093827132993,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "laborator_LabAssistantScene",
+                         "model":  "Assets/Tesis/Models/laborator.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  2617812940327789670,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/CaptainCatSparrow/PBR_Materials/500_Materials/Materials/Wood/mWood_8.mat"
+                                       },
+                                       {
+                                           "id":  2619086233303812490,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/CaptainCatSparrow/PBR_Materials/500_Materials/Materials/Wood/mWood_9.mat"
+                                       },
+                                       {
+                                           "id":  4133647039815447710,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/CaptainCatSparrow/PBR_Materials/500_Materials/Materials/Wood/mWood_8.mat"
+                                       },
+                                       {
+                                           "id":  4133647039815447710,
+                                           "isMesh":  true,
+                                           "index":  1,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  4413128474656363282,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  4493585093827132993,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/CaptainCatSparrow/PBR_Materials/500_Materials/Materials/Wood/mWood_5.mat"
+                                       },
+                                       {
+                                           "id":  -5495902117074765545,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/CaptainCatSparrow/PBR_Materials/500_Materials/Materials/Floor/mFloor_3.mat"
+                                       },
+                                       {
+                                           "id":  -6341523904635916938,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/CaptainCatSparrow/PBR_Materials/500_Materials/Materials/Wood/mWood_8.mat"
+                                       },
+                                       {
+                                           "id":  7252661219181024154,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/CaptainCatSparrow/PBR_Materials/500_Materials/Materials/Wood/mWood_8.mat"
+                                       },
+                                       {
+                                           "id":  8529085194085908366,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/CaptainCatSparrow/PBR_Materials/500_Materials/Materials/Wood/mWood_8.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "erlenmeyer-hcl",
+                         "model":  "Assets/Tesis/Models/correct_erlenmeyer-with-substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  1571552466877123598,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/LiquidWhite.mat"
+                                       },
+                                       {
+                                           "id":  3111846399691901818,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  4058493560428375684,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/HCL_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "TubeWithSubstance_1",
+                         "model":  "Assets/Tesis/Models/TubeWithSubstance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -1461304994638716399,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/White.mat"
+                                       },
+                                       {
+                                           "id":  -4683669308469848369,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "TubeWithSubstance",
+                         "model":  "Assets/Tesis/Models/TubeWithSubstance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -1461304994638716399,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/MaterialEprubeta.mat"
+                                       },
+                                       {
+                                           "id":  -4683669308469848369,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "Substance",
+                         "model":  "Assets/Tesis/Models/correct_berzelius-with-substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -3499170057869004769,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  -3499170057869004769,
+                                           "isMesh":  false,
+                                           "index":  1,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "Book",
+                         "model":  "Assets/Tesis/Models/book.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7511558181221131132,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Book cover.mat"
+                                       },
+                                       {
+                                           "id":  -7511558181221131132,
+                                           "isMesh":  false,
+                                           "index":  1,
+                                           "material":  "Assets/Tesis/Materials/Paper.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "Water",
+                         "model":  "Assets/Tesis/Models/correct_erlenmeyer-with-substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  1571552466877123598,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Incolor_substance.mat"
+                                       },
+                                       {
+                                           "id":  3111846399691901818,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  4058493560428375684,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/H2O_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "Substance_2",
+                         "model":  "Assets/Tesis/Models/correct_berzelius-with-substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -3499170057869004769,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  -3499170057869004769,
+                                           "isMesh":  false,
+                                           "index":  1,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  561562209041346654,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/whiteLiquid.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "NewNatriumContainer",
+                         "model":  "Assets/Tesis/Models/1.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7918335002988649766,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/Na_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "water_ali3",
+                         "model":  "Assets/Tesis/Models/correct_erlenmeyer-with-substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  1571552466877123598,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Phenolphtalein.mat"
+                                       },
+                                       {
+                                           "id":  3111846399691901818,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  4058493560428375684,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/H2O_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "Balon",
+                         "model":  "Assets/Tesis/Models/balon.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -5932014270860095564,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/BalonMaterial.mat"
+                                       },
+                                       {
+                                           "id":  6317578925029434746,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/BalonMaterial.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "correct_erlenmeyer-with-substance",
+                         "model":  "Assets/Tesis/Models/correct_erlenmeyer-with-substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  1571552466877123598,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Phenolphtalein.mat"
+                                       },
+                                       {
+                                           "id":  3111846399691901818,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  4058493560428375684,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/H2SO4_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "NatriumContainer",
+                         "model":  "Assets/Tesis/Models/final_final_final1.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7918335002988649766,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/Na_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "final_final_final1",
+                         "model":  "Assets/Tesis/Models/final_final_final1.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -3052298099438560958,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Brown Glass.mat"
+                                       },
+                                       {
+                                           "id":  -7918335002988649766,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/K_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "NewPotassiumContainer",
+                         "model":  "Assets/Tesis/Models/1.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7918335002988649766,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/K_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "small_vase_new",
+                         "model":  "Assets/Tesis/Models/small_vase_new.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -1823322365421230674,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Black.mat"
+                                       },
+                                       {
+                                           "id":  8442510506162454399,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  -8768133303093192197,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "TurnesolPaper",
+                         "model":  "Assets/Tesis/Models/turnesol.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7918335002988649766,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/DryLitmus.mat"
+                                       },
+                                       {
+                                           "id":  882129737928793925,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/DryLitmus.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "BalonDropZone",
+                         "model":  "Assets/Tesis/Models/balon.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -5932014270860095564,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Placeholder.mat"
+                                       },
+                                       {
+                                           "id":  6317578925029434746,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Placeholder.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "PotassiumContainer",
+                         "model":  "Assets/Tesis/Models/final_final_final1.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7918335002988649766,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/K_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "metal",
+                         "model":  "Assets/Tesis/Models/metal.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -7511558181221131132,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/UnityTechnologies/EffectExamples/Shared/Materials/MetalSurface.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "Substance_3",
+                         "model":  "Assets/Tesis/Models/correct_berzelius-with-substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -3499170057869004769,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  -3499170057869004769,
+                                           "isMesh":  false,
+                                           "index":  1,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  561562209041346654,
+                                           "isMesh":  false,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Yellow.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "small_vase_new_LabScene",
+                         "model":  "Assets/Tesis/Models/small_vase_new.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  8314571269056883277,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Black.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "turnesol_LabScene",
+                         "model":  "Assets/Tesis/Models/turnesol.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  4579454407841743219,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/DryLitmus.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "TubeWithSubstance_LabScene",
+                         "model":  "Assets/Tesis/Models/TubeWithSubstance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -5495902117074765545,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Placeholder.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "pipette_with_substance2_LabScene",
+                         "model":  "Assets/Tesis/Models/pipette_with_substance2.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  2534964839176971238,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Incolor_substance.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "correct_berzelius-with-substance_KOHContainer_1",
+                         "model":  "Assets/Tesis/Models/correct_berzelius-with-substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  3019594559505369812,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  3019594559505369812,
+                                           "isMesh":  true,
+                                           "index":  1,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  4658409966581731643,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Yellow.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "1_NewPotassiumContainer_1",
+                         "model":  "Assets/Tesis/Models/1.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -462981019419857548,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/K_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "final_final_final1_PotassiumContainer_1",
+                         "model":  "Assets/Tesis/Models/final_final_final1.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  -462981019419857548,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/K_label.mat"
+                                       }
+                                   ]
+                     },
+                     {
+                         "name":  "correct_erlenmeyer-with-substance_Water_1",
+                         "model":  "Assets/Tesis/Models/correct_erlenmeyer-with-substance.fbx",
+                         "slots":  [
+                                       {
+                                           "id":  5133122228172519177,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Labels/Materials/H2O_label.mat"
+                                       },
+                                       {
+                                           "id":  -7245461460542632022,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/glass.mat"
+                                       },
+                                       {
+                                           "id":  -8708011321706489460,
+                                           "isMesh":  true,
+                                           "index":  0,
+                                           "material":  "Assets/Tesis/Materials/Incolor_substance.mat"
+                                       }
+                                   ]
+                     }
+                 ]
+}
