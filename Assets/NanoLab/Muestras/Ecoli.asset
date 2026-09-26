@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e48a6ed54b1d9f4e96b0088a1f58f37, type: 3}
+  m_Name: Ecoli
+  m_EditorClassIdentifier: 
+  codigo: '#B-01'
+  nombre: E. coli
+  nombreCientifico: Escherichia coli
+  tipo: 1
+  caracteristicas:
+  - clave: Tipo
+    valor: Bacteria
+  - clave: Gram
+    valor: Negativa (rosa)
+  - clave: "Tama\xF1o"
+    valor: "1 - 2 \xB5m"
+  - clave: Forma
+    valor: "Bacilo (bast\xF3n)"
+  - clave: Movilidad
+    valor: Flagelos peritricos
+  - clave: "Ox\xEDgeno"
+    valor: Anaerobia facultativa
+  riesgo: BSL-2
+  color: {r: 0.9, g: 0.35, b: 0.55, a: 1}
+  micrografia: {fileID: 2800000, guid: 664c17e52565c134f800f88f65bb52bb, type: 3}
+  creditoImagen: "Owashxd (Wikimedia) \xB7 CC0"
+  modelo3D: {fileID: 0}
+  morfologia: "Bacilos cortos, aislados o en parejas, te\xF1idos de rosa-rojo por
+    la safranina."
+  estructura: "Pared Gram negativa: capa fina de peptidoglucano y membrana externa
+    con lipopolisac\xE1rido."
+  composicion: "Peptidoglucano, lipopolisac\xE1rido (LPS), flagelina, fimbrias y
+    un cromosoma circular."
+  comportamiento: Habitante normal del intestino. Algunas cepas causan diarrea o
+    infecciones urinarias.
+  observaciones: "Bacilos Gram negativos.\nDistribuci\xF3n uniforme.\nTinci\xF3n
+    correcta."

@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e48a6ed54b1d9f4e96b0088a1f58f37, type: 3}
+  m_Name: VIH
+  m_EditorClassIdentifier: 
+  codigo: '#V-02'
+  nombre: VIH-1
+  nombreCientifico: Virus de la inmunodeficiencia humana
+  tipo: 0
+  caracteristicas:
+  - clave: Tipo
+    valor: Retrovirus (ARN)
+  - clave: Familia
+    valor: Retroviridae
+  - clave: "Di\xE1metro"
+    valor: ~120 nm
+  - clave: Forma
+    valor: "Esf\xE9rica, c\xE1pside c\xF3nica"
+  - clave: Envoltura
+    valor: "S\xED, lip\xEDdica"
+  - clave: Genoma
+    valor: 2 copias de ARN (+)
+  riesgo: ALTO RIESGO
+  color: {r: 0.95, g: 0.75, b: 0.3, a: 1}
+  micrografia: {fileID: 2800000, guid: 85797767276fb1a44b37198d42b244e9, type: 3}
+  creditoImagen: "CDC / Dr. Edwin P. Ewing, Jr. \xB7 Dominio p\xFAblico"
+  modelo3D: {fileID: 3869559515049687840, guid: 84f42d0df6bfde249a34913495d45526, type: 3}
+  morfologia: "Viri\xF3n esf\xE9rico con pocas esp\xEDculas (glicoprote\xEDna Env)
+    y una c\xE1pside interna con forma de cono."
+  estructura: "Envoltura con gp120/gp41, matriz p17, c\xE1pside c\xF3nica p24 que
+    contiene el ARN, la transcriptasa inversa y la integrasa."
+  composicion: "gp120 (uni\xF3n), gp41 (fusi\xF3n), p24 (c\xE1pside), transcriptasa
+    inversa, integrasa y proteasa."
+  comportamiento: "Infecta linfocitos T CD4+. Copia su ARN a ADN y lo integra en
+    el genoma de la c\xE9lula. Tratamiento: antirretrovirales."
+  observaciones: "C\xE1pside c\xF3nica caracter\xEDstica.\nEsp\xEDculas Env escasas.\nMorfolog\xEDa
+    de viri\xF3n maduro."

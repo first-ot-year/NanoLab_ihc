@@ -25,6 +25,11 @@ public static class ConvertirSketchfab
         public float soloPiezasGrandes;
         // Coloca cada pieza (placa) en fila en lugar de todas en el mismo punto.
         public bool separarEnFila;
+        // Solo conserva las piezas cuyo nombre contenga alguno de estos textos.
+        public string[] incluir;
+        // Colores por pieza (texto contenido en el nombre -> color) o un color para todo.
+        public Dictionary<string, Color> colores;
+        public Color? colorUnico;
     }
     enum Medida { Alto, AnchoPiezaMayor }
 
@@ -55,21 +60,74 @@ public static class ConvertirSketchfab
         }
     }
 
-    [MenuItem("NanoLab/Convertir modelos Sketchfab")]
-    public static void Convertir()
+    // Virus del NIH (PathogenAR) descargados por Carlo. El nombre lleva la subcarpeta
+    // "Virus/" y contiene la clave que usa CrearMuestras.BuscarModelo.
+    static readonly Modelo[] Virus =
     {
-        Directory.CreateDirectory(OutDir + "/Mallas");
+        new Modelo { gltf = "Assets/Descargas/influenza/Influenza_Virion_Low.fbx", nombre = "Virus/Virus_Influenza", trianglesObjetivo = 35000, medida = Medida.AnchoPiezaMayor, metros = 0.3f,
+                     incluir = new[] { "Virion", "Hemagglutinin", "Neuraminidase", "M2", "RNA" },
+                     colores = new Dictionary<string, Color> {
+                         { "Hemagglutinin", new Color(0.35f, 0.85f, 0.75f) }, { "Neuraminidase", new Color(1f, 0.55f, 0.25f) },
+                         { "M2", new Color(1f, 0.85f, 0.3f) }, { "Polymerase", new Color(0.95f, 0.35f, 0.5f) }, { "RNA", new Color(0.85f, 0.4f, 0.9f) },
+                         { "Virion", new Color(0.4f, 0.5f, 0.9f) } } },
+        new Modelo { gltf = "Assets/Descargas/vih/HIV_Virion.fbx", nombre = "Virus/Virus_HIV", trianglesObjetivo = 40000, medida = Medida.AnchoPiezaMayor, metros = 0.3f,
+                     incluir = new[] { "Env", "Matrix", "Capsid", "Reverse", "Invertase", "Protease", "NC", "P6", "SP1", "SP8", "VIF", "VPR", "VPU", "NEF", "Cyclophilin" },
+                     colores = new Dictionary<string, Color> {
+                         { "Env", new Color(0.95f, 0.3f, 0.35f) }, { "Membrane", new Color(0.35f, 0.45f, 0.85f) }, { "Matrix", new Color(0.55f, 0.35f, 0.85f) },
+                         { "Capsid", new Color(1f, 0.6f, 0.2f) }, { "HLA", new Color(0.3f, 0.8f, 0.6f) }, { "Reverse", new Color(1f, 0.9f, 0.3f) },
+                         { "Invertase", new Color(1f, 0.9f, 0.3f) }, { "Protease", new Color(1f, 0.9f, 0.3f) }, { "NC", new Color(0.9f, 0.5f, 0.9f) },
+                         { "", new Color(0.5f, 0.55f, 0.75f) } } },
+        new Modelo { gltf = "Assets/Descargas/sarscov2/SARSCOV2_Thick_NIH3D.glb", nombre = "Virus/Virus_SARS", trianglesObjetivo = 35000, medida = Medida.AnchoPiezaMayor, metros = 0.3f,
+                     colorUnico = new Color(0.85f, 0.35f, 0.45f) },
+        new Modelo { gltf = "Assets/Descargas/vph/capsid.fbx", nombre = "Virus/Virus_Papiloma", trianglesObjetivo = 30000, medida = Medida.AnchoPiezaMayor, metros = 0.3f,
+                     soloPiezasGrandes = 0.5f, colorUnico = new Color(0.4f, 0.8f, 0.95f) },
+        new Modelo { gltf = "Assets/Descargas/hepatitisb/nucleocapsid.fbx", nombre = "Virus/Virus_Hepatitis", trianglesObjetivo = 30000, medida = Medida.AnchoPiezaMayor, metros = 0.3f },
+    };
+
+    [MenuItem("NanoLab/Convertir modelos Sketchfab")]
+    public static void Convertir() => ConvertirLista(Modelos);
+
+    [MenuItem("NanoLab/Convertir virus NIH")]
+    public static void ConvertirVirus() => ConvertirLista(Virus);
+
+    [MenuItem("NanoLab/Inspeccionar virus NIH")]
+    public static void InspeccionarVirus()
+    {
+        foreach (var m in Virus)
+        {
+            var root = AssetDatabase.LoadAssetAtPath<GameObject>(m.gltf);
+            if (root == null) { Debug.LogError($"[Sketchfab] No se pudo cargar {m.gltf}"); continue; }
+            var rs = root.GetComponentsInChildren<Renderer>(true);
+            Debug.Log($"[Sketchfab] === {m.nombre}: {rs.Length} renderers, {rs.Where(r => GetMesh(r) != null).Sum(r => Triangles(GetMesh(r)))} triángulos");
+            foreach (var r in rs.Take(25))
+            {
+                var mesh = GetMesh(r);
+                Debug.Log($"[Sketchfab]   {r.name} tris={(mesh ? Triangles(mesh) : 0)} bounds={r.bounds.size} mats={string.Join(",", r.sharedMaterials.Select(x => x ? x.name + "(" + x.shader.name + ",q" + x.renderQueue + ")" : "null"))}");
+            }
+        }
+    }
+
+    static void ConvertirLista(Modelo[] modelos)
+    {
+        Directory.CreateDirectory(OutDir + "/Mallas/Virus");
+        Directory.CreateDirectory(OutDir + "/Virus");
         Directory.CreateDirectory(OutDir + "/Materiales");
         AssetDatabase.Refresh();
         var vidrio = MaterialVidrio();
 
-        foreach (var m in Modelos)
+        foreach (var m in modelos)
         {
             var root = AssetDatabase.LoadAssetAtPath<GameObject>(m.gltf);
             if (root == null) { Debug.LogError($"[Sketchfab] No se pudo cargar {m.gltf}"); continue; }
 
             var renderers = root.GetComponentsInChildren<Renderer>(true)
                 .Where(r => GetMesh(r) != null).ToArray();
+            if (m.incluir != null)
+            {
+                var fuera = renderers.Where(r => !m.incluir.Any(k => r.name.IndexOf(k, System.StringComparison.OrdinalIgnoreCase) >= 0)).ToArray();
+                renderers = renderers.Except(fuera).ToArray();
+                Debug.Log($"[Sketchfab] {m.nombre}: se descartan {fuera.Length} piezas ajenas al virión ({string.Join(", ", fuera.Select(d => d.name))})");
+            }
             if (m.soloPiezasGrandes > 0)
             {
                 float mayor = renderers.Max(Ancho);
@@ -113,11 +171,15 @@ public static class ConvertirSketchfab
                 var matrix = mover * Matrix4x4.Scale(Vector3.one * escala) * rootInv * r.transform.localToWorldMatrix;
 
                 var mats = r.sharedMaterials;
+                var colorPieza = ColorDePieza(m, r.name);
                 for (int i = 0; i < reducida.subMeshCount; i++)
                 {
                     var origen = i < mats.Length ? mats[i] : null;
                     if (origen == null) continue;
-                    if (!convertidos.TryGetValue(origen, out var dst))
+                    Material dst;
+                    if (colorPieza.HasValue)
+                        dst = MaterialColor(m.nombre, colorPieza.Value);
+                    else if (!convertidos.TryGetValue(origen, out dst))
                     {
                         dst = EsVidrio(origen) ? vidrio : AStandard(origen, m.nombre);
                         convertidos[origen] = dst;
@@ -181,7 +243,7 @@ public static class ConvertirSketchfab
             UnityEditor.SceneManagement.NewSceneMode.Single);
         string dir = System.IO.Path.Combine(Directory.GetCurrentDirectory(), "Logs", "Capturas");
         Directory.CreateDirectory(dir);
-        foreach (var m in Modelos)
+        foreach (var m in Modelos.Concat(Virus))
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{OutDir}/{m.nombre}.prefab");
             if (prefab == null) continue;
@@ -204,7 +266,7 @@ public static class ConvertirSketchfab
                 RenderTexture.active = rt;
                 var tex = new Texture2D(640, 480, TextureFormat.RGB24, false);
                 tex.ReadPixels(new Rect(0, 0, 640, 480), 0, 0);
-                File.WriteAllBytes(System.IO.Path.Combine(dir, $"modelo_{m.nombre}_{nombre}.png"), tex.EncodeToPNG());
+                File.WriteAllBytes(System.IO.Path.Combine(dir, $"modelo_{Sanear(m.nombre)}_{nombre}.png"), tex.EncodeToPNG());
                 RenderTexture.active = null;
                 cam.targetTexture = null;
                 Object.DestroyImmediate(rt);
@@ -251,6 +313,31 @@ public static class ConvertirSketchfab
             if (Triangles(actual) <= objetivo * 1.2f) break;
         }
         return actual;
+    }
+
+    // Color fijo para la pieza (virus sin color o con un material único), o null para usar el original.
+    static Color? ColorDePieza(Modelo m, string pieza)
+    {
+        if (m.colores != null)
+            foreach (var kv in m.colores)
+                if (pieza.IndexOf(kv.Key, System.StringComparison.OrdinalIgnoreCase) >= 0) return kv.Value;
+        return m.colorUnico;
+    }
+
+    static readonly Dictionary<string, Material> materialesColor = new Dictionary<string, Material>();
+
+    static Material MaterialColor(string modelo, Color c)
+    {
+        string nombre = $"{Sanear(modelo)}_{ColorUtility.ToHtmlStringRGB(c)}";
+        if (materialesColor.TryGetValue(nombre, out var existente) && existente != null) return existente;
+        string path = $"{OutDir}/Materiales/{nombre}.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (mat == null) { mat = new Material(Shader.Find("Standard")); AssetDatabase.CreateAsset(mat, path); }
+        mat.color = c;
+        mat.SetFloat("_Glossiness", 0.45f);
+        EditorUtility.SetDirty(mat);
+        materialesColor[nombre] = mat;
+        return mat;
     }
 
     static float Ancho(Renderer r) => Mathf.Max(r.bounds.size.x, r.bounds.size.z);

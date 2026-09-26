@@ -57,3 +57,8 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Capturas y referencias locales (no se suben)
+/image.png
+/Captura de pantalla*.png
+/img_ref/

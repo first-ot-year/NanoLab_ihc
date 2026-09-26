@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e48a6ed54b1d9f4e96b0088a1f58f37, type: 3}
+  m_Name: VPH
+  m_EditorClassIdentifier: 
+  codigo: '#V-04'
+  nombre: VPH
+  nombreCientifico: Virus del papiloma humano
+  tipo: 0
+  caracteristicas:
+  - clave: Tipo
+    valor: Virus de ADN
+  - clave: Familia
+    valor: Papillomaviridae
+  - clave: "Di\xE1metro"
+    valor: 50 - 55 nm
+  - clave: Forma
+    valor: "Icosa\xE9drica"
+  - clave: Envoltura
+    valor: No (desnudo)
+  - clave: Genoma
+    valor: ADN circular bicatenario
+  riesgo: MODERADO
+  color: {r: 0.4, g: 0.8, b: 0.95, a: 1}
+  micrografia: {fileID: 2800000, guid: c51c37b8e0dc9944e871991303e3c5d3, type: 3}
+  creditoImagen: "NIAID \xB7 Dominio p\xFAblico"
+  modelo3D: {fileID: 1113465608100752200, guid: 9352f372339dfc148a247afcd45657f9, type: 3}
+  morfologia: "C\xE1pside icosa\xE9drica sin envoltura, formada por 72 caps\xF3meros
+    en forma de estrella."
+  estructura: "La prote\xEDna L1 forma los 72 pent\xE1meros de la c\xE1pside; L2
+    est\xE1 en el interior junto al ADN y las histonas de la c\xE9lula."
+  composicion: "Prote\xEDnas L1 y L2 de la c\xE1pside y ADN circular de ~8 000 pares
+    de bases."
+  comportamiento: "Infecta c\xE9lulas de piel y mucosas. Algunos tipos (16, 18) se
+    asocian a c\xE1ncer. Existe vacuna."
+  observaciones: "C\xE1pside icosa\xE9drica bien definida.\nSin envoltura lip\xEDdica.\nCaps\xF3meros
+    visibles."

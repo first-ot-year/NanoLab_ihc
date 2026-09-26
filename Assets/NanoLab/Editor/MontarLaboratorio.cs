@@ -82,7 +82,7 @@ public static class MontarLaboratorio
 
     // ---------- Colliders ----------
 
-    static int AnadirColliders()
+    internal static int AnadirColliders()
     {
         int n = 0;
         foreach (var r in Object.FindObjectsOfType<MeshRenderer>())
@@ -99,7 +99,7 @@ public static class MontarLaboratorio
         return n;
     }
 
-    static void MarcarEstatico()
+    internal static void MarcarEstatico()
     {
         var flags = StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic |
                     StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic |
@@ -113,7 +113,7 @@ public static class MontarLaboratorio
         }
     }
 
-    static Bounds BoundsEscena()
+    internal static Bounds BoundsEscena()
     {
         var rs = Object.FindObjectsOfType<MeshRenderer>();
         var b = rs[0].bounds;
@@ -121,7 +121,7 @@ public static class MontarLaboratorio
         return b;
     }
 
-    static float AlturaSuelo(Bounds sala)
+    internal static float AlturaSuelo(Bounds sala)
     {
         var floor = Object.FindObjectsOfType<MeshRenderer>()
             .Where(r => r.name.ToLowerInvariant().Contains("floor"))
@@ -131,7 +131,7 @@ public static class MontarLaboratorio
         return y;
     }
 
-    static void CrearSueloSeguridad(Bounds sala, float suelo)
+    internal static void CrearSueloSeguridad(Bounds sala, float suelo)
     {
         var go = new GameObject("SueloSeguridad");
         go.transform.position = new Vector3(sala.center.x, suelo - 0.1f, sala.center.z);
@@ -152,7 +152,7 @@ public static class MontarLaboratorio
     static Transform MesaMasCercana(List<Transform> mesas, float z, Transform excluir = null) =>
         mesas.Where(m => m != excluir).OrderBy(m => Mathf.Abs(m.position.z - z)).FirstOrDefault();
 
-    static Bounds BoundsDe(GameObject go)
+    internal static Bounds BoundsDe(GameObject go)
     {
         var rs = go.GetComponentsInChildren<Renderer>();
         var b = rs[0].bounds;
@@ -229,10 +229,10 @@ public static class MontarLaboratorio
 
     // ---------- Jugador ----------
 
-    static void ColocarJugador(Vector3 spawn, float yaw, float suelo, Bounds sala)
+    internal static GameObject ColocarJugador(Vector3 spawn, float yaw, float suelo, Bounds sala)
     {
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefab);
-        if (prefab == null) { Debug.LogError("[Montar] No se encontró OVRPlayerController.prefab"); return; }
+        if (prefab == null) { Debug.LogError("[Montar] No se encontró OVRPlayerController.prefab"); return null; }
         var player = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
         var cc = player.GetComponent<CharacterController>();
         float h = cc ? cc.height : 2f, r = cc ? cc.radius : 0.3f, cy = cc ? cc.center.y : 0f;
@@ -247,9 +247,10 @@ public static class MontarLaboratorio
         player.transform.position = new Vector3(pos.x, suelo + h / 2f - cy + 0.05f, pos.z);
         player.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
         Debug.Log($"[Montar] OVRPlayerController en {player.transform.position.ToString("F2")}, mirando a {yaw:F0}°");
+        return player;
     }
 
-    static bool Bloqueado(Vector3 pies, float r) =>
+    internal static bool Bloqueado(Vector3 pies, float r) =>
         Physics.CheckCapsule(pies + Vector3.up * (r + 0.1f), pies + Vector3.up * 1.7f, r + 0.1f);
 
     static Vector3 BuscarLibre(Vector3 desde, float suelo, float r, Bounds sala)
@@ -267,7 +268,7 @@ public static class MontarLaboratorio
 
     // ---------- Luz ----------
 
-    static void ConfigurarLuces()
+    internal static void ConfigurarLuces(string nombre = "Laboratorio_Lighting")
     {
         foreach (var l in Object.FindObjectsOfType<Light>())
         {
@@ -277,7 +278,7 @@ public static class MontarLaboratorio
 
         var s = new LightingSettings
         {
-            name = "Laboratorio_Lighting",
+            name = nombre,
             bakedGI = true,
             realtimeGI = false,
             lightmapper = LightingSettings.Lightmapper.ProgressiveGPU,
@@ -293,13 +294,13 @@ public static class MontarLaboratorio
             environmentSampleCount = 128,
             ao = true,
         };
-        string path = SceneDir + "/Laboratorio_Lighting.lighting";
+        string path = SceneDir + "/" + nombre + ".lighting";
         AssetDatabase.DeleteAsset(path);
         AssetDatabase.CreateAsset(s, path);
         Lightmapping.lightingSettings = s;
     }
 
-    static void CrearSondas(Bounds sala, float suelo)
+    internal static void CrearSondas(Bounds sala, float suelo)
     {
         var go = new GameObject("SondasDeLuz");
         var lpg = go.AddComponent<LightProbeGroup>();
@@ -311,7 +312,7 @@ public static class MontarLaboratorio
         lpg.probePositions = pts.ToArray();
     }
 
-    static void GenerarUVsDeLightmap()
+    internal static void GenerarUVsDeLightmap()
     {
         var dirs = new[] { AnimaticsDir + "/Models", "Assets/FreeLabAssets/Models" };
         int n = 0;
@@ -359,7 +360,7 @@ public static class MontarLaboratorio
         Debug.Log($"[Montar] Capturas guardadas en {dir}");
     }
 
-    static void Capturar(string dir, string nombre, Vector3 pos, Vector3 forward)
+    internal static void Capturar(string dir, string nombre, Vector3 pos, Vector3 forward)
     {
         var go = new GameObject("CapturaTemp");
         var cam = go.AddComponent<Camera>();

@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e48a6ed54b1d9f4e96b0088a1f58f37, type: 3}
+  m_Name: Bsubtilis
+  m_EditorClassIdentifier: 
+  codigo: '#B-03'
+  nombre: B. subtilis
+  nombreCientifico: Bacillus subtilis
+  tipo: 1
+  caracteristicas:
+  - clave: Tipo
+    valor: Bacteria
+  - clave: Gram
+    valor: Positiva (violeta)
+  - clave: "Tama\xF1o"
+    valor: "2 - 3 \xB5m"
+  - clave: Forma
+    valor: Bacilo en cadenas
+  - clave: Movilidad
+    valor: Flagelos
+  - clave: "Ox\xEDgeno"
+    valor: Aerobia
+  riesgo: BSL-1
+  color: {r: 0.35, g: 0.55, b: 0.95, a: 1}
+  micrografia: {fileID: 2800000, guid: 1e4a092aaab16bc4a999da9edc3532a3, type: 3}
+  creditoImagen: "CDC / Dr. W.A. Clark \xB7 Dominio p\xFAblico"
+  modelo3D: {fileID: 0}
+  morfologia: "Bacilos largos, a menudo en cadenas, te\xF1idos de violeta. Pueden
+    verse esporas claras."
+  estructura: "Pared Gram positiva gruesa. Forma endosporas muy resistentes al calor
+    y a la sequ\xEDa."
+  composicion: "Peptidoglucano, \xE1cidos teicoicos, endosporas con dipicolinato
+    de calcio."
+  comportamiento: "Vive en el suelo. No es pat\xF3gena; se usa en biotecnolog\xEDa
+    para producir enzimas."
+  observaciones: "Bacilos Gram positivos en cadena.\nPresencia de esporas.\nMuestra
+    no pat\xF3gena."

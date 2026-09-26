@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e48a6ed54b1d9f4e96b0088a1f58f37, type: 3}
+  m_Name: SARSCoV2
+  m_EditorClassIdentifier: 
+  codigo: '#V-03'
+  nombre: SARS-CoV-2
+  nombreCientifico: "Coronavirus del s\xEDndrome respiratorio agudo grave 2"
+  tipo: 0
+  caracteristicas:
+  - clave: Tipo
+    valor: Virus de ARN
+  - clave: Familia
+    valor: Coronaviridae
+  - clave: "Di\xE1metro"
+    valor: 80 - 120 nm
+  - clave: Forma
+    valor: "Esf\xE9rica con esp\xEDculas"
+  - clave: Envoltura
+    valor: "S\xED, lip\xEDdica"
+  - clave: Genoma
+    valor: ARN (+) monocatenario
+  riesgo: ALTO CONTAGIO
+  color: {r: 0.95, g: 0.3, b: 0.4, a: 1}
+  micrografia: {fileID: 2800000, guid: b0959a481c92ef2429d582425bd059cb, type: 3}
+  creditoImagen: "NIAID \xB7 CC BY 2.0"
+  modelo3D: {fileID: 6267225441599954629, guid: 7066db656d1a57042bd750a5493f2ea6, type: 3}
+  morfologia: "Part\xEDcula esf\xE9rica rodeada de esp\xEDculas en forma de maza
+    que le dan aspecto de corona."
+  estructura: "Envoltura lip\xEDdica con prote\xEDnas S (esp\xEDcula), M (membrana)
+    y E (envoltura). Dentro, el ARN unido a la nucleoc\xE1pside N."
+  composicion: "Prote\xEDna S (esp\xEDcula), prote\xEDna M, prote\xEDna E, nucleoprote\xEDna
+    N y ARN viral de ~30 000 bases."
+  comportamiento: "La prote\xEDna S se une al receptor ACE2 de las c\xE9lulas del
+    tracto respiratorio. Sensible a temperatura y desinfectantes."
+  observaciones: "Part\xEDcula esf\xE9rica con esp\xEDculas superficiales.\nAlta
+    similitud con la familia Coronaviridae.\nManipular en cabina de bioseguridad."

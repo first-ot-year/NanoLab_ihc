@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e48a6ed54b1d9f4e96b0088a1f58f37, type: 3}
+  m_Name: HepatitisB
+  m_EditorClassIdentifier: 
+  codigo: '#V-05'
+  nombre: Hepatitis B
+  nombreCientifico: Virus de la hepatitis B (VHB)
+  tipo: 0
+  caracteristicas:
+  - clave: Tipo
+    valor: Virus de ADN
+  - clave: Familia
+    valor: Hepadnaviridae
+  - clave: "Di\xE1metro"
+    valor: ~42 nm
+  - clave: Forma
+    valor: "Esf\xE9rica (part\xEDcula de Dane)"
+  - clave: Envoltura
+    valor: "S\xED, lip\xEDdica"
+  - clave: Genoma
+    valor: ADN parcialmente bicatenario
+  riesgo: ALTO RIESGO
+  color: {r: 0.6, g: 0.95, b: 0.45, a: 1}
+  micrografia: {fileID: 2800000, guid: a3716422dd1425046a48acaa345a6d31, type: 3}
+  creditoImagen: "CDC / Dr. Erskine Palmer \xB7 Dominio p\xFAblico"
+  modelo3D: {fileID: 3934323278692066755, guid: 65dedd580128e084793c84dae3ed48e7, type: 3}
+  morfologia: "Part\xEDcula esf\xE9rica peque\xF1a (part\xEDcula de Dane) con una
+    nucleoc\xE1pside icosa\xE9drica en su interior."
+  estructura: "Envoltura con el ant\xEDgeno de superficie HBsAg; dentro, la nucleoc\xE1pside
+    de prote\xEDna HBc con el ADN y la polimerasa."
+  composicion: "HBsAg (superficie), HBcAg (n\xFAcleo), HBeAg, polimerasa viral y
+    ADN circular de ~3 200 pares de bases."
+  comportamiento: "Infecta los hepatocitos del h\xEDgado. Se transmite por sangre
+    y fluidos. Prevenci\xF3n con vacuna."
+  observaciones: "Part\xEDculas de Dane esf\xE9ricas.\nNucleoc\xE1pside icosa\xE9drica.\nAbundantes
+    part\xEDculas de HBsAg."

@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e48a6ed54b1d9f4e96b0088a1f58f37, type: 3}
+  m_Name: Influenza
+  m_EditorClassIdentifier: 
+  codigo: '#V-01'
+  nombre: Influenza A
+  nombreCientifico: Influenzavirus A (H5N1)
+  tipo: 0
+  caracteristicas:
+  - clave: Tipo
+    valor: Virus de ARN
+  - clave: Familia
+    valor: Orthomyxoviridae
+  - clave: "Di\xE1metro"
+    valor: 80 - 120 nm
+  - clave: Forma
+    valor: "Esf\xE9rica / pleom\xF3rfica"
+  - clave: Envoltura
+    valor: "S\xED, lip\xEDdica"
+  - clave: Genoma
+    valor: ARN (-) segmentado, 8
+  riesgo: ALTO CONTAGIO
+  color: {r: 0.95, g: 0.45, b: 0.35, a: 1}
+  micrografia: {fileID: 2800000, guid: 62adfb85a4defb441b1db853bbdf2ed5, type: 3}
+  creditoImagen: "CDC / C. Goldsmith, J. Katz, S. Zaki \xB7 Dominio p\xFAblico"
+  modelo3D: {fileID: 5918994921543677483, guid: 7ad29ebd271f603489ab780aac3985b4, type: 3}
+  morfologia: "Part\xEDcula esf\xE9rica cubierta de esp\xEDculas cortas y muy densas.
+    Algunas cepas forman filamentos largos."
+  estructura: "Envoltura lip\xEDdica con dos glicoprote\xEDnas: hemaglutinina (HA)
+    y neuraminidasa (NA). Dentro, 8 segmentos de ARN con su nucleoprote\xEDna."
+  composicion: "Hemaglutinina (esp\xEDculas en bast\xF3n), neuraminidasa (esp\xEDculas
+    en hongo), prote\xEDna M1 bajo la envoltura y canal M2."
+  comportamiento: "La HA se une al \xE1cido si\xE1lico de las c\xE9lulas respiratorias;
+    la NA libera los nuevos virus. Cambia cada temporada (deriva antig\xE9nica)."
+  observaciones: "Esp\xEDculas HA/NA claramente visibles.\nEnvoltura \xEDntegra.\nCompatible
+    con cepa aviar H5N1."
