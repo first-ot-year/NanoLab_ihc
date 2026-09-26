@@ -55,6 +55,7 @@ public class MicroscopioOptico : MonoBehaviour
     static void Bloquear(bool b)
     {
         foreach (var l in FindObjectsOfType<PlayerLocomotor>(true)) l.enabled = !b;
+        foreach (var j in FindObjectsOfType<JugadorNanoLab>(true)) j.enabled = !b;
     }
 
     void Controles()

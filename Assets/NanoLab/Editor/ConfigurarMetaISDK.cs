@@ -71,6 +71,8 @@ public static class ConfigurarMetaISDK
         }
         var rigRoot = PrefabUtility.GetOutermostPrefabInstanceRoot(rig.gameObject) ?? rig.gameObject;
         rigRoot.transform.SetPositionAndRotation(new Vector3(Spawn.x, suelo, Spawn.z), Quaternion.Euler(0f, Yaw, 0f));
+        // Seguimiento a nivel de suelo + caminar con joystick (sin teletransporte), en tiempo de ejecución.
+        Obtener<JugadorNanoLab>(rigRoot);
         var mgr = rig.GetComponent<OVRManager>();
         if (mgr != null)
         {
