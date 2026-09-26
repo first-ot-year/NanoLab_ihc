@@ -67,6 +67,7 @@ public static class MontarLaboratorio
         ConfigurarLuces();
         CrearSondas(sala, suelo);
 
+        AgruparLab.Agrupar(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log($"[Montar] Colliders añadidos: {colliders}. Horneando iluminación...");
         bool ok = Lightmapping.Bake();
@@ -347,7 +348,7 @@ public static class MontarLaboratorio
         }
         foreach (var nombre in new[] { "Microbiologia", "Quimica" })
         {
-            var g = GameObject.Find($"{PropsRoot}/{nombre}");
+            var g = Object.FindObjectsOfType<Transform>().FirstOrDefault(t => t.name == nombre && t.parent != null && t.parent.name == PropsRoot)?.gameObject;
             if (g == null || g.transform.childCount == 0) continue;
             var b = BoundsDe(g);
             var haciaSala = new Vector3(sala.center.x - b.center.x, 0, sala.center.z - b.center.z).normalized;
