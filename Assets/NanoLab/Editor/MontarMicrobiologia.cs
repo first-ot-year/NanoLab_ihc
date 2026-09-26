@@ -91,6 +91,7 @@ public static class MontarMicrobiologia
 
         ML.ConfigurarLuces("Microbiologia_Lighting");
         ML.CrearSondas(sala, suelo);
+        AgruparLab.Agrupar(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log("[Micro] Horneando iluminación...");
         bool ok = Lightmapping.Bake();
@@ -674,11 +675,25 @@ public static class MontarMicrobiologia
         var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
         suelo = ML.AlturaSuelo(b);
         CrearPortal(new GameObject("Portal").transform, "Microbiologia", "LABORATORIO DE\nMICROBIOLOGÍA");
+        AgruparLab.Agrupar(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log("[Micro] Portal a Microbiología añadido en Laboratorio.unity");
     }
 
     // ------------------------------------------------------------------ agarre
+
+    // Para usar la sala pegada en otra escena: añade el agarre (OVRGrabber + ManoNanoLab)
+    // y los mandos visibles al OVRPlayerController u OVRCameraRig de la escena abierta.
+    [MenuItem("NanoLab/Configurar agarre en el jugador de la escena", false, 22)]
+    public static void ConfigurarAgarreEscenaAbierta()
+    {
+        var pc = Object.FindObjectOfType<OVRPlayerController>();
+        var rig = Object.FindObjectOfType<OVRCameraRig>();
+        var player = pc != null ? pc.gameObject : (rig != null ? rig.gameObject : null);
+        if (player == null) { Debug.LogError("[Micro] No hay OVRPlayerController ni OVRCameraRig en la escena."); return; }
+        ConfigurarAgarre(player);
+        EditorSceneManager.MarkSceneDirty(player.scene);
+    }
 
     static void ConfigurarAgarre(GameObject player)
     {
@@ -688,6 +703,7 @@ public static class MontarMicrobiologia
         {
             var anchor = player.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == anchorName);
             if (anchor == null) { Debug.LogError($"[Micro] No se encontró {anchorName}"); continue; }
+            if (anchor.GetComponentInChildren<ManoNanoLab>(true) != null) { Debug.Log($"[Micro] {anchorName} ya tenía agarre."); continue; }
 
             if (controllerPrefab != null)
             {
