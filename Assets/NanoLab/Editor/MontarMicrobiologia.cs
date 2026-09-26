@@ -30,12 +30,14 @@ public static class MontarMicrobiologia
     };
     static readonly Vector3 CeparioCentro = new Vector3(5.2f, 0f, 11.05f);   // fila inferior de la isla derecha
     const float BslMinX = -10.95f, BslMaxX = -5.0f, BslFrenteZ = 12.3f, BslFondoZ = 15.25f;
-    const float PuertaX0 = -9.2f, PuertaX1 = -8.0f;
-    static readonly Vector3 Pedestal = new Vector3(-8.2f, 0f, 14.4f);
-    static readonly Vector3 Consola = new Vector3(-8.2f, 0f, 13.35f);
+    // Puerta de 1,6 m y consola a ~1,4 m de la entrada: el jugador (radio 0,25 m) pasa con holgura.
+    const float PuertaX0 = -9.45f, PuertaX1 = -7.85f;
+    const float RadioJugador = 0.25f;
+    static readonly Vector3 Pedestal = new Vector3(-8.2f, 0f, 14.85f);
+    static readonly Vector3 Consola = new Vector3(-8.2f, 0f, 13.85f);
     static readonly Vector2 MesaCriotubos = new Vector2(-7.21f, 15.73f);
 
-    static readonly string[] Aparatos =
+    internal static readonly string[] Aparatos =
     {
         "erlenmeyer", "beaker", "florence", "test_tube", "spirit_lamp", "crucible", "funnel", "boiling_liquid",
         "graduated_cylinder", "glass support", "stand glass", "china dish", "forceps", "dropper", "analytical", "liquids", "lab glass",
@@ -86,8 +88,8 @@ public static class MontarMicrobiologia
         CrearTutorialYProgreso(Grupo(raiz, "Bienvenida"), muestras);
         CrearPortal(Grupo(raiz, "Portal"), "Laboratorio", "LABORATORIO\nDE QUÍMICA");
 
-        var player = ML.ColocarJugador(new Vector3(-3.3f, 0f, 2.24f), 24f, suelo, sala);
-        ConfigurarAgarre(player);
+        // Jugador: rig de Meta (OVRCameraRigInteraction) con agarre, teletransporte y objetos agarrables.
+        ConfigurarMetaISDK.Configurar(scene);
 
         ML.ConfigurarLuces("Microbiologia_Lighting");
         ML.CrearSondas(sala, suelo);
@@ -348,9 +350,9 @@ public static class MontarMicrobiologia
         Caja(padre, "FranjaRosa", new Vector3((BslMinX + BslMaxX) / 2f, suelo + alto - 0.05f, BslFrenteZ + 0.05f), new Vector3(BslMaxX - BslMinX, 0.03f, 0.03f), mats["EmisivoRosa"], false);
 
         // Carteles exteriores.
-        Senal(padre, "SenalRiesgo", new Vector3(-10.0f, suelo + 1.6f, BslFrenteZ - 0.035f), Quaternion.identity,
+        Senal(padre, "SenalRiesgo", new Vector3(-10.3f, suelo + 1.6f, BslFrenteZ - 0.035f), Quaternion.identity,
               "ÁREA DE ALTO RIESGO\nAGENTES BIOLÓGICOS", 0.75f);
-        Senal(padre, "SenalAcceso", new Vector3(-7.25f, suelo + 1.55f, BslFrenteZ - 0.035f), Quaternion.identity,
+        Senal(padre, "SenalAcceso", new Vector3(-7.15f, suelo + 1.55f, BslFrenteZ - 0.035f), Quaternion.identity,
               "ACCESO\nRESTRINGIDO", 0.42f);
         CartelEPP(padre, new Vector3(-9.6f, suelo + 1.75f, 16.45f));
 
@@ -358,10 +360,11 @@ public static class MontarMicrobiologia
         CrearEstacion3D(padre);
 
         // Criotubos de virus sobre la mesa del fondo.
-        float top = AlturaEn(MesaCriotubos.x, MesaCriotubos.y);
+        float top = AlturaEn(MesaCriotubos.x, 15.3f);
+        Debug.Log($"[Micro] Altura de la mesa de criotubos: {top:F2} m (suelo {suelo:F2})");
         var rack = new GameObject("RackCriotubos").transform;
         rack.SetParent(padre, false);
-        rack.position = new Vector3(MesaCriotubos.x, top, MesaCriotubos.y - 0.15f);
+        rack.position = new Vector3(MesaCriotubos.x, top, 15.3f);   // cerca del borde de la mesa, al alcance del brazo
         rack.rotation = Quaternion.Euler(0f, 180f, 0f);
         Caja(rack, "Rack", new Vector3(0f, 0.02f, 0f), new Vector3(0.62f, 0.04f, 0.09f), mats["Marco"], true);
         for (int i = 0; i < virus.Length; i++)
@@ -505,8 +508,8 @@ public static class MontarMicrobiologia
         // Panel de información (mira hacia la puerta).
         var info = new GameObject("PanelInfo").transform;
         info.SetParent(est, false);
-        info.position = new Vector3(-6.75f, suelo + 1.55f, 14.2f);
-        var haciaUsuario = new Vector3(-8.4f, 0f, 12.8f) - new Vector3(-6.75f, 0f, 14.2f);
+        info.position = new Vector3(-6.55f, suelo + 1.55f, 14.6f);
+        var haciaUsuario = new Vector3(-8.4f, 0f, 13.0f) - new Vector3(-6.55f, 0f, 14.6f);
         info.rotation = Quaternion.LookRotation(-haciaUsuario.normalized);
         Caja(info, "Fondo", new Vector3(0f, 0f, 0.01f), new Vector3(1.0f, 0.95f, 0.02f), mats["PanelHUD"], false);
         Caja(info, "Borde", new Vector3(0f, 0f, 0.012f), new Vector3(1.03f, 0.98f, 0.018f), mats["EmisivoCian"], false);
@@ -591,7 +594,7 @@ public static class MontarMicrobiologia
         tt.alignment = TextAlignmentOptions.Center; tt.fontStyle = FontStyles.Bold;
         string[] pasos =
         {
-            "<b>Coge un portaobjetos</b>\nAcerca el mando y aprieta el gatillo lateral (grip).",
+            "<b>Coge un portaobjetos</b>\nAcerca el mando y aprieta el gatillo o el grip.",
             "<b>Toma una muestra</b>\nToca un criotubo (virus) o una placa (bacterias).",
             "<b>Colócalo en la platina</b>\nSuéltalo sobre la silueta azul del microscopio.",
             "<b>Mira por el ocular</b>\nAcerca la cara. A/B: aumento · joystick: pestañas.",
@@ -680,61 +683,6 @@ public static class MontarMicrobiologia
         Debug.Log("[Micro] Portal a Microbiología añadido en Laboratorio.unity");
     }
 
-    // ------------------------------------------------------------------ agarre
-
-    // Para usar la sala pegada en otra escena: añade el agarre (OVRGrabber + ManoNanoLab)
-    // y los mandos visibles al OVRPlayerController u OVRCameraRig de la escena abierta.
-    [MenuItem("NanoLab/Configurar agarre en el jugador de la escena", false, 22)]
-    public static void ConfigurarAgarreEscenaAbierta()
-    {
-        var pc = Object.FindObjectOfType<OVRPlayerController>();
-        var rig = Object.FindObjectOfType<OVRCameraRig>();
-        var player = pc != null ? pc.gameObject : (rig != null ? rig.gameObject : null);
-        if (player == null) { Debug.LogError("[Micro] No hay OVRPlayerController ni OVRCameraRig en la escena."); return; }
-        ConfigurarAgarre(player);
-        EditorSceneManager.MarkSceneDirty(player.scene);
-    }
-
-    static void ConfigurarAgarre(GameObject player)
-    {
-        if (player == null) return;
-        var controllerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Packages/com.meta.xr.sdk.core/Prefabs/OVRControllerPrefab.prefab");
-        foreach (var (anchorName, ctrl) in new[] { ("LeftControllerAnchor", OVRInput.Controller.LTouch), ("RightControllerAnchor", OVRInput.Controller.RTouch) })
-        {
-            var anchor = player.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == anchorName);
-            if (anchor == null) { Debug.LogError($"[Micro] No se encontró {anchorName}"); continue; }
-            if (anchor.GetComponentInChildren<ManoNanoLab>(true) != null) { Debug.Log($"[Micro] {anchorName} ya tenía agarre."); continue; }
-
-            if (controllerPrefab != null)
-            {
-                var vis = (GameObject)PrefabUtility.InstantiatePrefab(controllerPrefab, anchor);
-                var so = new SerializedObject(vis.GetComponent<OVRControllerHelper>());
-                so.FindProperty("m_controller").intValue = (int)ctrl;
-                so.ApplyModifiedPropertiesWithoutUndo();
-            }
-
-            var mano = new GameObject(ctrl == OVRInput.Controller.LTouch ? "ManoIzquierda" : "ManoDerecha");
-            mano.transform.SetParent(anchor, false);
-            mano.transform.localPosition = new Vector3(0f, -0.01f, 0.03f);
-            var rb = mano.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
-            var sc = mano.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.055f;
-            var grabber = mano.AddComponent<OVRGrabber>();
-            var s = new SerializedObject(grabber);
-            s.FindProperty("m_controller").intValue = (int)ctrl;
-            s.FindProperty("m_gripTransform").objectReferenceValue = mano.transform;
-            s.FindProperty("m_parentTransform").objectReferenceValue = anchor;
-            s.FindProperty("m_player").objectReferenceValue = player;
-            s.FindProperty("m_moveHandPosition").boolValue = false;
-            s.FindProperty("m_parentHeldObject").boolValue = false;
-            var vols = s.FindProperty("m_grabVolumes");
-            vols.arraySize = 1;
-            vols.GetArrayElementAtIndex(0).objectReferenceValue = sc;
-            s.ApplyModifiedPropertiesWithoutUndo();
-            mano.AddComponent<ManoNanoLab>().controlador = ctrl;
-        }
-        Debug.Log("[Micro] Agarre configurado en los dos mandos.");
-    }
-
     // ------------------------------------------------------------------ portaobjetos
 
     static GameObject CrearPrefabPortaobjetos()
@@ -744,11 +692,7 @@ public static class MontarMicrobiologia
         var rb = go.AddComponent<Rigidbody>();
         rb.mass = 0.05f; rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(0.075f, 0.004f, 0.026f);
-        var g = go.AddComponent<OVRGrabbable>();
-        var so = new SerializedObject(g);
-        var gp = so.FindProperty("m_grabPoints"); gp.arraySize = 1; gp.GetArrayElementAtIndex(0).objectReferenceValue = bc;
-        so.ApplyModifiedPropertiesWithoutUndo();
+        var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(0.075f, 0.006f, 0.026f);
 
         Caja(go.transform, "Vidrio", Vector3.zero, new Vector3(0.075f, 0.0015f, 0.025f), mats["VidrioPorta"], false);
         Caja(go.transform, "Esmerilado", new Vector3(0.0275f, 0.0001f, 0f), new Vector3(0.02f, 0.0018f, 0.025f), mats["BlancoMate"], false);
@@ -761,7 +705,8 @@ public static class MontarMicrobiologia
         p.etiqueta.alignment = TextAlignmentOptions.Center;
         p.etiqueta.fontStyle = FontStyles.Bold;
         p.etiqueta.enableAutoSizing = true; p.etiqueta.fontSizeMin = 0.01f; p.etiqueta.fontSizeMax = 0.028f;
-        go.AddComponent<Resaltado>().brillos = new[] { brillo.GetComponent<Renderer>() };
+        p.brillo = brillo.GetComponent<Renderer>();
+        ConfigurarMetaISDK.HacerAgarrable(go, 0.05f);   // Grabbable + interactables del Interaction SDK
 
         var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabDir + "/Portaobjetos.prefab");
         Object.DestroyImmediate(go);
@@ -953,6 +898,43 @@ public static class MontarMicrobiologia
         ML.Capturar(dir, "micro_8_progreso", new Vector3(-3.3f, y + 1.65f, 2.24f), Quaternion.Euler(10f, -10f, 0f) * Vector3.forward);
         VistaCenital.Renderizar(ScenePath);
         Debug.Log("[Micro] Capturas guardadas.");
+    }
+
+    // Recorre a pie (cápsula del jugador) rutas clave y avisa de lo que bloquee el paso.
+    [MenuItem("NanoLab/Probar recorrido del jugador")]
+    public static void ProbarRecorrido()
+    {
+        EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        Physics.SyncTransforms();
+        float y = ML.AlturaSuelo(ML.BoundsEscena());
+        var rutas = new Dictionary<string, Vector2[]>
+        {
+            { "Entrada -> zona de virus -> criotubos", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(-5.4f, 5.6f), new Vector2(-5.4f, 9.8f), new Vector2(-8.65f, 10.6f), new Vector2(-8.65f, 12.9f), new Vector2(-7.2f, 13.0f), new Vector2(-6.9f, 14.6f), new Vector2(-7.2f, 14.7f) } },
+            { "Zona de virus -> frente a la consola", new[] { new Vector2(-8.65f, 12.9f), new Vector2(-8.2f, 13.3f) } },
+            { "Entrada -> puesto 1", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 14.5f), new Vector2(-2.55f, 14.5f), new Vector2(-2.55f, 13.65f) } },
+            { "Entrada -> cepario", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 9.4f), new Vector2(5.2f, 9.4f), new Vector2(5.2f, 10.1f) } },
+        };
+        int fallos = 0;
+        foreach (var r in rutas)
+        {
+            string bloqueo = null;
+            for (int i = 0; i + 1 < r.Value.Length && bloqueo == null; i++)
+            {
+                var a = r.Value[i]; var b = r.Value[i + 1];
+                int pasos = Mathf.CeilToInt(Vector2.Distance(a, b) / 0.1f);
+                for (int k = 0; k <= pasos; k++)
+                {
+                    var p = Vector2.Lerp(a, b, k / (float)pasos);
+                    var pies = new Vector3(p.x, y, p.y);
+                    var hits = Physics.OverlapCapsule(pies + Vector3.up * (RadioJugador + 0.35f), pies + Vector3.up * 1.75f, RadioJugador, ~0, QueryTriggerInteraction.Ignore)
+                        .Where(h => h.GetComponentInParent<OVRPlayerController>() == null).ToArray();
+                    if (hits.Length > 0) { bloqueo = $"bloqueado en ({p.x:F2}, {p.y:F2}) por {string.Join(", ", hits.Select(h => h.name).Distinct())}"; break; }
+                }
+            }
+            if (bloqueo != null) fallos++;
+            Debug.Log($"[Recorrido] {r.Key}: {(bloqueo ?? "OK, se puede pasar")}");
+        }
+        Debug.Log($"[Recorrido] {(fallos == 0 ? "Todas las rutas son transitables." : fallos + " ruta(s) bloqueada(s).")}");
     }
 
     // Simula lo que se ve por el ocular (HUD) y el holograma, sin visor.

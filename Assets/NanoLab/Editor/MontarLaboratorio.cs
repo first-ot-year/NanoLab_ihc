@@ -67,6 +67,7 @@ public static class MontarLaboratorio
         ConfigurarLuces();
         CrearSondas(sala, suelo);
 
+        ConfigurarMetaISDK.Configurar(scene);   // rig de Meta (OVRCameraRigInteraction) y objetos agarrables
         AgruparLab.Agrupar(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log($"[Montar] Colliders añadidos: {colliders}. Horneando iluminación...");
@@ -339,12 +340,12 @@ public static class MontarLaboratorio
         string dir = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "Capturas");
         Directory.CreateDirectory(dir);
 
-        var player = Object.FindObjectsOfType<CharacterController>().FirstOrDefault();
+        var rigCam = Object.FindObjectOfType<OVRCameraRig>();
         var sala = BoundsEscena();
-        if (player != null)
+        if (rigCam != null)
         {
-            var eye = player.transform.position + Vector3.up * 0.7f;
-            Capturar(dir, "1_vista_jugador", eye, player.transform.forward);
+            var eye = rigCam.transform.position + Vector3.up * 1.6f;
+            Capturar(dir, "1_vista_jugador", eye, rigCam.transform.forward);
         }
         foreach (var nombre in new[] { "Microbiologia", "Quimica" })
         {

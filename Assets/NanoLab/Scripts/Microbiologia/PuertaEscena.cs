@@ -2,15 +2,26 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Portal entre salas: al entrar el jugador en el trigger, carga la otra escena.
+// Portal entre salas: cuando la cabeza del jugador entra en la zona (collider trigger
+// de este objeto), carga la otra escena. Funciona con el rig de Meta (sin CharacterController).
+[RequireComponent(typeof(Collider))]
 public class PuertaEscena : MonoBehaviour
 {
     public string escena;
     bool cargando;
+    Collider zona;
 
-    void OnTriggerEnter(Collider c)
+    void Awake() => zona = GetComponent<Collider>();
+
+    void Update()
     {
-        if (cargando || c.GetComponent<CharacterController>() == null) return;
+        if (cargando) return;
+        var cabeza = ManosRig.Cabeza;
+        if (cabeza == null) return;
+        var b = zona.bounds;
+        var p = cabeza.position;
+        p.y = b.center.y;   // basta con estar encima de la zona, a cualquier altura
+        if (!b.Contains(p)) return;
         cargando = true;
         StartCoroutine(Cargar());
     }

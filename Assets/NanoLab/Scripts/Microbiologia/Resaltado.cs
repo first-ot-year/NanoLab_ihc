@@ -1,24 +1,18 @@
 using UnityEngine;
 
-// Enciende un brillo alrededor del objeto cuando una mano está cerca
-// (affordance: "esto se puede coger / tocar").
+// Enciende un brillo alrededor de un tubo/placa/vaso cuando una mano del rig está cerca
+// (affordance: "toca aquí con el portaobjetos").
 public class Resaltado : MonoBehaviour
 {
     public Renderer[] brillos;
-    public float radio = 0.14f;
-    OVRGrabbable grab;
+    public float radio = 0.15f;
     bool encendido = true;
 
-    void Awake()
-    {
-        grab = GetComponent<OVRGrabbable>();
-        Poner(false);
-    }
+    void Awake() => Poner(false);
 
     void Update()
     {
-        bool cerca = ManoNanoLab.MasCercana(transform.position, radio) != null;
-        if (grab != null && grab.isGrabbed) cerca = false;
+        bool cerca = ManosRig.MasCercana(transform.position, radio, out _);
         if (cerca != encendido) Poner(cerca);
     }
 

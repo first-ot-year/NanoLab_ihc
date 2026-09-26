@@ -1,57 +1,121 @@
 using System.Collections;
 using System.Collections.Generic;
+using Oculus.Interaction;
 using TMPro;
 using UnityEngine;
 
-// Portaobjetos agarrable. Guarda la muestra que se le ha puesto y se encaja
-// en la platina de un microscopio (o de la estación 3D) al soltarlo encima.
-[RequireComponent(typeof(OVRGrabbable), typeof(Rigidbody))]
+// Portaobjetos que se agarra con el Meta Interaction SDK (Grabbable + GrabInteractable +
+// PhysicsGrabbable + HandGrab/DistanceGrab). Este script solo añade la lógica del
+// laboratorio: cargar la muestra al tocar un tubo/placa y encajarse en la platina al soltarlo.
+[RequireComponent(typeof(Rigidbody))]
 public class Portaobjetos : MonoBehaviour
 {
     public MuestraData muestra;
     public Renderer frotis;
     public TMP_Text etiqueta;
+    public Renderer brillo;              // se enciende cuando el SDK apunta/pasa por encima (hover)
+    public float radioPlatina = 0.12f;
+    public float radioMuestra = 0.06f;
 
     public static readonly List<Portaobjetos> Todos = new List<Portaobjetos>();
     public static bool AlgunoAgarrado { get { foreach (var p in Todos) if (p.Agarrado) return true; return false; } }
 
-    public bool Agarrado => grab != null && grab.isGrabbed;
+    public bool Agarrado => grabbable != null && grabbable.SelectingPointsCount > 0;
     public Platina Encajada { get; private set; }
 
-    OVRGrabbable grab;
+    Grabbable grabbable;
     Rigidbody rb;
     bool estabaAgarrado;
-    Platina platinaCerca;
-    ManoNanoLab ultimaMano;
+    int hovers;
+    FuenteMuestra ultimaFuente;
     MaterialPropertyBlock mpb;
+    static readonly Collider[] buffer = new Collider[32];
 
     void Awake()
     {
-        grab = GetComponent<OVRGrabbable>();
+        grabbable = GetComponent<Grabbable>();
         rb = GetComponent<Rigidbody>();
         mpb = new MaterialPropertyBlock();
+        if (brillo != null) brillo.enabled = false;
         Refrescar();
     }
 
-    void OnEnable() => Todos.Add(this);
-    void OnDisable() => Todos.Remove(this);
+    void OnEnable()
+    {
+        Todos.Add(this);
+        if (grabbable != null) grabbable.WhenPointerEventRaised += AlEvento;
+    }
+
+    void OnDisable()
+    {
+        Todos.Remove(this);
+        if (grabbable != null) grabbable.WhenPointerEventRaised -= AlEvento;
+    }
+
+    void AlEvento(PointerEvent e)
+    {
+        if (e.Type == PointerEventType.Hover) hovers++;
+        else if (e.Type == PointerEventType.Unhover) hovers = Mathf.Max(0, hovers - 1);
+        if (brillo != null) brillo.enabled = hovers > 0 && !Agarrado;
+    }
 
     void Update()
     {
         bool agarrado = Agarrado;
-        if (agarrado && !estabaAgarrado)
-        {
-            ultimaMano = grab.grabbedBy ? grab.grabbedBy.GetComponent<ManoNanoLab>() : null;
-            if (Encajada != null) { Encajada.Liberar(this); Encajada = null; }
-            ultimaMano?.Vibrar(0.3f, 0.05f);
-            Sonidos.Clic(transform.position);
-        }
-        else if (!agarrado && estabaAgarrado)
-        {
-            if (platinaCerca != null && platinaCerca.Libre) Encajar(platinaCerca);
-            else { rb.isKinematic = false; rb.useGravity = true; }
-        }
+        if (agarrado && !estabaAgarrado) AlAgarrar();
+        else if (!agarrado && estabaAgarrado) StartCoroutine(AlSoltar());
         estabaAgarrado = agarrado;
+
+        if (!agarrado) return;
+        // Mientras se lleva en la mano: tocar un tubo/placa carga la muestra (o la limpia el desinfectante).
+        var f = Buscar<FuenteMuestra>(transform.position, radioMuestra);
+        if (f != null && f != ultimaFuente) f.Aplicar(this);
+        ultimaFuente = f;
+    }
+
+    void AlAgarrar()
+    {
+        if (brillo != null) brillo.enabled = false;
+        if (Encajada != null) { Encajada.Liberar(this); Encajada = null; }
+        ManosRig.Vibrar(transform.position, 0.3f, 0.05f);
+        Sonidos.Clic(transform.position);
+    }
+
+    // Un frame después de soltar: el SDK ya restauró la física; si hay platina cerca se encaja.
+    IEnumerator AlSoltar()
+    {
+        ultimaFuente = null;
+        yield return null;
+        if (Agarrado) yield break;
+        var p = PlatinaCercana();
+        if (p != null) Encajar(p);
+        else { rb.isKinematic = false; rb.useGravity = true; }
+    }
+
+    Platina PlatinaCercana()
+    {
+        int n = Physics.OverlapSphereNonAlloc(transform.position, radioPlatina, buffer, ~0, QueryTriggerInteraction.Collide);
+        Platina mejor = null;
+        float d = float.MaxValue;
+        for (int i = 0; i < n; i++)
+        {
+            var p = buffer[i].GetComponentInParent<Platina>();
+            if (p == null || !p.Libre || p.anclaje == null) continue;
+            float x = (p.anclaje.position - transform.position).sqrMagnitude;
+            if (x < d) { d = x; mejor = p; }
+        }
+        return mejor;
+    }
+
+    static T Buscar<T>(Vector3 pos, float radio) where T : Component
+    {
+        int n = Physics.OverlapSphereNonAlloc(pos, radio, buffer, ~0, QueryTriggerInteraction.Collide);
+        for (int i = 0; i < n; i++)
+        {
+            var c = buffer[i].GetComponentInParent<T>();
+            if (c != null) return c;
+        }
+        return null;
     }
 
     public void Encajar(Platina p)
@@ -62,7 +126,7 @@ public class Portaobjetos : MonoBehaviour
         rb.angularVelocity = Vector3.zero;
         transform.SetPositionAndRotation(p.anclaje.position, p.anclaje.rotation);
         p.Recibir(this);
-        ultimaMano?.Vibrar(0.7f, 0.12f);
+        ManosRig.Vibrar(transform.position, 0.7f, 0.12f);
         Sonidos.Encaje(transform.position);
     }
 
@@ -71,7 +135,7 @@ public class Portaobjetos : MonoBehaviour
         if (m == null || m == muestra) return;
         muestra = m;
         Refrescar();
-        ultimaMano?.Vibrar(0.5f, 0.1f);
+        ManosRig.Vibrar(transform.position, 0.5f, 0.1f);
         Sonidos.Carga(transform.position);
         if (isActiveAndEnabled) StartCoroutine(AnimarFrotis());
     }
@@ -81,7 +145,7 @@ public class Portaobjetos : MonoBehaviour
         if (muestra == null) return;
         muestra = null;
         Refrescar();
-        ultimaMano?.Vibrar(0.3f, 0.08f);
+        ManosRig.Vibrar(transform.position, 0.3f, 0.08f);
         Sonidos.Clic(transform.position);
     }
 
@@ -112,20 +176,5 @@ public class Portaobjetos : MonoBehaviour
             yield return null;
         }
         t.localScale = final;
-    }
-
-    void OnTriggerEnter(Collider c)
-    {
-        var p = c.GetComponentInParent<Platina>();
-        if (p != null) platinaCerca = p;
-        if (!Agarrado) return;
-        var f = c.GetComponentInParent<FuenteMuestra>();
-        if (f != null) f.Aplicar(this);
-    }
-
-    void OnTriggerExit(Collider c)
-    {
-        var p = c.GetComponentInParent<Platina>();
-        if (p != null && p == platinaCerca) platinaCerca = null;
     }
 }
