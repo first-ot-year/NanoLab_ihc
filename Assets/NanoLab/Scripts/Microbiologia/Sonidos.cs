@@ -3,7 +3,7 @@ using UnityEngine;
 // Sonidos de interfaz sintetizados por código (no necesitan archivos de audio).
 public static class Sonidos
 {
-    static AudioClip clic, carga, encaje, scan, logro, error;
+    static AudioClip clic, carga, encaje, scan, logro, error, gota, etapa, pista, camara, fallo;
 
     public static void Clic(Vector3 p) => Reproducir(ref clic, "clic", p, 0.5f, 0.05f, 1800f);
     public static void Carga(Vector3 p) => Reproducir(ref carga, "carga", p, 0.6f, 0.22f, 520f, 780f, 1040f);
@@ -11,6 +11,11 @@ public static class Sonidos
     public static void Scan(Vector3 p) => Reproducir(ref scan, "scan", p, 0.45f, 0.45f, 400f, 600f, 800f, 1000f, 1200f);
     public static void Logro(Vector3 p) => Reproducir(ref logro, "logro", p, 0.7f, 0.6f, 523f, 659f, 784f, 1047f);
     public static void Error(Vector3 p) => Reproducir(ref error, "error", p, 0.5f, 0.2f, 220f, 180f);
+    public static void Gota(Vector3 p) => Reproducir(ref gota, "gota", p, 0.5f, 0.12f, 1400f, 900f);
+    public static void Etapa(Vector3 p) => Reproducir(ref etapa, "etapa", p, 0.6f, 0.3f, 660f, 990f);
+    public static void Pista(Vector3 p) => Reproducir(ref pista, "pista", p, 0.5f, 0.35f, 880f, 740f, 880f);
+    public static void Camara(Vector3 p) => Reproducir(ref camara, "camara", p, 0.6f, 1.6f, 110f, 130f, 150f, 170f, 190f, 210f, 230f, 250f);
+    public static void Fallo(Vector3 p) => Reproducir(ref fallo, "fallo", p, 0.7f, 0.6f, 392f, 330f, 262f);
 
     static void Reproducir(ref AudioClip clip, string nombre, Vector3 p, float volumen, float duracion, params float[] notas)
     {

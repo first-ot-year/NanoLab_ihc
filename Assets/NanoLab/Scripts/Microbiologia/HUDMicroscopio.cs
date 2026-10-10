@@ -7,6 +7,25 @@ using UnityEngine.UI;
 public class HUDMicroscopio : MonoBehaviour
 {
     public static HUDMicroscopio Instancia { get; private set; }
+    public static event System.Action<int> AumentoCambiado;
+
+    // Contenido del HUD cuando la muestra pertenece a un reto del Centro de Experimentación:
+    // identidad oculta, imagen según la tinción, cuaderno de evidencias y comparación ANTES | DESPUÉS.
+    public struct DatosReto
+    {
+        public string subtitulo;
+        public Texture vista, antes;
+        public string antesTitulo;
+        public string[] claves, valores;
+        public string riesgo;
+        public string riesgoClave;      // etiqueta de la fila (por defecto "Riesgo")
+        public Color? colorRiesgo;      // color de la caja (por defecto rojo)
+        public string cuadernoTitulo, cuaderno;
+        public string obsTitulo, obs;
+        public string guia;
+        public string aviso;
+        public Color colorAviso;
+    }
 
     static readonly Color Cian = new Color(0.35f, 0.85f, 1f, 1f);
     static readonly Color CianSuave = new Color(0.35f, 0.85f, 1f, 0.35f);
@@ -16,7 +35,14 @@ public class HUDMicroscopio : MonoBehaviour
 
     CanvasGroup grupo;
     RawImage vista, micro;
-    TMP_Text subtitulo, zoomTxt, escalaTxt, tabTitulo, tabTexto, obsTxt, creditoTxt, riesgoTxt, microTitulo;
+    TMP_Text subtitulo, zoomTxt, escalaTxt, tabTitulo, tabTexto, obsTxt, creditoTxt, riesgoTxt, microTitulo, obsTit, avisoTxt, guiaTxt;
+    GameObject pestanas;
+    TMP_Text riesgoEtq;
+    Image riesgoFondo;
+    Image[] riesgoMarco;
+    static readonly Color RiesgoFondoColor = new Color(0.45f, 0.05f, 0.08f, 0.85f);
+    static readonly Color RiesgoMarcoColor = new Color(1f, 0.3f, 0.3f, 0.9f);
+    System.Func<int, DatosReto> proveedorReto;
     readonly TMP_Text[] claves = new TMP_Text[6], valores = new TMP_Text[6];
     readonly Image[] tabs = new Image[4];
     readonly TMP_Text[] tabsTxt = new TMP_Text[4];
@@ -42,8 +68,20 @@ public class HUDMicroscopio : MonoBehaviour
         return Instancia;
     }
 
+    public int Aumento => aumento;
+
+    public void MostrarReto(MuestraData m, System.Func<int, DatosReto> proveedor)
+    {
+        Mostrar(m);
+        proveedorReto = proveedor;
+        Refrescar();
+    }
+
+    public void RefrescarReto() { if (proveedorReto != null) Refrescar(); }
+
     public void Mostrar(MuestraData m)
     {
+        proveedorReto = null;
         actual = m;
         aumento = m.AumentoInicial;
         pestana = 0;
@@ -77,6 +115,7 @@ public class HUDMicroscopio : MonoBehaviour
         if (actual == null) return;
         aumento = Mathf.Clamp(aumento + d, 0, actual.Aumentos.Length - 1);
         Refrescar();
+        AumentoCambiado?.Invoke(aumento);
     }
 
     public void CambiarPestana(int d)
@@ -137,6 +176,60 @@ public class HUDMicroscopio : MonoBehaviour
         micro.uvRect = RecorteAspecto(m.micrografia, 380f / 190f);
         microTitulo.text = m.tipo == TipoMuestra.Virus ? "MICROGRAFÍA ELECTRÓNICA REAL" : "MICROGRAFÍA ÓPTICA REAL";
         creditoTxt.text = m.creditoImagen;
+
+        bool reto = proveedorReto != null;
+        pestanas.SetActive(!reto);
+        PonerRiesgo("Riesgo", null);
+        micro.enabled = true;
+        obsTit.text = "OBSERVACIONES";
+        avisoTxt.text = "";
+        guiaTxt.text = "";
+        if (reto) RefrescarReto(proveedorReto(aumento));
+    }
+
+    void RefrescarReto(DatosReto d)
+    {
+        subtitulo.text = d.subtitulo;
+        if (d.vista != null) vista.texture = d.vista;
+        for (int i = 0; i < claves.Length; i++)
+        {
+            bool hay = d.claves != null && i < d.claves.Length;
+            claves[i].text = hay ? d.claves[i] + ":" : "";
+            valores[i].text = hay ? d.valores[i] : "";
+        }
+        riesgoTxt.text = d.riesgo;
+        PonerRiesgo(d.riesgoClave ?? "Riesgo", d.colorRiesgo);
+        tabTitulo.text = d.cuadernoTitulo;
+        tabTexto.text = d.cuaderno;
+        obsTit.text = d.obsTitulo;
+        obsTxt.text = d.obs;
+        avisoTxt.text = d.aviso;
+        avisoTxt.color = d.colorAviso;
+        creditoTxt.text = "";
+        if (d.antes != null)
+        {
+            // Mismo recorte que la vista principal para comparar a igual aumento.
+            micro.texture = d.antes;
+            var r = vista.uvRect;
+            float h = r.width * 170f / 380f;
+            micro.uvRect = new Rect(r.x, r.y + (r.height - h) / 2f, r.width, h);
+            microTitulo.text = d.antesTitulo;
+        }
+        else
+        {
+            micro.enabled = false;
+            microTitulo.text = "GUÍA DE OBSERVACIÓN";
+            guiaTxt.text = d.guia;
+        }
+    }
+
+    void PonerRiesgo(string clave, Color? color)
+    {
+        riesgoEtq.text = clave + ":";
+        var c = color ?? new Color(1f, 0.3f, 0.3f);
+        riesgoFondo.color = color.HasValue ? new Color(c.r * 0.3f, c.g * 0.3f, c.b * 0.3f, 0.85f) : RiesgoFondoColor;
+        foreach (var i in riesgoMarco) i.color = color.HasValue ? new Color(c.r, c.g, c.b, 0.9f) : RiesgoMarcoColor;
+        riesgoTxt.color = color.HasValue ? Color.Lerp(c, Color.white, 0.4f) : new Color(1f, 0.6f, 0.6f);
     }
 
     static Rect RecorteAspecto(Texture t, float aspecto)
@@ -200,9 +293,9 @@ public class HUDMicroscopio : MonoBehaviour
             claves[i] = Txt(raiz, "Clave" + i, -585, y, 190, 28, "", 17, TextoGris, TextAlignmentOptions.Left);
             valores[i] = Txt(raiz, "Valor" + i, -395, y, 230, 28, "", 17, TextoClaro, TextAlignmentOptions.Left);
         }
-        Txt(raiz, "RiesgoEtq", -585, -18, 190, 30, "Riesgo:", 17, TextoGris, TextAlignmentOptions.Left);
-        Img(raiz, "RiesgoFondo", -395, -18, 220, 28, new Color(0.45f, 0.05f, 0.08f, 0.85f));
-        Marco(raiz, -395, -18, 220, 28, new Color(1f, 0.3f, 0.3f, 0.9f));
+        riesgoEtq = Txt(raiz, "RiesgoEtq", -585, -18, 190, 30, "Riesgo:", 17, TextoGris, TextAlignmentOptions.Left);
+        riesgoFondo = Img(raiz, "RiesgoFondo", -395, -18, 220, 28, RiesgoFondoColor);
+        riesgoMarco = Marco(raiz, -395, -18, 220, 28, RiesgoMarcoColor);
         riesgoTxt = Txt(raiz, "Riesgo", -395, -18, 210, 28, "", 16, new Color(1f, 0.6f, 0.6f), TextAlignmentOptions.Center, FontStyles.Bold);
 
         // Panel izquierdo: pestaña actual
@@ -218,19 +311,24 @@ public class HUDMicroscopio : MonoBehaviour
         micro = Rect(raiz, "Micro", 480, 80, 380, 170).gameObject.AddComponent<RawImage>();
         micro.raycastTarget = false;
         creditoTxt = Txt(raiz, "Credito", 480, -22, 390, 18, "", 10, TextoGris, TextAlignmentOptions.Left);
+        guiaTxt = Txt(raiz, "Guia", 480, 70, 390, 190, "", 17, TextoClaro, TextAlignmentOptions.TopLeft);
         Img(raiz, "ObsFondo", 480, -140, 420, 170, Panel);
         Marco(raiz, 480, -140, 420, 170, CianSuave);
-        Txt(raiz, "ObsTit", 480, -73, 390, 28, "OBSERVACIONES", 20, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
+        obsTit = Txt(raiz, "ObsTit", 480, -73, 390, 28, "OBSERVACIONES", 20, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
         obsTxt = Txt(raiz, "Obs", 480, -152, 390, 130, "", 16, TextoClaro, TextAlignmentOptions.TopLeft);
 
         // Pestañas (debajo de los paneles, entre ellos)
+        var pest = Rect(raiz, "Pestanas", 0, 0, 1400, 640);
+        pestanas = pest.gameObject;
         for (int i = 0; i < 4; i++)
         {
             float x = -255f + i * 170f;
-            tabs[i] = Img(raiz, "Tab" + i, x, -262, 162, 40, Panel);
-            Marco(raiz, x, -262, 162, 40, CianSuave);
-            tabsTxt[i] = Txt(raiz, "TabTxt" + i, x, -262, 158, 38, MuestraData.NombresPestanas[i], 15, TextoGris, TextAlignmentOptions.Center, FontStyles.Bold);
+            tabs[i] = Img(pest, "Tab" + i, x, -262, 162, 40, Panel);
+            Marco(pest, x, -262, 162, 40, CianSuave);
+            tabsTxt[i] = Txt(pest, "TabTxt" + i, x, -262, 158, 38, MuestraData.NombresPestanas[i], 15, TextoGris, TextAlignmentOptions.Center, FontStyles.Bold);
         }
+        // Aviso del reto: ocupa el hueco de las pestañas, que en modo reto se ocultan.
+        avisoTxt = Txt(raiz, "Aviso", 0, -258, 720, 56, "", 19, Color.white, TextAlignmentOptions.Center, FontStyles.Bold);
 
         // Pie
         Txt(raiz, "Pie", -520, -305, 360, 20, "LAB. DE BIOCIENCIAS  |  NANOLAB", 13, TextoGris, TextAlignmentOptions.Left);
@@ -259,12 +357,15 @@ public class HUDMicroscopio : MonoBehaviour
         return img;
     }
 
-    static void Marco(Transform parent, float x, float y, float w, float h, Color c)
+    static Image[] Marco(Transform parent, float x, float y, float w, float h, Color c)
     {
-        Img(parent, "MarcoS", x, y + h / 2, w, 2, c);
-        Img(parent, "MarcoI", x, y - h / 2, w, 2, c);
-        Img(parent, "MarcoIz", x - w / 2, y, 2, h, c);
-        Img(parent, "MarcoD", x + w / 2, y, 2, h, c);
+        return new[]
+        {
+            Img(parent, "MarcoS", x, y + h / 2, w, 2, c),
+            Img(parent, "MarcoI", x, y - h / 2, w, 2, c),
+            Img(parent, "MarcoIz", x - w / 2, y, 2, h, c),
+            Img(parent, "MarcoD", x + w / 2, y, 2, h, c),
+        };
     }
 
     static TMP_Text Txt(Transform parent, string name, float x, float y, float w, float h, string texto, float tam, Color c,

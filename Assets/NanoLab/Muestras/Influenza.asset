@@ -31,6 +31,7 @@ MonoBehaviour:
     valor: ARN (-) segmentado, 8
   riesgo: ALTO CONTAGIO
   color: {r: 0.95, g: 0.45, b: 0.35, a: 1}
+  gramPositiva: 0
   micrografia: {fileID: 2800000, guid: 62adfb85a4defb441b1db853bbdf2ed5, type: 3}
   creditoImagen: "CDC / C. Goldsmith, J. Katz, S. Zaki \xB7 Dominio p\xFAblico"
   modelo3D: {fileID: 5918994921543677483, guid: 7ad29ebd271f603489ab780aac3985b4, type: 3}

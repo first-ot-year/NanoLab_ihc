@@ -22,20 +22,20 @@ public static class MontarMicrobiologia
     const string MicroscopioReal = "Assets/NanoLab/Modelos/Microscopio.prefab";
 
     // Distribución (medida en la vista cenital de la sala).
-    static readonly (float x, float z, bool haciaMasZ)[] Puestos =
+    internal static readonly (float x, float z, bool haciaMasZ)[] Puestos =
     {
         (-2.55f, 12.62f, true), (-1.15f, 12.62f, true), (-2.55f, 12.12f, false), (-1.15f, 12.12f, false),
         (-2.55f, 7.37f, true),  (-1.15f, 7.37f, true),  (-2.55f, 6.87f, false),  (-1.15f, 6.87f, false),
         (4.55f, 11.75f, true),  (5.85f, 11.75f, true),
     };
-    static readonly Vector3 CeparioCentro = new Vector3(5.2f, 0f, 11.05f);   // fila inferior de la isla derecha
+    internal static readonly Vector3 CeparioCentro = new Vector3(5.2f, 0f, 11.05f);   // fila inferior de la isla derecha
     const float BslMinX = -10.95f, BslMaxX = -5.0f, BslFrenteZ = 12.3f, BslFondoZ = 15.25f;
     // Puerta de 1,6 m y consola a ~1,4 m de la entrada: el jugador (radio 0,25 m) pasa con holgura.
     const float PuertaX0 = -9.45f, PuertaX1 = -7.85f;
     const float RadioJugador = 0.25f;
-    static readonly Vector3 Pedestal = new Vector3(-8.2f, 0f, 14.85f);
-    static readonly Vector3 Consola = new Vector3(-8.2f, 0f, 13.85f);
-    static readonly Vector2 MesaCriotubos = new Vector2(-7.21f, 15.73f);
+    internal static readonly Vector3 Pedestal = new Vector3(-8.2f, 0f, 14.85f);
+    internal static readonly Vector3 Consola = new Vector3(-8.2f, 0f, 13.85f);
+    internal static readonly Vector2 MesaCriotubos = new Vector2(-7.21f, 15.73f);
 
     internal static readonly string[] Aparatos =
     {
@@ -43,8 +43,8 @@ public static class MontarMicrobiologia
         "graduated_cylinder", "glass support", "stand glass", "china dish", "forceps", "dropper", "analytical", "liquids", "lab glass",
     };
 
-    static Dictionary<string, Material> mats;
-    static float suelo;
+    internal static Dictionary<string, Material> mats;
+    internal static float suelo;
 
     [MenuItem("NanoLab/Montar microbiología")]
     public static void Montar()
@@ -87,12 +87,15 @@ public static class MontarMicrobiologia
         CrearCabinaDesinfeccion(Grupo(raiz, "CabinaDesinfeccion"));
         CrearTutorialYProgreso(Grupo(raiz, "Bienvenida"), muestras);
         CrearPortal(Grupo(raiz, "Portal"), "Laboratorio", "LABORATORIO\nDE QUÍMICA");
+        // Sala anexa con el Caso 01 (detrás de la pared este).
+        MontarCentroExperimentacion.Construir(raiz, slidePrefab);
 
         // Jugador: rig de Meta (OVRCameraRigInteraction) con agarre, teletransporte y objetos agarrables.
         ConfigurarMetaISDK.Configurar(scene);
 
         ML.ConfigurarLuces("Microbiologia_Lighting");
-        ML.CrearSondas(sala, suelo);
+        MontarCentroExperimentacion.LucesTiempoReal();
+        ML.CrearSondas(ML.BoundsEscena(), suelo);   // incluye el anexo
         AgruparLab.Agrupar(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log("[Micro] Horneando iluminación...");
@@ -106,11 +109,12 @@ public static class MontarMicrobiologia
 
         AgregarPortalEnQuimica();
         Capturas();
+        MontarCentroExperimentacion.Capturas();
     }
 
     // ------------------------------------------------------------------ sala
 
-    static int QuitarAparatos()
+    internal static int QuitarAparatos()
     {
         int n = 0;
         foreach (var t in Object.FindObjectsOfType<Transform>())
@@ -130,13 +134,13 @@ public static class MontarMicrobiologia
         return n;
     }
 
-    static float AlturaEn(float x, float z, float desde = 1.6f)
+    internal static float AlturaEn(float x, float z, float desde = 1.6f)
     {
         if (Physics.Raycast(new Vector3(x, desde, z), Vector3.down, out var hit, 3f)) return hit.point.y;
         return suelo;
     }
 
-    static float Techo(float x, float z)
+    internal static float Techo(float x, float z)
     {
         if (Physics.Raycast(new Vector3(x, suelo + 1.5f, z), Vector3.up, out var hit, 5f)) return hit.point.y;
         return suelo + 3f;
@@ -144,7 +148,7 @@ public static class MontarMicrobiologia
 
     // ------------------------------------------------------------------ puestos
 
-    static void CrearPuesto(Transform padre, int numero, Vector3 punto, float yaw, GameObject slidePrefab)
+    internal static void CrearPuesto(Transform padre, int numero, Vector3 punto, float yaw, GameObject slidePrefab)
     {
         float top = AlturaEn(punto.x, punto.z);
         var puesto = new GameObject($"Puesto_{numero:00}").transform;
@@ -168,7 +172,7 @@ public static class MontarMicrobiologia
         num.alignment = TextAlignmentOptions.Center;
     }
 
-    static void CrearMicroscopio(Transform padre, Vector3 pos)
+    internal static void CrearMicroscopio(Transform padre, Vector3 pos)
     {
         var m = new GameObject("Microscopio").transform;
         m.SetParent(padre, false);
@@ -234,7 +238,7 @@ public static class MontarMicrobiologia
         micro.ayudaMirar = Ayuda(m, "AyudaMirar", "Acerca la vista al ocular", new Vector3(0f, 0.55f, 0.05f), new Color(0.4f, 1f, 0.6f));
     }
 
-    static GameObject Ayuda(Transform padre, string nombre, string texto, Vector3 pos, Color color)
+    internal static GameObject Ayuda(Transform padre, string nombre, string texto, Vector3 pos, Color color)
     {
         var go = new GameObject(nombre);
         go.transform.SetParent(padre, false);
@@ -248,7 +252,7 @@ public static class MontarMicrobiologia
         return go;
     }
 
-    static void CrearDesinfectante(Transform padre, Vector3 pos)
+    internal static void CrearDesinfectante(Transform padre, Vector3 pos)
     {
         var v = new GameObject("Desinfectante").transform;
         v.SetParent(padre, false);
@@ -267,7 +271,7 @@ public static class MontarMicrobiologia
 
     // ------------------------------------------------------------------ cepario
 
-    static void CrearCepario(Transform padre, MuestraData[] bacterias, GameObject slidePrefab)
+    internal static void CrearCepario(Transform padre, MuestraData[] bacterias, GameObject slidePrefab)
     {
         float top = AlturaEn(CeparioCentro.x, CeparioCentro.z);
         var petri = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NanoLab/Modelos/PlacaPetri_Cultivo.prefab");
@@ -316,7 +320,7 @@ public static class MontarMicrobiologia
         t.outlineWidth = 0.2f; t.outlineColor = new Color32(0, 0, 0, 200);
     }
 
-    static void Etiqueta(Transform padre, string titulo, string sub, Vector3 pos, Color color)
+    internal static void Etiqueta(Transform padre, string titulo, string sub, Vector3 pos, Color color)
     {
         var e = new GameObject("Etiqueta").transform;
         e.SetParent(padre, false);
@@ -330,7 +334,7 @@ public static class MontarMicrobiologia
 
     // ------------------------------------------------------------------ zona BSL
 
-    static void CrearZonaBSL(Transform padre, MuestraData[] virus, GameObject slidePrefab)
+    internal static void CrearZonaBSL(Transform padre, MuestraData[] virus, GameObject slidePrefab)
     {
         float techo = Techo(-8f, 14f);
         float alto = Mathf.Min(techo - suelo, 3.2f) - 0.02f;
@@ -397,7 +401,7 @@ public static class MontarMicrobiologia
         t.outlineWidth = 0.2f; t.outlineColor = new Color32(0, 0, 0, 200);
     }
 
-    static void Pared(Transform padre, Vector3 a, Vector3 b, float alto)
+    internal static void Pared(Transform padre, Vector3 a, Vector3 b, float alto)
     {
         var dir = b - a;
         float largo = dir.magnitude;
@@ -421,7 +425,7 @@ public static class MontarMicrobiologia
         riel.transform.rotation = rot;
     }
 
-    static void Senal(Transform padre, string nombre, Vector3 pos, Quaternion rot, string texto, float tam)
+    internal static void Senal(Transform padre, string nombre, Vector3 pos, Quaternion rot, string texto, float tam)
     {
         var s = new GameObject(nombre).transform;
         s.SetParent(padre, false);
@@ -440,7 +444,7 @@ public static class MontarMicrobiologia
         t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
     }
 
-    static void CartelEPP(Transform padre, Vector3 pos)
+    internal static void CartelEPP(Transform padre, Vector3 pos)
     {
         var s = new GameObject("CartelEPP").transform;
         s.SetParent(padre, false);
@@ -450,7 +454,7 @@ public static class MontarMicrobiologia
         t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
     }
 
-    static void CrearEstacion3D(Transform padre)
+    internal static void CrearEstacion3D(Transform padre)
     {
         var est = new GameObject("EstacionAnalisis3D").transform;
         est.SetParent(padre, false);
@@ -531,7 +535,7 @@ public static class MontarMicrobiologia
         e.estado.alignment = TextAlignmentOptions.Center;
     }
 
-    static BotonFisico Boton(Transform padre, string texto, Vector3 pos)
+    internal static BotonFisico Boton(Transform padre, string texto, Vector3 pos)
     {
         var b = new GameObject("Boton_" + texto).transform;
         b.SetParent(padre, false);
@@ -550,7 +554,7 @@ public static class MontarMicrobiologia
 
     // ------------------------------------------------------------------ cabina
 
-    static void CrearCabinaDesinfeccion(Transform padre)
+    internal static void CrearCabinaDesinfeccion(Transform padre)
     {
         float cx = (PuertaX0 + PuertaX1) / 2f;
         float z0 = BslFrenteZ - 1.15f, z1 = BslFrenteZ - 0.04f, zc = (z0 + z1) / 2f;
@@ -585,7 +589,7 @@ public static class MontarMicrobiologia
 
     // ------------------------------------------------------------------ bienvenida
 
-    static void CrearTutorialYProgreso(Transform padre, MuestraData[] muestras)
+    internal static void CrearTutorialYProgreso(Transform padre, MuestraData[] muestras)
     {
         var spawn = new Vector3(-3.3f, 0f, 2.24f);
 
@@ -608,7 +612,7 @@ public static class MontarMicrobiologia
             var p = Texto3D(tut, pasos[i], new Vector3(0.1f, y, -0.02f), Quaternion.identity, 0.42f, Color.white, 1.1f);
             p.alignment = TextAlignmentOptions.Left;
         }
-        var extra = Texto3D(tut, "Los virus están en la <color=#FF8CA0>zona de alto riesgo</color> (al fondo, a la izquierda).\nToca el <color=#8FD8FF>desinfectante</color> para limpiar un portaobjetos.",
+        var extra = Texto3D(tut, "Los virus están en la <color=#FF8CA0>zona de alto riesgo</color> (al fondo, a la izquierda). Toca el <color=#8FD8FF>desinfectante</color> para limpiar un portaobjetos.\n<color=#FFD25A>¡Nuevo! CENTRO DE EXPERIMENTACIÓN</color> (puerta de la pared derecha): resuelve el CASO 01.",
                             new Vector3(0f, -0.64f, -0.02f), Quaternion.identity, 0.32f, new Color(0.8f, 0.88f, 1f), 1.3f);
         extra.alignment = TextAlignmentOptions.Center;
 
@@ -627,7 +631,7 @@ public static class MontarMicrobiologia
         p2.muestras = muestras; p2.lista = lista; p2.contador = contador;
     }
 
-    static Transform Totem(Transform padre, string nombre, Vector3 pos, Vector3 mirarA, float ancho, float altoPanel)
+    internal static Transform Totem(Transform padre, string nombre, Vector3 pos, Vector3 mirarA, float ancho, float altoPanel)
     {
         var t = new GameObject(nombre).transform;
         t.SetParent(padre, false);
@@ -646,7 +650,7 @@ public static class MontarMicrobiologia
 
     // ------------------------------------------------------------------ portal
 
-    static void CrearPortal(Transform padre, string escena, string texto)
+    internal static void CrearPortal(Transform padre, string escena, string texto)
     {
         // Pared izquierda del recibidor (x ≈ -6.5), mirando hacia +x.
         var p = new GameObject("Portal_" + escena).transform;
@@ -685,7 +689,7 @@ public static class MontarMicrobiologia
 
     // ------------------------------------------------------------------ portaobjetos
 
-    static GameObject CrearPrefabPortaobjetos()
+    internal static GameObject CrearPrefabPortaobjetos()
     {
         Directory.CreateDirectory(PrefabDir);
         var go = new GameObject("Portaobjetos");
@@ -715,7 +719,7 @@ public static class MontarMicrobiologia
 
     // ------------------------------------------------------------------ materiales
 
-    static void CrearMateriales()
+    internal static void CrearMateriales()
     {
         Directory.CreateDirectory(MatDir);
         Directory.CreateDirectory(ResDir);
@@ -766,7 +770,7 @@ public static class MontarMicrobiologia
         AssetDatabase.SaveAssets();
     }
 
-    static Material MatEn(string dir, string nombre, Shader shader)
+    internal static Material MatEn(string dir, string nombre, Shader shader)
     {
         string path = $"{dir}/{nombre}.mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -776,7 +780,7 @@ public static class MontarMicrobiologia
         return m;
     }
 
-    static Material Mat(string nombre, Shader shader, Color c, float metal = 0f, float liso = 0.5f)
+    internal static Material Mat(string nombre, Shader shader, Color c, float metal = 0f, float liso = 0.5f)
     {
         var m = MatEn(MatDir, nombre, shader);
         m.color = c;
@@ -786,7 +790,7 @@ public static class MontarMicrobiologia
         return m;
     }
 
-    static void Emisivo(string nombre, Color c, float intensidad)
+    internal static void Emisivo(string nombre, Color c, float intensidad)
     {
         var m = Mat(nombre, Shader.Find("Standard"), c * 0.5f, 0f, 0.5f);
         m.EnableKeyword("_EMISSION");
@@ -794,7 +798,7 @@ public static class MontarMicrobiologia
         m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;
     }
 
-    static void Transparente(string nombre, Color c, float liso)
+    internal static void Transparente(string nombre, Color c, float liso)
     {
         var m = Mat(nombre, Shader.Find("Standard"), c, 0f, liso);
         m.SetFloat("_Mode", 3);   // Transparent
@@ -807,7 +811,7 @@ public static class MontarMicrobiologia
         m.renderQueue = 3000;
     }
 
-    static Material MaterialTapa(MuestraData v)
+    internal static Material MaterialTapa(MuestraData v)
     {
         var m = MatEn(MatDir, "Tapa_" + v.name, Shader.Find("Standard"));
         m.color = v.color;
@@ -818,14 +822,14 @@ public static class MontarMicrobiologia
 
     // ------------------------------------------------------------------ helpers
 
-    static Transform Grupo(Transform padre, string nombre)
+    internal static Transform Grupo(Transform padre, string nombre)
     {
         var t = new GameObject(nombre).transform;
         t.SetParent(padre, false);
         return t;
     }
 
-    static Transform Vacio(Transform padre, string nombre, Vector3 pos)
+    internal static Transform Vacio(Transform padre, string nombre, Vector3 pos)
     {
         var t = new GameObject(nombre).transform;
         t.SetParent(padre, false);
@@ -833,7 +837,7 @@ public static class MontarMicrobiologia
         return t;
     }
 
-    static GameObject Caja(Transform padre, string nombre, Vector3 pos, Vector3 tam, Material mat, bool collider)
+    internal static GameObject Caja(Transform padre, string nombre, Vector3 pos, Vector3 tam, Material mat, bool collider)
     {
         var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
         g.name = nombre;
@@ -847,7 +851,7 @@ public static class MontarMicrobiologia
         return g;
     }
 
-    static GameObject Cilindro(Transform padre, string nombre, Vector3 pos, Vector3 tam, Quaternion rot, Material mat)
+    internal static GameObject Cilindro(Transform padre, string nombre, Vector3 pos, Vector3 tam, Quaternion rot, Material mat)
     {
         var g = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         g.name = nombre;
@@ -863,7 +867,7 @@ public static class MontarMicrobiologia
     }
 
     // Texto 3D: 'tam' es la altura aproximada de la letra en décimas de metro (fontSize de TMP).
-    static TextMeshPro Texto3D(Transform padre, string texto, Vector3 pos, Quaternion rot, float tam, Color color, float ancho)
+    internal static TextMeshPro Texto3D(Transform padre, string texto, Vector3 pos, Quaternion rot, float tam, Color color, float ancho)
     {
         var go = new GameObject("Texto");
         go.transform.SetParent(padre, false);
@@ -913,6 +917,10 @@ public static class MontarMicrobiologia
             { "Zona de virus -> frente a la consola", new[] { new Vector2(-8.65f, 12.9f), new Vector2(-8.2f, 13.3f) } },
             { "Entrada -> puesto 1", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 14.5f), new Vector2(-2.55f, 14.5f), new Vector2(-2.55f, 13.65f) } },
             { "Entrada -> cepario", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 9.4f), new Vector2(5.2f, 9.4f), new Vector2(5.2f, 10.1f) } },
+            { "Entrada -> puerta del centro de experimentación", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 8.1f), new Vector2(8.0f, 8.1f) } },
+            { "Centro: puerta -> banco -> tinción -> microscopía", new[] { new Vector2(8.0f, 8.1f), new Vector2(10.5f, 3.5f), new Vector2(10.5f, 1.3f), new Vector2(10.5f, 2.4f), new Vector2(20.5f, 2.4f) } },
+            { "Centro: microscopía -> biblioteca -> terminal", new[] { new Vector2(20.5f, 2.4f), new Vector2(22.6f, 5.0f), new Vector2(22.6f, 12.0f), new Vector2(20.5f, 15.4f) } },
+            { "Centro: terminal -> prensa -> cámara -> archivo", new[] { new Vector2(20.5f, 15.4f), new Vector2(20.5f, 14.4f), new Vector2(15.5f, 14.4f), new Vector2(15.5f, 11.5f), new Vector2(13.4f, 10.0f), new Vector2(13.4f, 8.5f), new Vector2(10.2f, 12.0f), new Vector2(10.2f, 15.5f) } },
         };
         int fallos = 0;
         foreach (var r in rutas)

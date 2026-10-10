@@ -11,6 +11,12 @@ public class MicroscopioOptico : MonoBehaviour
     public GameObject ayuda;          // "Coloca un portaobjetos con muestra"
     public GameObject ayudaMirar;     // "Acerca la vista al ocular"
     public float distancia = 0.22f;
+    [Tooltip("Microscopio del Centro de Experimentación: el RetoManager decide qué se ve.")]
+    public bool modoReto;
+
+    // (microscopio, portaobjetos observado). Lo escucha el RetoManager.
+    public static event System.Action<MicroscopioOptico, Portaobjetos> Observado;
+    public static bool AlgunoActivo => activo != null;
 
     static MicroscopioOptico activo;
     Material holoAzul;
@@ -38,11 +44,26 @@ public class MicroscopioOptico : MonoBehaviour
     void Entrar(MuestraData m, Transform ojo)
     {
         activo = this;
-        HUDMicroscopio.Obtener(ojo, holoAzul).Mostrar(m);
+        var hud = HUDMicroscopio.Obtener(ojo, holoAzul);
+        hud.Mostrar(m);
         Bloquear(true);
-        Progreso.Marcar(m);
+        // Una muestra de caso no se revela en ningún microscopio, aunque se traiga a la sala principal.
+        bool reto = modoReto || (platina.Actual != null && platina.Actual.DeCaso);
+        if (!reto) Progreso.Marcar(m);
         Sonidos.Scan(ocular.position);
+        if (reto) Observado?.Invoke(this, platina.Actual);   // puede pasar el HUD a modo reto
     }
+
+    // Para las pruebas sin visor: mira por el ocular como si el usuario acercara la cara.
+    public void ObservarAhora()
+    {
+        var p = platina != null ? platina.Actual : null;
+        if (p == null || p.muestra == null || ManosRig.Cabeza == null) return;
+        if (activo != null) activo.Salir();
+        Entrar(p.muestra, ManosRig.Cabeza);
+    }
+
+    public void DejarDeObservar() { if (activo == this) Salir(); }
 
     void Salir()
     {

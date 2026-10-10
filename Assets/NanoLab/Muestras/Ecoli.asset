@@ -31,6 +31,7 @@ MonoBehaviour:
     valor: Anaerobia facultativa
   riesgo: BSL-2
   color: {r: 0.9, g: 0.35, b: 0.55, a: 1}
+  gramPositiva: 0
   micrografia: {fileID: 2800000, guid: 664c17e52565c134f800f88f65bb52bb, type: 3}
   creditoImagen: "Owashxd (Wikimedia) \xB7 CC0"
   modelo3D: {fileID: 0}

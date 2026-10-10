@@ -31,6 +31,7 @@ MonoBehaviour:
     valor: 2 copias de ARN (+)
   riesgo: ALTO RIESGO
   color: {r: 0.95, g: 0.75, b: 0.3, a: 1}
+  gramPositiva: 0
   micrografia: {fileID: 2800000, guid: 85797767276fb1a44b37198d42b244e9, type: 3}
   creditoImagen: "CDC / Dr. Edwin P. Ewing, Jr. \xB7 Dominio p\xFAblico"
   modelo3D: {fileID: 3869559515049687840, guid: 84f42d0df6bfde249a34913495d45526, type: 3}

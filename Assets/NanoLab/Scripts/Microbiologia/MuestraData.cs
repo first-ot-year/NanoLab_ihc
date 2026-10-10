@@ -16,6 +16,7 @@ public class MuestraData : ScriptableObject
     public Dato[] caracteristicas;
     public string riesgo = "ALTO CONTAGIO";
     public Color color = Color.cyan;
+    public bool gramPositiva;            // solo bacterias: pared gruesa de peptidoglucano (queda violeta en la tinción de Gram)
 
     [Header("Imagen y modelo")]
     public Texture2D micrografia;

@@ -31,6 +31,7 @@ MonoBehaviour:
     valor: ADN parcialmente bicatenario
   riesgo: ALTO RIESGO
   color: {r: 0.6, g: 0.95, b: 0.45, a: 1}
+  gramPositiva: 0
   micrografia: {fileID: 2800000, guid: a3716422dd1425046a48acaa345a6d31, type: 3}
   creditoImagen: "CDC / Dr. Erskine Palmer \xB7 Dominio p\xFAblico"
   modelo3D: {fileID: 3934323278692066755, guid: 65dedd580128e084793c84dae3ed48e7, type: 3}

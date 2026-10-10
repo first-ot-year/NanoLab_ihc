@@ -24,6 +24,7 @@ Reducidos de polígonos y recoloreados para usarlos en Meta Quest.
 - Virus de la hepatitis B — CDC / Dr. Erskine Palmer — Dominio público
 - E. coli, tinción de Gram — Owashxd — CC0
 - Staphylococcus aureus, tinción de Gram — Dr Graham Beards — CC BY-SA 4.0
+  - Vistas derivadas para el Caso 01 (`saureus_sin_tenir`, `saureus_tincion_fallida`, `saureus_despues`, `saureus_crecimiento`), generadas por código a partir de esa micrografía (MontarCentroExperimentacion) — CC BY-SA 4.0
 - Bacillus subtilis, tinción de Gram (CDC PHIL 19261) — Dr. W.A. Clark — Dominio público
 - Símbolo de riesgo biológico — Silsor — Dominio público
 

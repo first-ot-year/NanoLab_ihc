@@ -101,6 +101,7 @@ public static class CrearMuestras
 
         m.codigo = codigo; m.nombre = nombre; m.nombreCientifico = cientifico; m.tipo = tipo;
         m.color = color; m.riesgo = riesgo; m.caracteristicas = datos;
+        m.gramPositiva = tipo == TipoMuestra.Bacteria && archivo != "Ecoli";
         m.morfologia = morf; m.estructura = estr; m.composicion = comp; m.comportamiento = compor; m.observaciones = obs;
         m.micrografia = Imagen(imagen);
         m.creditoImagen = Credito(imagen);

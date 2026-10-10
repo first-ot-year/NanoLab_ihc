@@ -1,0 +1,126 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3315f5c80e65b764e80d0eb42c21a4b0, type: 3}
+  m_Name: Caso01
+  m_EditorClassIdentifier: 
+  codigo: CASO 01
+  titulo: La herida que no sana
+  historia: "Lleg\xF3 al centro una muestra de una herida de piel que no termina
+    de sanar. Nadie sabe qu\xE9 microorganismo hay en ella. Obs\xE9rvala, investiga,
+    prop\xF3n una hip\xF3tesis y prueba qu\xE9 intervenci\xF3n la detiene."
+  origen: Herida de piel
+  muestra: {fileID: 11400000, guid: 1d365ea2018b4264dabdc5113759773c, type: 2}
+  opciones:
+  - {fileID: 11400000, guid: 334321744d6e2e74b8da9564d0d8f9af, type: 2}
+  - {fileID: 11400000, guid: 1d365ea2018b4264dabdc5113759773c, type: 2}
+  - {fileID: 11400000, guid: 1b8b7cb32dfe71c45b84eafc66babe3f, type: 2}
+  vistaSinTenir: {fileID: 2800000, guid: 75e925c623481824592c862bf0f4a237, type: 3}
+  vistaTincionFallida: {fileID: 2800000, guid: 92dcce03ae0ca3c4b98db4576d2ffa2c, type: 3}
+  vistaDespuesEficaz: {fileID: 2800000, guid: 3fc8471f111e4fc48b146e619bdf87ce, type: 3}
+  vistaDespuesCrecimiento: {fileID: 2800000, guid: a207a15c564949f42b9c4e2be519baeb, type: 3}
+  evidencias:
+  - clave: Forma
+    valor: "cocos (esf\xE9ricas)"
+    aumentoMinimo: 1
+    requiereGram: 0
+    comoObtenerla: "t\xED\xF1ela y mira a 400x"
+  - clave: "Agrupaci\xF3n"
+    valor: en racimos, como uvas
+    aumentoMinimo: 2
+    requiereGram: 0
+    comoObtenerla: sube a 1000x
+  - clave: Gram
+    valor: positiva (VIOLETA)
+    aumentoMinimo: 0
+    requiereGram: 1
+    comoObtenerla: "completa la tinci\xF3n 1-2-3-4"
+  agentes:
+  - sigla: PG
+    nombre: Agente PG
+    accion: Impide construir la pared de peptidoglucano.
+    color: {r: 0.25, g: 0.85, b: 1, a: 1}
+    diana: 0
+    pistaSiFalla: 'El agente PG debilita la pared de peptidoglucano: funciona mejor
+      en bacterias con pared gruesa.'
+  - sigla: ME
+    nombre: Agente ME
+    accion: Rompe la membrana externa de las bacterias Gram -.
+    color: {r: 1, g: 0.6, b: 0.2, a: 1}
+    diana: 1
+    pistaSiFalla: "El agente ME ataca la MEMBRANA EXTERNA, que solo tienen las Gram
+      - (las que quedan ROSAS). Tu muestra qued\xF3 VIOLETA: \xBFtiene esa membrana?
+      Revisa el panel de pared celular de la BIBLIOTECA (4)."
+  - sigla: AV
+    nombre: Antiviral
+    accion: "Bloquea la copia de los virus dentro de las c\xE9lulas."
+    color: {r: 0.78, g: 0.45, b: 1, a: 1}
+    diana: 2
+    pistaSiFalla: "Los antivirales act\xFAan sobre virus, que miden ~100 nm y no
+      se ven con este microscopio. T\xFA observaste c\xE9lulas de ~1 \xB5m: bacterias.
+      \xBFQu\xE9 agente ataca la pared de una bacteria?"
+  - sigla: SAL
+    nombre: "Soluci\xF3n salina"
+    accion: 'Control: no ataca ninguna estructura.'
+    color: {r: 0.82, g: 0.86, b: 0.9, a: 1}
+    diana: 3
+    pistaSiFalla: "La soluci\xF3n salina es un CONTROL: sirve para comparar, pero
+      no detiene el crecimiento (por eso hay m\xE1s bacterias). Elige un agente que
+      ataque una estructura que tu muestra s\xED tiene."
+  umbralExito: 0.7
+  pistasExploracion:
+  - "Busca el BANCO DE MUESTRAS (zona 1, luz cian): la placa del CASO 01 es la \xFAnica
+    activa."
+  - "Agarra un portaobjetos de la bandeja de la mesa de TINCI\xD3N (2) y toca con
+    \xE9l la placa: as\xED se hace el frotis."
+  pistasTincion:
+  - "La tinci\xF3n de Gram tiene 4 pasos y el orden importa: 1 cristal violeta, 2
+    lugol, 3 alcohol-acetona, 4 safranina."
+  - "Lleva el portaobjetos en la mano y t\xF3calo con cada gotero, de izquierda a
+    derecha. Si te equivocas, toca el desinfectante y empieza de nuevo."
+  pistasObservacion:
+  - Suelta el portaobjetos sobre la silueta azul de la platina y acerca la cara al
+    ocular.
+  - "Con A o X subes el aumento. C\xF3mo se agrupan las c\xE9lulas solo se distingue
+    bien a 1000x."
+  pistasInvestigacion:
+  - "Abre las fichas de la BIBLIOTECA (4) y busca cu\xE1l coincide en forma, agrupaci\xF3n
+    y color Gram."
+  - "Abre tambi\xE9n el panel 'Pared celular': explica qu\xE9 significa que tu muestra
+    quedara VIOLETA."
+  pistasHipotesis:
+  - "Tu muestra: cocos, en racimos y Gram positiva (violeta). \xBFQu\xE9 ficha describe
+    exactamente eso?"
+  - "Pulsa en la TERMINAL (5) el bot\xF3n del microorganismo que elijas. Puedes cambiarlo
+    antes de experimentar."
+  pistasPreparacion:
+  - "Cada vial ataca una estructura distinta. Lee el tablero AGENTES DISPONIBLES
+    detr\xE1s de la prensa."
+  - "Las Gram + tienen una pared GRUESA de peptidoglucano y NO tienen membrana externa.
+    \xBFQu\xE9 agente ataca lo que s\xED tienen?"
+  pistasExperimento:
+  - "La placa va en la bandeja de la c\xE1mara y la c\xE1psula en su ranura (siluetas
+    azules)."
+  - "Cuando las dos est\xE9n encajadas, acerca la mano al bot\xF3n verde ACTIVAR."
+  pistasAnalisis:
+  - "Toma el portaobjetos DESPU\xC9S de la bandeja de la c\xE1mara y ponlo en un
+    MICROSCOPIO (3)."
+  - "Compara la vista central (DESPU\xC9S) con la imagen ANTES de la derecha: \xBFhay
+    menos c\xE9lulas? \xBFest\xE1n rotas?"
+  explicacion: "S. aureus es una bacteria Gram positiva: su pared de peptidoglucano
+    es gruesa y retiene el cristal violeta (por eso la viste VIOLETA). Forma cocos
+    agrupados en racimos. Un agente que impide construir esa pared (como los antibi\xF3ticos
+    betalact\xE1micos) la debilita hasta que la c\xE9lula se rompe. El agente ME
+    no sirve porque ataca una membrana externa que las Gram + no tienen, y un antiviral
+    no act\xFAa sobre bacterias."
+  fragmento: "Fragmento 1/3 del Archivo Cient\xEDfico"
+  textoFragmento: "\"La estructura decide el efecto: primero observa, despu\xE9s
+    interviene.\""

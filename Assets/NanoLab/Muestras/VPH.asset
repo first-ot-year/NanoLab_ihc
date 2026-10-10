@@ -31,6 +31,7 @@ MonoBehaviour:
     valor: ADN circular bicatenario
   riesgo: MODERADO
   color: {r: 0.4, g: 0.8, b: 0.95, a: 1}
+  gramPositiva: 0
   micrografia: {fileID: 2800000, guid: c51c37b8e0dc9944e871991303e3c5d3, type: 3}
   creditoImagen: "NIAID \xB7 Dominio p\xFAblico"
   modelo3D: {fileID: 1113465608100752200, guid: 9352f372339dfc148a247afcd45657f9, type: 3}

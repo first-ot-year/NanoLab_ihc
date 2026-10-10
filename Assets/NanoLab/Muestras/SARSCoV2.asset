@@ -31,6 +31,7 @@ MonoBehaviour:
     valor: ARN (+) monocatenario
   riesgo: ALTO CONTAGIO
   color: {r: 0.95, g: 0.3, b: 0.4, a: 1}
+  gramPositiva: 0
   micrografia: {fileID: 2800000, guid: b0959a481c92ef2429d582425bd059cb, type: 3}
   creditoImagen: "NIAID \xB7 CC BY 2.0"
   modelo3D: {fileID: 6267225441599954629, guid: 7066db656d1a57042bd750a5493f2ea6, type: 3}

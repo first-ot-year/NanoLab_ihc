@@ -19,9 +19,19 @@ public class Portaobjetos : MonoBehaviour
 
     public static readonly List<Portaobjetos> Todos = new List<Portaobjetos>();
     public static bool AlgunoAgarrado { get { foreach (var p in Todos) if (p.Agarrado) return true; return false; } }
+    public static event System.Action<Portaobjetos> TincionCambiada;
 
     public bool Agarrado => grabbable != null && grabbable.SelectingPointsCount > 0;
     public Platina Encajada { get; private set; }
+
+    // Tinción de Gram: 0 = sin teñir; 1..4 = pasos aplicados en orden. Un orden incorrecto la invalida.
+    public static readonly string[] Reactivos = { "", "Cristal violeta", "Lugol", "Alcohol-acetona", "Safranina" };
+    public int PasosTincion { get; private set; }
+    public bool TincionErronea { get; private set; }
+    public bool TincionCompleta => PasosTincion == 4 && !TincionErronea;
+    public bool Despues { get; private set; }      // portaobjetos que entrega la cámara tras el experimento
+    public bool DeCaso => etiquetaTexto != null;   // muestra de un reto (su identidad no se revela)
+    string etiquetaTexto;
 
     Grabbable grabbable;
     Rigidbody rb;
@@ -130,23 +140,109 @@ public class Portaobjetos : MonoBehaviour
         Sonidos.Encaje(transform.position);
     }
 
-    public void Cargar(MuestraData m)
+    public void Cargar(MuestraData m, string etiquetaCaso = null)
     {
         if (m == null || m == muestra) return;
         muestra = m;
+        etiquetaTexto = string.IsNullOrEmpty(etiquetaCaso) ? null : etiquetaCaso;
+        PasosTincion = 0; TincionErronea = false; Despues = false;
         Refrescar();
         ManosRig.Vibrar(transform.position, 0.5f, 0.1f);
         Sonidos.Carga(transform.position);
         if (isActiveAndEnabled) StartCoroutine(AnimarFrotis());
+        TincionCambiada?.Invoke(this);
     }
 
     public void Limpiar()
     {
         if (muestra == null) return;
         muestra = null;
+        etiquetaTexto = null;
+        PasosTincion = 0; TincionErronea = false; Despues = false;
         Refrescar();
         ManosRig.Vibrar(transform.position, 0.3f, 0.08f);
         Sonidos.Clic(transform.position);
+        TincionCambiada?.Invoke(this);
+    }
+
+    // Lo deja quieto en un punto (p. ej. la bandeja de salida de la cámara), soltándolo de la platina.
+    public void ColocarEn(Vector3 pos, Quaternion rot)
+    {
+        if (Encajada != null) { Encajada.Liberar(this); Encajada = null; }
+        if (rb == null) rb = GetComponent<Rigidbody>();
+        rb.isKinematic = true;
+        transform.SetPositionAndRotation(pos, rot);
+    }
+
+    // Portaobjetos ya teñido que entrega la cámara experimental tras la intervención.
+    public void PrepararDespues(MuestraData m)
+    {
+        muestra = m;
+        etiquetaTexto = "DESPUÉS";
+        PasosTincion = 4; TincionErronea = false; Despues = true;
+        Refrescar();
+    }
+
+    // Toca un gotero de la tinción de Gram (1 cristal violeta, 2 lugol, 3 alcohol-acetona, 4 safranina).
+    public void AplicarReactivo(int r)
+    {
+        var aviso = transform.position + Vector3.up * 0.12f;
+        if (muestra == null)
+        {
+            Aviso.Mostrar("Primero haz el frotis: toca la placa de la muestra con este portaobjetos.", aviso, Aviso.Tipo.Error);
+            Sonidos.Error(transform.position);
+            return;
+        }
+        if (Despues) return;
+        if (TincionErronea)
+        {
+            Aviso.Mostrar("Tinción NO válida. Límpialo con el desinfectante y empieza otra vez: 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
+            Sonidos.Error(transform.position);
+            return;
+        }
+        int esperado = PasosTincion + 1;
+        if (r < esperado)
+        {
+            Aviso.Mostrar(esperado <= 4 ? $"Ese reactivo ya está aplicado. Ahora toca el gotero {esperado}: {Reactivos[esperado]}." : "La tinción ya está completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Info);
+            return;
+        }
+        if (r > esperado)
+        {
+            TincionErronea = true;
+            string porQue = r == 3 && esperado <= 2 ? "Sin cristal violeta fijado con lugol, el alcohol decolora TODAS las células y el resultado engaña."
+                          : r == 4 ? "La safranina va al final, después de decolorar con alcohol."
+                          : $"Te saltaste el paso {esperado} ({Reactivos[esperado]}).";
+            Aviso.Mostrar($"Orden incorrecto. {porQue}\nLímpialo con el desinfectante y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
+            Sonidos.Error(transform.position);
+            ManosRig.Vibrar(transform.position, 0.8f, 0.2f);
+        }
+        else
+        {
+            PasosTincion = r;
+            Aviso.Mostrar(r < 4 ? $"Paso {r}/4: {Reactivos[r]} - correcto\nSigue con el gotero {r + 1}." : "Paso 4/4: Safranina - correcto\nTinción de Gram completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Ok);
+            Sonidos.Gota(transform.position);
+            ManosRig.Vibrar(transform.position, 0.4f, 0.06f);
+        }
+        Refrescar();
+        TincionCambiada?.Invoke(this);
+    }
+
+    // Color del frotis según la tinción (las Gram + retienen el violeta; las Gram − se ven rosas al final).
+    Color ColorFrotis()
+    {
+        bool gramPos = muestra.tipo != TipoMuestra.Bacteria || muestra.gramPositiva;
+        var violeta = new Color(0.45f, 0.15f, 0.75f, 0.9f);
+        if (TincionErronea) return new Color(0.8f, 0.55f, 0.65f, 0.85f);
+        switch (PasosTincion)
+        {
+            case 1: return violeta;
+            case 2: return new Color(0.28f, 0.08f, 0.5f, 0.92f);
+            case 3: return gramPos ? violeta : new Color(0.92f, 0.88f, 0.84f, 0.5f);
+            case 4: return gramPos ? violeta : new Color(0.95f, 0.4f, 0.6f, 0.9f);
+        }
+        var c = etiquetaTexto != null ? new Color(0.92f, 0.86f, 0.62f) : muestra.color;   // muestra sin teñir
+        c.a = 0.85f;
+        return c;
     }
 
     void Refrescar()
@@ -157,12 +253,11 @@ public class Portaobjetos : MonoBehaviour
             if (muestra != null)
             {
                 frotis.GetPropertyBlock(mpb);
-                var c = muestra.color; c.a = 0.85f;
-                mpb.SetColor("_Color", c);
+                mpb.SetColor("_Color", ColorFrotis());
                 frotis.SetPropertyBlock(mpb);
             }
         }
-        if (etiqueta != null) etiqueta.text = muestra != null ? muestra.nombre : "LIMPIO";
+        if (etiqueta != null) etiqueta.text = muestra == null ? "LIMPIO" : etiquetaTexto ?? muestra.nombre;
     }
 
     IEnumerator AnimarFrotis()
