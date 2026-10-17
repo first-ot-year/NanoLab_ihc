@@ -120,9 +120,24 @@ public static class ConvertirBaymax
             mesh.CombineMeshes(subs.ToArray(), false, true);
             mesh.RecalculateBounds();
             mesh.Optimize();
-            string mp = $"{Dir}/Mallas/Baymax_{parte}.asset";
-            AssetDatabase.DeleteAsset(mp);
-            AssetDatabase.CreateAsset(mesh, mp);
+
+            // Brazos: la mano (último ~22% del brazo + dedos) se separa para llevarla al mando
+            // sin estirarla; en primera persona solo se ven las manos (como Meta Avatars).
+            Mesh mano = null;
+            Vector3 muneca = Vector3.zero;
+            if (parte.StartsWith("Brazo"))
+            {
+                float largo = -mesh.bounds.min.y;
+                float corte = -largo * 0.78f;
+                Partir(mesh, corte, out var arriba, out mano, out muneca);
+                arriba.name = mesh.name;
+                mano.name = "Baymax_Mano" + parte.Substring(5);
+                mesh = arriba;
+                av.largoBrazo = -corte;
+                av.largoMano = largo + corte;
+                GuardarMalla(mano, $"{Dir}/Mallas/{mano.name}.asset");
+            }
+            GuardarMalla(mesh, $"{Dir}/Mallas/Baymax_{parte}.asset");
 
             var pivote = new GameObject(parte == "Cabeza" ? "Cuello" : parte.StartsWith("Brazo") ? "Hombro" + parte.Substring(5) : parte).transform;
             pivote.SetParent(raiz.transform, false);
@@ -139,14 +154,42 @@ public static class ConvertirBaymax
             mr.shadowCastingMode = ShadowCastingMode.Off;
             mr.lightProbeUsage = LightProbeUsage.BlendProbes;
 
-            if (parte == "Cabeza") { av.cuello = pivote; av.cabeza = new Renderer[] { mr }; t.gameObject.layer = AvatarBaymax.CapaCabeza; }
+            // Todo lo que no son manos va en la capa "solo espejo" (la cámara del jugador no lo ve).
+            t.gameObject.layer = AvatarBaymax.CapaCabeza;
+            if (parte == "Cabeza") { av.cuello = pivote; av.cabeza = new Renderer[] { mr }; }
             if (parte == "BrazoIzq") av.hombroIzq = pivote;
             if (parte == "BrazoDer") av.hombroDer = pivote;
+            if (mano != null)
+            {
+                var m = new GameObject("Mano" + parte.Substring(5)).transform;
+                m.SetParent(raiz.transform, false);
+                m.localPosition = pivotes[parte] + muneca;
+                m.gameObject.AddComponent<MeshFilter>().sharedMesh = mano;
+                var mm = m.gameObject.AddComponent<MeshRenderer>();
+                mm.sharedMaterials = mr.sharedMaterials;
+                mm.shadowCastingMode = ShadowCastingMode.Off;
+                // Puño redondo en la muñeca: tapa el borde del corte (se ve en primera persona).
+                var anillo = mano.vertices.Where(v => v.y > -0.03f).ToArray();
+                if (anillo.Length > 0)
+                {
+                    var b = new Bounds(anillo[0], Vector3.zero);
+                    foreach (var v in anillo) b.Encapsulate(v);
+                    float radio = Mathf.Max(b.extents.x, b.extents.z) * 1.08f;
+                    var puno = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    Object.DestroyImmediate(puno.GetComponent<Collider>());
+                    puno.name = "Puno";
+                    puno.transform.SetParent(m, false);
+                    puno.transform.localPosition = new Vector3(b.center.x, -0.005f, b.center.z);
+                    puno.transform.localScale = new Vector3(radio * 2f, radio * 1.3f, radio * 2f);
+                    var pr = puno.GetComponent<MeshRenderer>();
+                    pr.sharedMaterial = mr.sharedMaterials[0];
+                    pr.shadowCastingMode = ShadowCastingMode.Off;
+                }
+                if (parte == "BrazoIzq") av.manoIzq = m; else av.manoDer = m;
+                totalDespues += CS.Triangles(mano);
+            }
             totalAntes += antes; totalDespues += CS.Triangles(mesh);
         }
-        // Largo del brazo: del hombro a la punta de la mano (en reposo cuelga hacia -Y).
-        var mallaBrazo = av.hombroIzq.GetComponentInChildren<MeshFilter>().sharedMesh;
-        av.largoBrazo = -mallaBrazo.bounds.min.y;
         // Ojos: centro de la cabeza, un poco adelantados (la cámara queda dentro de la cabeza oculta).
         var cab = N(cabeza.center);
         av.ojos = new Vector3(cab.x, cab.y, cab.z + cabeza.extents.z * s * 0.35f);
@@ -157,6 +200,77 @@ public static class ConvertirBaymax
         Object.DestroyImmediate(raiz);
         AssetDatabase.SaveAssets();
         Debug.Log($"[Baymax] Avatar convertido: {totalAntes} -> {totalDespues} triángulos, escala x{s:F3}, ojos {av.ojos:F2}, brazo {av.largoBrazo:F2} m, {materiales.Count} materiales.");
+    }
+
+    static void GuardarMalla(Mesh m, string path)
+    {
+        AssetDatabase.DeleteAsset(path);
+        AssetDatabase.CreateAsset(m, path);
+    }
+
+    // Divide una malla por la altura del centro de cada triángulo. La parte de abajo (la mano)
+    // queda con su pivote en la muñeca: centro de su contorno a la altura del corte.
+    static void Partir(Mesh src, float corteY, out Mesh arriba, out Mesh abajo, out Vector3 muneca)
+    {
+        var v = src.vertices;
+        var subsArriba = new List<int[]>();
+        var subsAbajo = new List<int[]>();
+        var bAbajo = new Bounds();
+        bool hay = false;
+        for (int s = 0; s < src.subMeshCount; s++)
+        {
+            var tri = src.GetTriangles(s);
+            var a = new List<int>(); var b = new List<int>();
+            for (int i = 0; i < tri.Length; i += 3)
+            {
+                float y = (v[tri[i]].y + v[tri[i + 1]].y + v[tri[i + 2]].y) / 3f;
+                var lista = y < corteY ? b : a;
+                lista.Add(tri[i]); lista.Add(tri[i + 1]); lista.Add(tri[i + 2]);
+                if (y < corteY)
+                    for (int k = 0; k < 3; k++)
+                    {
+                        if (!hay) { bAbajo = new Bounds(v[tri[i + k]], Vector3.zero); hay = true; }
+                        else bAbajo.Encapsulate(v[tri[i + k]]);
+                    }
+            }
+            subsArriba.Add(a.ToArray()); subsAbajo.Add(b.ToArray());
+        }
+        muneca = new Vector3(bAbajo.center.x, corteY, bAbajo.center.z);
+        arriba = Copiar(src, subsArriba, Vector3.zero);
+        abajo = Copiar(src, subsAbajo, -muneca);
+    }
+
+    // Copia compacta (solo los vértices usados) con un desplazamiento.
+    static Mesh Copiar(Mesh src, List<int[]> subs, Vector3 mover)
+    {
+        var v = src.vertices; var n = src.normals; var uv = src.uv;
+        var mapa = new Dictionary<int, int>();
+        var nv = new List<Vector3>(); var nn = new List<Vector3>(); var nuv = new List<Vector2>();
+        var nuevos = new List<int[]>();
+        foreach (var tri in subs)
+        {
+            var t = new int[tri.Length];
+            for (int i = 0; i < tri.Length; i++)
+            {
+                if (!mapa.TryGetValue(tri[i], out int j))
+                {
+                    j = nv.Count; mapa[tri[i]] = j;
+                    nv.Add(v[tri[i]] + mover);
+                    if (n.Length > 0) nn.Add(n[tri[i]]);
+                    if (uv.Length > 0) nuv.Add(uv[tri[i]]);
+                }
+                t[i] = j;
+            }
+            nuevos.Add(t);
+        }
+        var m = new Mesh { indexFormat = IndexFormat.UInt32 };
+        m.SetVertices(nv);
+        if (nn.Count == nv.Count) m.SetNormals(nn);
+        if (nuv.Count == nv.Count) m.SetUVs(0, nuv);
+        m.subMeshCount = nuevos.Count;
+        for (int s = 0; s < nuevos.Count; s++) m.SetTriangles(nuevos[s], s);
+        m.RecalculateBounds();
+        return m;
     }
 
     // Material Standard con la textura difusa del glTF reducida a 512 px.
@@ -286,11 +400,12 @@ public static class ConvertirBaymax
         cabeza.y = suelo + 1.65f;
         var mira = Quaternion.LookRotation(-frente);
         var derecha = mira * Vector3.right;
-        var poses = new (string, Vector3?, Vector3?)[]
+        Pose? P(Vector3 local) => new Pose(cabeza + mira * local, mira * Quaternion.Euler(40f, 0f, 0f));
+        var poses = new (string, Pose?, Pose?)[]
         {
             ("reposo", null, null),
-            ("manos_delante", cabeza + mira * new Vector3(-0.25f, -0.45f, 0.4f), cabeza + mira * new Vector3(0.25f, -0.45f, 0.4f)),
-            ("saludo", cabeza + mira * new Vector3(-0.35f, -0.7f, 0.1f), cabeza + mira * new Vector3(0.45f, 0.15f, 0.25f)),
+            ("manos_delante", P(new Vector3(-0.2f, -0.45f, 0.4f)), P(new Vector3(0.2f, -0.45f, 0.4f))),
+            ("saludo", P(new Vector3(-0.35f, -0.7f, 0.1f)), P(new Vector3(0.45f, 0.15f, 0.25f))),
         };
         foreach (var (nombre, izq, der) in poses)
         {
@@ -306,6 +421,22 @@ public static class ConvertirBaymax
                 espejo.RenderizarDesde(cabeza);
                 MontarLaboratorio.Capturar(dir, "avatar_" + nombre + "_espejo", cabeza + frente * 0.2f, -frente);
             }
+        }
+        // En un puesto: primera persona mirando el microscopio con las manos sobre la mesa.
+        foreach (var micro in Object.FindObjectsOfType<MicroscopioOptico>(true).Where(m => m.platina != null).OrderBy(m => m.modoReto).Take(1).Concat(Object.FindObjectsOfType<MicroscopioOptico>(true).Where(m => m.modoReto).Take(1)))
+        {
+            var p = micro.platina.anclaje.position;
+            var haciaUsuario = Vector3.ProjectOnPlane(micro.transform.forward, Vector3.up).normalized;
+            var ojo = p + haciaUsuario * 0.5f; ojo.y = suelo + 1.6f;
+            var rotOjo = Quaternion.LookRotation(p - ojo);
+            var lado = Vector3.Cross(Vector3.up, haciaUsuario);
+            var rotMano = Quaternion.LookRotation(-haciaUsuario + Vector3.down * 0.6f);
+            for (int i = 0; i < 3; i++)
+                av.Posar(ojo, rotOjo, new Pose(p + haciaUsuario * 0.22f + lado * 0.2f + Vector3.up * 0.08f, rotMano),
+                         new Pose(p + haciaUsuario * 0.22f - lado * 0.2f + Vector3.up * 0.08f, rotMano), suelo);
+            CapturarPrimeraPersona(dir, micro.modoReto ? "avatar_puesto_centro_1p" : "avatar_puesto_sala_1p", ojo, rotOjo);
+            var vistaLado = ojo + lado * 1.4f + Vector3.down * 0.3f;
+            MontarLaboratorio.Capturar(dir, micro.modoReto ? "avatar_puesto_centro_lado" : "avatar_puesto_sala_lado", vistaLado, (p + haciaUsuario * 0.3f) - vistaLado);
         }
         Debug.Log("[Baymax] Capturas del avatar guardadas.");
     }

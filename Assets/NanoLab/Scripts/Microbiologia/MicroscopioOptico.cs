@@ -1,4 +1,3 @@
-using Oculus.Interaction.Locomotion;
 using UnityEngine;
 
 // Al acercar la cara al ocular con un portaobjetos con muestra en la platina,
@@ -75,8 +74,7 @@ public class MicroscopioOptico : MonoBehaviour
     // Mientras se mira por el ocular no hay teletransporte ni giro (el joystick cambia pestañas).
     static void Bloquear(bool b)
     {
-        foreach (var l in FindObjectsOfType<PlayerLocomotor>(true)) l.enabled = !b;
-        foreach (var j in FindObjectsOfType<JugadorNanoLab>(true)) j.enabled = !b;
+        foreach (var j in FindObjectsOfType<JugadorNanoLab>(true)) j.PausarLocomocion(b);
     }
 
     void Controles()

@@ -89,6 +89,8 @@ public static class MontarMicrobiologia
         CrearPortal(Grupo(raiz, "Portal"), "Laboratorio", "LABORATORIO\nDE QUÍMICA");
         // Sala anexa con el Caso 01 (detrás de la pared este).
         MontarCentroExperimentacion.Construir(raiz, slidePrefab);
+        Physics.SyncTransforms();
+        AcercarMicroscopios.Aplicar(scene);   // platinas a 15 cm del borde de la mesa
 
         // Jugador: rig de Meta (OVRCameraRigInteraction) con agarre, teletransporte y objetos agarrables.
         ConfigurarMetaISDK.Configurar(scene);
@@ -935,7 +937,7 @@ public static class MontarMicrobiologia
                     var p = Vector2.Lerp(a, b, k / (float)pasos);
                     var pies = new Vector3(p.x, y, p.y);
                     var hits = Physics.OverlapCapsule(pies + Vector3.up * (RadioJugador + 0.35f), pies + Vector3.up * 1.75f, RadioJugador, ~0, QueryTriggerInteraction.Ignore)
-                        .Where(h => h.GetComponentInParent<OVRPlayerController>() == null).ToArray();
+                        .Where(h => h.GetComponentInParent<OVRPlayerController>() == null && h.transform.root.GetComponentInChildren<OVRCameraRig>(true) == null).ToArray();   // ni el propio jugador
                     if (hits.Length > 0) { bloqueo = $"bloqueado en ({p.x:F2}, {p.y:F2}) por {string.Join(", ", hits.Select(h => h.name).Distinct())}"; break; }
                 }
             }
@@ -943,6 +945,55 @@ public static class MontarMicrobiologia
             Debug.Log($"[Recorrido] {r.Key}: {(bloqueo ?? "OK, se puede pasar")}");
         }
         Debug.Log($"[Recorrido] {(fallos == 0 ? "Todas las rutas son transitables." : fallos + " ruta(s) bloqueada(s).")}");
+    }
+
+    // Pone la cabeza donde la pondría el usuario al mirar por el ocular de un microscopio real de
+    // la escena (sala y anexo) y captura lo que vería: el HUD no debe quedar tapado por el
+    // microscopio, la mesa ni las manos (Logs/Capturas/ocular_*.png).
+    [MenuItem("NanoLab/Probar visor desde el ocular (capturas)")]
+    public static void ProbarOcular()
+    {
+        EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        string dir = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "Capturas");
+        var holoAzul = Resources.Load<Material>("NanoLab/Holograma_Azul");
+        var muestra = AssetDatabase.LoadAssetAtPath<MuestraData>("Assets/NanoLab/Muestras/Ecoli.asset");
+        var micros = Object.FindObjectsOfType<MicroscopioOptico>(true);
+        foreach (var micro in new[] { micros.Where(m => !m.modoReto).OrderBy(m => m.name).FirstOrDefault(), micros.FirstOrDefault(m => m.modoReto) })
+        {
+            if (micro == null) continue;
+            // Ojo un poco por encima y por detrás del ocular (dentro del radio de 0,22 m que activa el HUD),
+            // mirando hacia la platina.
+            var haciaUsuario = Vector3.ProjectOnPlane(micro.transform.forward, Vector3.up).normalized;
+            var ojo = new GameObject("OjoPrueba").transform;
+            ojo.position = micro.ocular.position + Vector3.up * 0.06f + haciaUsuario * 0.1f;
+            ojo.rotation = Quaternion.LookRotation(micro.platina.anclaje.position - ojo.position);
+            var hud = HUDMicroscopio.Obtener(ojo, holoAzul);
+            hud.MostrarInmediato(muestra);
+            Canvas.ForceUpdateCanvases();
+            foreach (var g in hud.GetComponentsInChildren<UnityEngine.UI.Graphic>(true).Where(g => g.name == "Vista" || g.name == "Fondo"))
+            {
+                var m = g.materialForRendering;
+                Debug.Log($"[Micro] {g.name}: material {m.name} shader {m.shader.name} ZTest {m.GetInt("unity_GUIZTestMode")} cola {m.renderQueue}");
+            }
+            var camGo = new GameObject("CamPrueba");
+            var cam = camGo.AddComponent<Camera>();
+            cam.transform.SetParent(ojo, false);
+            cam.fieldOfView = 90f; cam.nearClipPlane = 0.01f;
+            cam.cullingMask &= ~(1 << VisorVirus.Capa);
+            cam.cullingMask &= ~(1 << AvatarBaymax.CapaCabeza);
+            var rt = new RenderTexture(1600, 900, 24);
+            cam.targetTexture = rt; cam.aspect = 16f / 9f;
+            cam.Render();
+            RenderTexture.active = rt;
+            var tex = new Texture2D(1600, 900, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0);
+            File.WriteAllBytes(Path.Combine(dir, $"ocular_{(micro.modoReto ? "centro" : "sala")}.png"), tex.EncodeToPNG());
+            RenderTexture.active = null;
+            Object.DestroyImmediate(camGo);
+            hud.transform.SetParent(null, false);
+            Object.DestroyImmediate(ojo.gameObject);
+        }
+        Debug.Log("[Micro] Capturas desde el ocular guardadas.");
     }
 
     // Simula lo que se ve por el ocular (HUD) y el holograma, sin visor.

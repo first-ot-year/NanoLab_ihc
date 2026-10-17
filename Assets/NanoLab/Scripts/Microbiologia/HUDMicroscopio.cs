@@ -255,7 +255,7 @@ public class HUDMicroscopio : MonoBehaviour
         rt.sizeDelta = new Vector2(1400, 640);
         var raiz = transform;
 
-        Img(raiz, "Fondo", 0, 0, 1400, 640, new Color(0.01f, 0.025f, 0.05f, 0.97f));
+        Img(raiz, "Fondo", 0, 0, 1400, 640, new Color(0.01f, 0.025f, 0.05f, 1f));   // opaco: no se transparenta el microscopio
         var vin = Rect(raiz, "Vineta", 0, 0, 1400, 640).gameObject.AddComponent<RawImage>();
         vin.texture = Vineta(); vin.raycastTarget = false;
 
@@ -271,10 +271,11 @@ public class HUDMicroscopio : MonoBehaviour
         zoomTxt = Txt(raiz, "Zoom", 330, 255, 170, 38, "", 30, Color.white, TextAlignmentOptions.Left, FontStyles.Bold);
 
         // Vista circular
-        var mascara = Img(raiz, "Mascara", 0, 25, 440, 440, Color.white, Circulo());
-        var mask = mascara.gameObject.AddComponent<Mask>(); mask.showMaskGraphic = false;
-        vista = Rect(mascara.transform, "Vista", 0, 0, 440, 440).gameObject.AddComponent<RawImage>();
+        vista = Rect(raiz, "Vista", 0, 25, 440, 440).gameObject.AddComponent<RawImage>();
         vista.raycastTarget = false;
+        // Recorte circular con una imagen opaca fuera del círculo (no con Mask: el stencil
+        // de la máscara pierde el "dibujar siempre encima" y el microscopio tapaba la vista).
+        Img(raiz, "RecorteCircular", 0, 25, 446, 446, new Color(0.01f, 0.025f, 0.05f, 1f), CirculoInverso());
         Img(raiz, "Anillo", 0, 25, 474, 474, new Color(0.35f, 0.85f, 1f, 0.7f), Anillo());
         Img(raiz, "Cruz1", 0, 25 + 250, 2, 34, Cian); Img(raiz, "Cruz2", 0, 25 - 250, 2, 34, Cian);
         Img(raiz, "Cruz3", 250, 25, 34, 2, Cian); Img(raiz, "Cruz4", -250, 25, 34, 2, Cian);
@@ -336,7 +337,37 @@ public class HUDMicroscopio : MonoBehaviour
         Img(raiz, "Led", 468, -305, 12, 12, new Color(0.25f, 1f, 0.5f), Circulo());
         Txt(raiz, "Captura", 575, -305, 200, 20, "IMAGEN CAPTURADA", 13, new Color(0.25f, 1f, 0.5f), TextAlignmentOptions.Left);
 
+        DibujarSiempreEncima();
         gameObject.SetActive(false);
+    }
+
+    // El HUD está a 0,6 m de los ojos, pero el microscopio, la mesa o las manos quedan más cerca
+    // al acercar la cara al ocular y lo tapaban. Se dibuja sin prueba de profundidad y al final
+    // (cola Overlay), como los visores pegados a la cara.
+    void DibujarSiempreEncima()
+    {
+        const int Always = (int)UnityEngine.Rendering.CompareFunction.Always;
+        var ui = new Material(Canvas.GetDefaultCanvasMaterial()) { name = "HUD_SiempreEncima" };
+        ui.SetInt("unity_GUIZTestMode", Always);
+        ui.renderQueue = 4000;
+        var textos = new System.Collections.Generic.Dictionary<Material, Material>();
+        foreach (var g in GetComponentsInChildren<Graphic>(true))
+        {
+            if (g is TMP_Text t)
+            {
+                var src = t.fontSharedMaterial;
+                if (src == null) continue;
+                if (!textos.TryGetValue(src, out var m))
+                {
+                    m = new Material(src) { name = src.name + "_SiempreEncima" };
+                    m.SetInt("unity_GUIZTestMode", Always);
+                    m.renderQueue = 4000;
+                    textos[src] = m;
+                }
+                t.fontSharedMaterial = m;
+            }
+            else g.material = ui;
+        }
     }
 
     static RectTransform Rect(Transform parent, string name, float x, float y, float w, float h)
@@ -386,6 +417,14 @@ public class HUDMicroscopio : MonoBehaviour
     {
         if (circulo == null) circulo = SpriteRadial(256, (r) => Mathf.Clamp01((0.5f - r) * 256f / 2f));
         return circulo;
+    }
+
+    static Sprite circuloInverso;
+
+    static Sprite CirculoInverso()
+    {
+        if (circuloInverso == null) circuloInverso = SpriteRadial(256, (r) => Mathf.Clamp01((r - 0.5f) * 256f / 2f));
+        return circuloInverso;
     }
 
     static Sprite Anillo()

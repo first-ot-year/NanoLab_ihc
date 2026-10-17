@@ -69,6 +69,7 @@ public static class MontarCentroExperimentacion
         var padre = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "Microbiologia" && t.parent != null && t.parent.name.StartsWith("LAB_"));
         if (padre == null) padre = new GameObject("Microbiologia").transform;
         Construir(padre, slidePrefab);
+        AcercarMicroscopios.Aplicar(scene);
         ConfigurarMetaISDK.ActualizarPrefabPortaobjetos();
         ConfigurarMetaISDK.Configurar(scene);
         ML.ConfigurarLuces("Microbiologia_Lighting");

@@ -72,7 +72,11 @@ public static class ConfigurarMetaISDK
         var rigRoot = PrefabUtility.GetOutermostPrefabInstanceRoot(rig.gameObject) ?? rig.gameObject;
         rigRoot.transform.SetPositionAndRotation(new Vector3(Spawn.x, suelo, Spawn.z), Quaternion.Euler(0f, Yaw, 0f));
         // Seguimiento a nivel de suelo + caminar con joystick (sin teletransporte), en tiempo de ejecución.
-        Obtener<JugadorNanoLab>(rigRoot);
+        var jugador = Obtener<JugadorNanoLab>(rigRoot);
+        // Valores de comodidad (la escena guardaba los del movimiento antiguo: 1,4 m/s y giro de 45°).
+        jugador.velocidad = 1.2f; jugador.suavizado = 0.18f; jugador.zonaMuerta = 0.15f;
+        jugador.anguloGiro = 30f; jugador.radioCuerpo = 0.16f;
+        PrefabUtility.RecordPrefabInstancePropertyModifications(jugador);
         var mgr = rig.GetComponent<OVRManager>();
         if (mgr != null)
         {
@@ -83,7 +87,12 @@ public static class ConfigurarMetaISDK
         Debug.Log($"[MetaISDK] {s.name}: OVRPlayerController quitados: {quitados}. Rig '{rigRoot.name}' en la entrada, seguimiento a nivel de suelo.");
 
         // 2) Sin teletransporte por ahora (decisión de Carlo): se quita el que hubiera.
+        foreach (var t in rigRoot.GetComponentsInChildren<Transform>(true).Where(t => t != null && t.name == NombreLocomotor).ToArray())
+            Object.DestroyImmediate(t.gameObject);
         int quitadosTp = QuitarTeletransporte();
+
+        // 2b) Caminar con el Locomotor de Meta (aceleración, frenado, colisiones y viñeta de confort).
+        ConfigurarLocomocion(rigRoot, rig);
 
         // 3) Objetos agarrables.
         var agarrables = BuscarAgarrables();
@@ -102,6 +111,70 @@ public static class ConfigurarMetaISDK
 
         // 4) Avatar del jugador (Baby Baymax) y espejos para verse.
         ConvertirBaymax.InstalarEn(s);
+    }
+
+    // ------------------------------------------------------------------ locomoción
+
+    const string LocomotorPrefab = "Packages/com.meta.xr.sdk.interaction/Runtime/Prefabs/Locomotion/Locomotor.prefab";
+    public const string NombreLocomotor = "LocomotorNanoLab";
+
+    // El rig heredado usa PlayerLocomotor, que aplica el joystick sin aceleración ni colisiones.
+    // Se añade el Locomotor de Meta (FirstPersonLocomotor + CharacterController + tunneling) y los
+    // grupos de locomoción de los mandos le envían sus eventos. La configuración fina (velocidad,
+    // zona muerta, giro de 30°, qué mando camina y cuál gira) la aplica JugadorNanoLab al arrancar.
+    static void ConfigurarLocomocion(GameObject rigRoot, OVRCameraRig rig)
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LocomotorPrefab);
+        if (prefab == null) { Debug.LogError("[MetaISDK] No se encontró " + LocomotorPrefab); return; }
+        var loc = (GameObject)PrefabUtility.InstantiatePrefab(prefab, rigRoot.transform);
+        loc.name = NombreLocomotor;
+        loc.transform.SetPositionAndRotation(rigRoot.transform.position, rigRoot.transform.rotation);
+
+        var fpl = loc.GetComponentInChildren<FirstPersonLocomotor>(true);
+        Enlazar(fpl, ("_playerOrigin", rig.transform), ("_playerEyes", rig.centerEyeAnchor));
+        // Cápsula más delgada que la de Meta (0,25 m) para poder acercarse a las mesas.
+        foreach (var cap in loc.GetComponentsInChildren<CapsuleCollider>(true)) { cap.radius = 0.16f; PrefabUtility.RecordPrefabInstancePropertyModifications(cap); }
+        // Viñeta de confort: necesita los ojos y la cámara del rig.
+        foreach (var tun in loc.GetComponentsInChildren<TunnelingEffect>(true))
+            Enlazar(tun, ("_leftEyeAnchor", rig.leftEyeAnchor), ("_rightEyeAnchor", rig.rightEyeAnchor), ("_centerEyeCamera", rig.centerEyeAnchor.GetComponent<Camera>()));
+
+        // ControllerRef / HmdRef del Locomotor: se enlazan al mando izquierdo y al visor del rig
+        // (los rigs completos de Meta lo hacen así; sin esto la cabeza del personaje no se actualiza).
+        Object RefDe<T>(string campo) where T : Component
+        {
+            foreach (var c in rigRoot.GetComponentsInChildren<T>(true))
+            {
+                if (c.transform.IsChildOf(loc.transform)) continue;
+                var v = new SerializedObject(c).FindProperty(campo)?.objectReferenceValue;
+                if (v != null && (typeof(T) != typeof(Oculus.Interaction.Input.ControllerRef) || EsIzquierdo(c.transform))) return v;
+            }
+            return null;
+        }
+        var mando = RefDe<Oculus.Interaction.Input.ControllerRef>("_controller");
+        var hmd = RefDe<Oculus.Interaction.Input.HmdRef>("_hmd");
+        foreach (var cr in loc.GetComponentsInChildren<Oculus.Interaction.Input.ControllerRef>(true)) Enlazar(cr, ("_controller", mando));
+        foreach (var hr in loc.GetComponentsInChildren<Oculus.Interaction.Input.HmdRef>(true)) Enlazar(hr, ("_hmd", hmd));
+        if (mando == null || hmd == null) Debug.LogWarning($"[MetaISDK] Referencias del Locomotor incompletas: mando={mando}, hmd={hmd}");
+
+        int conexiones = 0;
+        foreach (var con in rigRoot.GetComponentsInChildren<LocomotionEventsConnection>(true))
+        {
+            Enlazar(con, ("_handler", fpl));
+            PrefabUtility.RecordPrefabInstancePropertyModifications(con);
+            conexiones++;
+        }
+        foreach (var pl in rigRoot.GetComponentsInChildren<PlayerLocomotor>(true))
+        {
+            pl.enabled = false;
+            PrefabUtility.RecordPrefabInstancePropertyModifications(pl);
+        }
+        Debug.Log($"[MetaISDK] Locomotor de Meta instalado: {conexiones} grupos de locomoción conectados a FirstPersonLocomotor.");
+    }
+
+    static bool EsIzquierdo(Transform t)
+    {
+        for (var p = t; p != null; p = p.parent) if (p.name.StartsWith("Left")) return true;
+        return false;
     }
 
     // ------------------------------------------------------------------ agarrables

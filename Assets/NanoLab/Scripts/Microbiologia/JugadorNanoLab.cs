@@ -1,31 +1,45 @@
+using Oculus.Interaction.Locomotion;
 using UnityEngine;
 
 // Va en la raíz del OVRCameraRigInteraction. Al arrancar:
 //  - fuerza el seguimiento a nivel de suelo (la cabeza queda a la altura real del usuario),
-//  - desactiva la locomoción por teletransporte del rig de Meta,
-// y en cada frame permite caminar con el joystick izquierdo (hacia donde se mira, con
-// colisiones contra paredes y muebles) y girar a saltos con el joystick derecho.
-// El agarre sigue siendo el del Meta Interaction SDK.
+//  - configura la locomoción de Meta (Locomotor del Interaction SDK, instalado por ConfigurarMetaISDK):
+//    joystick izquierdo = deslizamiento con aceleración y frenado suaves, colisiones de cápsula y
+//    viñeta de confort; joystick derecho = giro por pasos de Meta; sin teletransporte.
+// Si no encuentra el Locomotor, usa un movimiento propio de respaldo.
 public class JugadorNanoLab : MonoBehaviour
 {
-    [Header("Movimiento")]
-    public float velocidad = 1.4f;
-    public float radioCuerpo = 0.2f;
-    [Header("Giro")]
-    public float anguloGiro = 45f;
+    [Header("Caminar (Locomotor de Meta)")]
+    [Tooltip("Velocidad de paseo con el joystick a fondo (m/s).")]
+    public float velocidad = 1.2f;
+    [Tooltip("Tiempo aproximado para arrancar o frenar (s). Más alto = más suave.")]
+    public float suavizado = 0.18f;
+    [Tooltip("Zona muerta del joystick (0..1).")]
+    [Range(0f, 0.5f)] public float zonaMuerta = 0.15f;
 
-    static readonly string[] LocomocionDelRig = { "LocomotionControllerInteractorGroup", "LocomotionHandInteractorGroup" };
+    [Header("Giro")]
+    public float anguloGiro = 30f;
+
+    [Header("Respaldo (solo si falta el Locomotor de Meta)")]
+    public float radioCuerpo = 0.16f;
+
+    static readonly string[] Teletransporte = { "TeleportControllerInteractor", "ControllerStepInteractor", "ControllerLocomotionSlideActions" };
 
     OVRCameraRig rig;
-    bool girando;
+    FirstPersonLocomotor locomotor;
+    SlideLocomotionBroadcaster[] slides = new SlideLocomotionBroadcaster[0];
+    TurnerEventBroadcaster[] turners = new TurnerEventBroadcaster[0];
+    bool respaldo, girando, pausado;
 
     void Awake()
     {
         rig = GetComponentInChildren<OVRCameraRig>(true);
         ForzarSuelo();
-        foreach (var t in GetComponentsInChildren<Transform>(true))
-            foreach (var n in LocomocionDelRig)
-                if (t.name.StartsWith(n)) t.gameObject.SetActive(false);
+        locomotor = GetComponentInChildren<FirstPersonLocomotor>(true);
+        respaldo = locomotor == null;
+        if (respaldo) Debug.LogWarning("[Jugador] No hay FirstPersonLocomotor en el rig: se usa el movimiento de respaldo. Ejecuta 'NanoLab/Configurar interacción Meta'.");
+        ConfigurarGrupos();
+        ConfigurarLocomotor();
     }
 
     // Se repite en Start y medio segundo después por si el OVRManager aplica su valor guardado al iniciar.
@@ -43,14 +57,84 @@ public class JugadorNanoLab : MonoBehaviour
             mgr.trackingOriginType = OVRManager.TrackingOrigin.FloorLevel;
     }
 
+    // Mando izquierdo: solo deslizamiento. Mando derecho: solo giro. Sin teletransporte ni pasos.
+    // Las manos rastreadas no tienen locomoción (gestos de teletransporte desactivados).
+    void ConfigurarGrupos()
+    {
+        var curva = CurvaJoystick(zonaMuerta);
+        var listaSlides = new System.Collections.Generic.List<SlideLocomotionBroadcaster>();
+        var listaTurners = new System.Collections.Generic.List<TurnerEventBroadcaster>();
+        foreach (var t in GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name.StartsWith("LocomotionHandInteractorGroup")) { t.gameObject.SetActive(false); continue; }
+            if (!t.name.StartsWith("LocomotionControllerInteractorGroup")) continue;
+            bool izquierdo = EsIzquierdo(t);
+            t.gameObject.SetActive(!respaldo);
+            foreach (Transform hijo in t)
+            {
+                if (System.Array.IndexOf(Teletransporte, hijo.name) >= 0) hijo.gameObject.SetActive(false);
+                else if (hijo.name == "ControllerSlideInteractor") hijo.gameObject.SetActive(izquierdo);
+                else if (hijo.name == "ControllerTurnerInteractor") hijo.gameObject.SetActive(!izquierdo);
+            }
+            foreach (var s in t.GetComponentsInChildren<SlideLocomotionBroadcaster>(true))
+            {
+                s.VerticalDeadZone = curva;
+                s.HorizontalDeadZone = curva;
+                if (izquierdo) listaSlides.Add(s);
+            }
+            foreach (var tu in t.GetComponentsInChildren<TurnerEventBroadcaster>(true))
+            {
+                tu.TurnMethod = TurnerEventBroadcaster.TurnMode.Snap;
+                tu.SnapTurnDegrees = anguloGiro;
+                if (!izquierdo) listaTurners.Add(tu);
+            }
+        }
+        slides = listaSlides.ToArray();
+        turners = listaTurners.ToArray();
+    }
+
+    static bool EsIzquierdo(Transform t)
+    {
+        for (var p = t; p != null; p = p.parent) if (p.name.StartsWith("Left")) return true;
+        return false;
+    }
+
+    // Respuesta progresiva: nada dentro de la zona muerta y luego crece suave (empujar poco = andar despacio).
+    static AnimationCurve CurvaJoystick(float zona)
+    {
+        var c = new AnimationCurve(
+            new Keyframe(-1f, -1f), new Keyframe(-0.6f, -0.35f), new Keyframe(-zona, 0f),
+            new Keyframe(zona, 0f), new Keyframe(0.6f, 0.35f), new Keyframe(1f, 1f));
+        for (int i = 0; i < c.length; i++) c.SmoothTangents(i, 0f);
+        return c;
+    }
+
+    // Velocidad estable = aceleración · factor / amortiguación; la amortiguación fija el tiempo de arranque/frenado.
+    void ConfigurarLocomotor()
+    {
+        if (locomotor == null) return;
+        float amortiguacion = 1f / Mathf.Max(0.02f, suavizado);
+        locomotor.Acceleration = 5f;
+        locomotor.GroundDamping = amortiguacion;
+        locomotor.SpeedFactor = velocidad * amortiguacion / locomotor.Acceleration;
+    }
+
+    // Mientras se mira por el microscopio el joystick cambia pestañas: se pausa caminar y girar.
+    public void PausarLocomocion(bool pausar)
+    {
+        pausado = pausar;
+        foreach (var s in slides) if (s != null) s.enabled = !pausar;
+        foreach (var t in turners) if (t != null) t.enabled = !pausar;
+    }
+
     void Update()
     {
-        if (rig == null || rig.centerEyeAnchor == null) return;
+        if (!respaldo || pausado || rig == null || rig.centerEyeAnchor == null) return;
         var cabeza = rig.centerEyeAnchor;
 
-        // Caminar: joystick izquierdo, relativo a la dirección de la mirada (solo en horizontal).
+        // Respaldo: caminar con el joystick izquierdo hacia donde se mira, con colisiones.
         var eje = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch);
-        if (eje.sqrMagnitude > 0.04f)
+        if (eje.magnitude > zonaMuerta)
         {
             var adelante = Vector3.ProjectOnPlane(cabeza.forward, Vector3.up).normalized;
             var derecha = Vector3.Cross(Vector3.up, adelante);
@@ -58,7 +142,6 @@ public class JugadorNanoLab : MonoBehaviour
             transform.position += Limitar(cabeza.position, mov);
         }
 
-        // Girar a saltos: joystick derecho, alrededor de la cabeza.
         float x = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch).x;
         if (!girando && Mathf.Abs(x) > 0.7f)
         {
@@ -68,8 +151,7 @@ public class JugadorNanoLab : MonoBehaviour
         else if (Mathf.Abs(x) < 0.3f) girando = false;
     }
 
-    // Evita atravesar paredes y muebles: prueba el movimiento completo y, si choca,
-    // desliza a lo largo de la superficie.
+    // Evita atravesar paredes y muebles: prueba el movimiento completo y, si choca, desliza.
     Vector3 Limitar(Vector3 cabeza, Vector3 mov)
     {
         float suelo = transform.position.y;
