@@ -7,6 +7,7 @@ Los modelos se redujeron de polígonos y se les cambiaron los materiales para us
 - "Stereo Microscope" (https://skfb.ly/oAXFB) by Touati_Fellouh is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
 - "Microbial Culture (petri dish - agar plate)" (https://skfb.ly/p8XxB) by Ioannis Stavridis is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
 - "Petri Dish Collection 🧫✨ by 3DLabWare" (https://skfb.ly/oOuMW) by 3dLabWare is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+- "Baby Baymax" (https://skfb.ly/6AsVA) by hlaphoneshwe is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/). Usado como avatar del jugador: separado en piezas, reducido de polígonos (~140k → ~20k), texturas a 512 px, piernas giradas para ponerlo de pie y materiales Standard (ConvertirBaymax).
 
 ## Modelos 3D de virus — NIH 3D / NIAID PathogenAR (CC BY 4.0)
 Reducidos de polígonos y recoloreados para usarlos en Meta Quest.

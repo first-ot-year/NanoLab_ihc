@@ -99,6 +99,9 @@ public static class ConfigurarMetaISDK
             }
         }
         Debug.Log($"[MetaISDK] {s.name}: {agarrables.Count} objetos agarrables ({string.Join(", ", agarrables.Take(12).Select(g => g.name))}{(agarrables.Count > 12 ? "…" : "")}). Componentes de teletransporte quitados: {quitadosTp}.");
+
+        // 4) Avatar del jugador (Baby Baymax) y espejos para verse.
+        ConvertirBaymax.InstalarEn(s);
     }
 
     // ------------------------------------------------------------------ agarrables

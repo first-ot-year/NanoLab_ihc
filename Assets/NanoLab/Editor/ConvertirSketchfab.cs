@@ -278,13 +278,13 @@ public static class ConvertirSketchfab
         Debug.Log($"[Sketchfab] Previsualizaciones en {dir}");
     }
 
-    static Mesh GetMesh(Renderer r)
+    internal static Mesh GetMesh(Renderer r)
     {
         if (r is SkinnedMeshRenderer smr) return smr.sharedMesh;
         return r.TryGetComponent(out MeshFilter mf) ? mf.sharedMesh : null;
     }
 
-    static int Triangles(Mesh m)
+    internal static int Triangles(Mesh m)
     {
         long n = 0;
         for (int i = 0; i < m.subMeshCount; i++) n += m.GetIndexCount(i);
@@ -293,7 +293,7 @@ public static class ConvertirSketchfab
 
     // Reduce hasta ~quality del original; si el simplificador se queda corto,
     // repite sobre el resultado (hasta 4 pasadas).
-    static Mesh Reducir(Mesh src, float quality)
+    internal static Mesh Reducir(Mesh src, float quality)
     {
         if (quality >= 1f) return Object.Instantiate(src);
         int objetivo = Mathf.Max(64, Mathf.RoundToInt(Triangles(src) * quality));
