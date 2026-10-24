@@ -4,7 +4,7 @@ using UnityEngine;
 // Va en la raíz del OVRCameraRigInteraction. Al arrancar:
 //  - fuerza el seguimiento a nivel de suelo (la cabeza queda a la altura real del usuario),
 //  - configura la locomoción de Meta (Locomotor del Interaction SDK, instalado por ConfigurarMetaISDK):
-//    joystick izquierdo = deslizamiento con aceleración y frenado suaves, colisiones de cápsula y
+//    joystick izquierdo = deslizamiento a velocidad casi constante (RNF-01), colisiones de cápsula y
 //    viñeta de confort; joystick derecho = giro por pasos de Meta; sin teletransporte.
 // Si no encuentra el Locomotor, usa un movimiento propio de respaldo.
 public class JugadorNanoLab : MonoBehaviour
@@ -13,7 +13,7 @@ public class JugadorNanoLab : MonoBehaviour
     [Tooltip("Velocidad de paseo con el joystick a fondo (m/s).")]
     public float velocidad = 1.2f;
     [Tooltip("Tiempo aproximado para arrancar o frenar (s). Más alto = más suave.")]
-    public float suavizado = 0.18f;
+    public float suavizado = 0.05f;
     [Tooltip("Zona muerta del joystick (0..1).")]
     [Range(0f, 0.5f)] public float zonaMuerta = 0.15f;
 

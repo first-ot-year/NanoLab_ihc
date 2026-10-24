@@ -7,6 +7,7 @@ using UnityEngine;
 // Portaobjetos que se agarra con el Meta Interaction SDK (Grabbable + GrabInteractable +
 // PhysicsGrabbable + HandGrab/DistanceGrab). Este script solo añade la lógica del
 // laboratorio: cargar la muestra al tocar un tubo/placa y encajarse en la platina al soltarlo.
+// Si se cae al suelo o queda muy lejos, vuelve solo a su bandeja (tolerancia al error, RNF-04).
 [RequireComponent(typeof(Rigidbody))]
 public class Portaobjetos : MonoBehaviour
 {
@@ -16,6 +17,8 @@ public class Portaobjetos : MonoBehaviour
     public Renderer brillo;              // se enciende cuando el SDK apunta/pasa por encima (hover)
     public float radioPlatina = 0.12f;
     public float radioMuestra = 0.06f;
+    [Tooltip("Si queda suelto a más de esta distancia de su bandeja (m), vuelve a ella.")]
+    public float distanciaMaxima = 8f;
 
     public static readonly List<Portaobjetos> Todos = new List<Portaobjetos>();
     public static bool AlgunoAgarrado { get { foreach (var p in Todos) if (p.Agarrado) return true; return false; } }
@@ -38,6 +41,9 @@ public class Portaobjetos : MonoBehaviour
     bool estabaAgarrado;
     int hovers;
     FuenteMuestra ultimaFuente;
+    Vector3 casaPos;
+    Quaternion casaRot;
+    float tiempoFuera, ultimoGolpe;
     MaterialPropertyBlock mpb;
     static readonly Collider[] buffer = new Collider[32];
 
@@ -46,6 +52,8 @@ public class Portaobjetos : MonoBehaviour
         grabbable = GetComponent<Grabbable>();
         rb = GetComponent<Rigidbody>();
         mpb = new MaterialPropertyBlock();
+        casaPos = transform.position;
+        casaRot = transform.rotation;
         if (brillo != null) brillo.enabled = false;
         Refrescar();
     }
@@ -76,11 +84,40 @@ public class Portaobjetos : MonoBehaviour
         else if (!agarrado && estabaAgarrado) StartCoroutine(AlSoltar());
         estabaAgarrado = agarrado;
 
-        if (!agarrado) return;
+        if (!agarrado)
+        {
+            Recuperar();
+            return;
+        }
         // Mientras se lleva en la mano: tocar un tubo/placa carga la muestra (o la limpia el desinfectante).
         var f = Buscar<FuenteMuestra>(transform.position, radioMuestra);
         if (f != null && f != ultimaFuente) f.Aplicar(this);
         ultimaFuente = f;
+    }
+
+    // Sonido de vidrio al chocar (más fuerte cuanto más rápido); no se repite en el mismo instante.
+    void OnCollisionEnter(Collision c)
+    {
+        float v = c.relativeVelocity.magnitude;
+        if (v < 0.25f || Time.time - ultimoGolpe < 0.12f) return;
+        ultimoGolpe = Time.time;
+        Sonidos.Tintineo(transform.position, v / 2f);
+    }
+
+    // Suelto en el suelo (por debajo de su bandeja) o muy lejos: vuelve a la bandeja al cabo de un momento.
+    void Recuperar()
+    {
+        bool perdido = Encajada == null &&
+                       (transform.position.y < casaPos.y - 0.4f || (transform.position - casaPos).sqrMagnitude > distanciaMaxima * distanciaMaxima);
+        tiempoFuera = perdido ? tiempoFuera + Time.deltaTime : 0f;
+        if (tiempoFuera < 1.5f) return;
+        tiempoFuera = 0f;
+        rb.velocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+        rb.isKinematic = true;
+        transform.SetPositionAndRotation(casaPos + Vector3.up * 0.01f, casaRot);
+        Sonidos.Clic(transform.position);
+        Aviso.Mostrar("El portaobjetos ha vuelto a su bandeja.", transform.position + Vector3.up * 0.15f, Aviso.Tipo.Info, 3f);
     }
 
     void AlAgarrar()
@@ -172,6 +209,7 @@ public class Portaobjetos : MonoBehaviour
         if (rb == null) rb = GetComponent<Rigidbody>();
         rb.isKinematic = true;
         transform.SetPositionAndRotation(pos, rot);
+        casaPos = pos; casaRot = rot;   // si luego se cae, vuelve aquí
     }
 
     // Portaobjetos ya teñido que entrega la cámara experimental tras la intervención.

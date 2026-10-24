@@ -29,6 +29,8 @@ public class MuestraData : ScriptableObject
     [TextArea(2, 6)] public string composicion;
     [TextArea(2, 6)] public string comportamiento;
     [TextArea(2, 6)] public string observaciones;
+    [Tooltip("Solo virus: leyenda de la pestaña COMPOSICIÓN, en el orden de ModeloVirus.Paleta (espícula, cuerpo, proteína 1, proteína 2, interior).")]
+    public string[] componentes;
 
     public static readonly string[] NombresPestanas = { "MORFOLOGÍA", "ESTRUCTURA", "COMPOSICIÓN", "COMPORTAMIENTO" };
 

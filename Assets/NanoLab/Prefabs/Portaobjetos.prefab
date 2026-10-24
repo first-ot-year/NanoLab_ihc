@@ -365,6 +365,7 @@ MonoBehaviour:
   brillo: {fileID: 16237996210752792}
   radioPlatina: 0.12
   radioMuestra: 0.06
+  distanciaMaxima: 8
 --- !u!114 &6017172752047478691
 MonoBehaviour:
   m_ObjectHideFlags: 0

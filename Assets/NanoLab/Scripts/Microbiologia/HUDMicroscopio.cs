@@ -46,6 +46,8 @@ public class HUDMicroscopio : MonoBehaviour
     readonly TMP_Text[] claves = new TMP_Text[6], valores = new TMP_Text[6];
     readonly Image[] tabs = new Image[4];
     readonly TMP_Text[] tabsTxt = new TMP_Text[4];
+    readonly Image[] leyendaPunto = new Image[5];
+    readonly TMP_Text[] leyendaTxt = new TMP_Text[5];
     MuestraData actual;
     int aumento, pestana;
     float alphaObjetivo;
@@ -164,6 +166,19 @@ public class HUDMicroscopio : MonoBehaviour
 
         tabTitulo.text = MuestraData.NombresPestanas[pestana];
         tabTexto.text = m.Pestana(pestana);
+        // COMPOSICIÓN de un virus: leyenda con el mismo color que cada parte del modelo 3D.
+        bool leyenda = proveedorReto == null && pestana == 2 && m.tipo == TipoMuestra.Virus && m.componentes != null && m.componentes.Length > 0;
+        tabTexto.gameObject.SetActive(!leyenda);
+        var pal = ModeloVirus.Paleta(m);
+        for (int i = 0; i < leyendaTxt.Length; i++)
+        {
+            bool hay = leyenda && i < m.componentes.Length;
+            leyendaPunto[i].gameObject.SetActive(hay);
+            leyendaTxt[i].gameObject.SetActive(hay);
+            if (!hay) continue;
+            leyendaPunto[i].color = pal[i];
+            leyendaTxt[i].text = m.componentes[i];
+        }
         for (int i = 0; i < 4; i++)
         {
             bool sel = i == pestana;
@@ -189,6 +204,9 @@ public class HUDMicroscopio : MonoBehaviour
 
     void RefrescarReto(DatosReto d)
     {
+        tabTexto.gameObject.SetActive(true);
+        foreach (var i in leyendaPunto) i.gameObject.SetActive(false);
+        foreach (var t in leyendaTxt) t.gameObject.SetActive(false);
         subtitulo.text = d.subtitulo;
         if (d.vista != null) vista.texture = d.vista;
         for (int i = 0; i < claves.Length; i++)
@@ -258,6 +276,9 @@ public class HUDMicroscopio : MonoBehaviour
         Img(raiz, "Fondo", 0, 0, 1400, 640, new Color(0.01f, 0.025f, 0.05f, 1f));   // opaco: no se transparenta el microscopio
         var vin = Rect(raiz, "Vineta", 0, 0, 1400, 640).gameObject.AddComponent<RawImage>();
         vin.texture = Vineta(); vin.raycastTarget = false;
+        // Borde de la lente del ocular (anillo tenue sobre la viñeta).
+        var lente = Rect(raiz, "Lente", 0, 0, 1400, 640).gameObject.AddComponent<RawImage>();
+        lente.texture = Lente(); lente.color = new Color(0.45f, 0.85f, 1f, 0.35f); lente.raycastTarget = false;
 
         // Cabecera
         Txt(raiz, "Titulo", -420, 285, 560, 46, "ANÁLISIS MICROSCÓPICO", 34, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
@@ -267,6 +288,7 @@ public class HUDMicroscopio : MonoBehaviour
         // Zoom
         Img(raiz, "ZoomFondo", 330, 262, 190, 74, Panel);
         Marco(raiz, 330, 262, 190, 74, CianSuave);
+        Esquinas(raiz, 330, 262, 190, 74);
         Txt(raiz, "ZoomEtq", 330, 285, 170, 20, "ZOOM", 15, Cian, TextAlignmentOptions.Left);
         zoomTxt = Txt(raiz, "Zoom", 330, 255, 170, 38, "", 30, Color.white, TextAlignmentOptions.Left, FontStyles.Bold);
 
@@ -288,6 +310,7 @@ public class HUDMicroscopio : MonoBehaviour
         Txt(raiz, "CaractTit", -480, 188, 400, 30, "CARACTERÍSTICAS PRINCIPALES", 21, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
         Img(raiz, "CaractFondo", -480, 70, 420, 210, Panel);
         Marco(raiz, -480, 70, 420, 210, CianSuave);
+        Esquinas(raiz, -480, 70, 420, 210);
         for (int i = 0; i < 6; i++)
         {
             float y = 155 - i * 28;
@@ -302,19 +325,30 @@ public class HUDMicroscopio : MonoBehaviour
         // Panel izquierdo: pestaña actual
         Img(raiz, "TabFondo", -480, -140, 420, 170, Panel);
         Marco(raiz, -480, -140, 420, 170, CianSuave);
+        Esquinas(raiz, -480, -140, 420, 170);
         tabTitulo = Txt(raiz, "TabTitulo", -480, -73, 390, 28, "", 20, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
         tabTexto = Txt(raiz, "TabTexto", -480, -152, 390, 130, "", 16, TextoClaro, TextAlignmentOptions.TopLeft);
+        for (int i = 0; i < leyendaTxt.Length; i++)
+        {
+            float y = -103 - i * 25;
+            leyendaPunto[i] = Img(raiz, "LeyendaPunto" + i, -672, y, 14, 14, Color.white, Circulo());
+            leyendaTxt[i] = Txt(raiz, "Leyenda" + i, -462, y, 390, 24, "", 17, TextoClaro, TextAlignmentOptions.Left);
+            leyendaPunto[i].gameObject.SetActive(false);
+            leyendaTxt[i].gameObject.SetActive(false);
+        }
 
         // Panel derecho: micrografía real y observaciones
         microTitulo = Txt(raiz, "MicroTit", 480, 188, 400, 30, "", 19, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
         Img(raiz, "MicroFondo", 480, 70, 420, 210, Panel);
         Marco(raiz, 480, 70, 420, 210, CianSuave);
+        Esquinas(raiz, 480, 70, 420, 210);
         micro = Rect(raiz, "Micro", 480, 80, 380, 170).gameObject.AddComponent<RawImage>();
         micro.raycastTarget = false;
         creditoTxt = Txt(raiz, "Credito", 480, -22, 390, 18, "", 10, TextoGris, TextAlignmentOptions.Left);
         guiaTxt = Txt(raiz, "Guia", 480, 70, 390, 190, "", 17, TextoClaro, TextAlignmentOptions.TopLeft);
         Img(raiz, "ObsFondo", 480, -140, 420, 170, Panel);
         Marco(raiz, 480, -140, 420, 170, CianSuave);
+        Esquinas(raiz, 480, -140, 420, 170);
         obsTit = Txt(raiz, "ObsTit", 480, -73, 390, 28, "OBSERVACIONES", 20, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
         obsTxt = Txt(raiz, "Obs", 480, -152, 390, 130, "", 16, TextoClaro, TextAlignmentOptions.TopLeft);
 
@@ -399,6 +433,18 @@ public class HUDMicroscopio : MonoBehaviour
         };
     }
 
+    // Esquinas brillantes (escuadras) sobre el marco de un panel, estilo visor científico.
+    static void Esquinas(Transform parent, float x, float y, float w, float h, float largo = 18f)
+    {
+        foreach (var sx in new[] { -1f, 1f })
+            foreach (var sy in new[] { -1f, 1f })
+            {
+                float cx = x + sx * w / 2f, cy = y + sy * h / 2f;
+                Img(parent, "EsquinaH", cx - sx * largo / 2f, cy, largo, 3, Cian);
+                Img(parent, "EsquinaV", cx, cy - sy * largo / 2f, 3, largo, Cian);
+            }
+    }
+
     static TMP_Text Txt(Transform parent, string name, float x, float y, float w, float h, string texto, float tam, Color c,
                         TextAlignmentOptions al, FontStyles estilo = FontStyles.Normal)
     {
@@ -433,19 +479,51 @@ public class HUDMicroscopio : MonoBehaviour
         return anillo;
     }
 
+    // Distancia elíptica normalizada del ocular (1 = borde de la lente); los paneles quedan dentro.
+    static float DistOcular(int x, int y, int w, int h)
+    {
+        float dx = ((x + 0.5f) / w - 0.5f) * 2f, dy = ((y + 0.5f) / h - 0.5f) * 2f;
+        return Mathf.Sqrt(dx * dx * 0.55f + dy * dy * 0.8f);
+    }
+
+    // Viñeta del ocular: oscurece suavemente hacia el borde y cierra en negro fuera de la lente.
     static Texture2D Vineta()
     {
         if (vineta != null) return vineta;
-        vineta = new Texture2D(256, 128, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
-        for (int y = 0; y < 128; y++)
-            for (int x = 0; x < 256; x++)
+        const int w = 512, h = 256;
+        vineta = new Texture2D(w, h, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+        var px = new Color32[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
             {
-                float dx = (x / 255f - 0.5f) * 2f, dy = (y / 127f - 0.5f) * 2f;
-                float d = Mathf.Sqrt(dx * dx * 0.8f + dy * dy);
-                vineta.SetPixel(x, y, new Color(0, 0, 0, Mathf.SmoothStep(0f, 0.85f, d - 0.55f)));
+                float d = DistOcular(x, y, w, h);
+                float a = Mathf.Clamp01(Mathf.SmoothStep(0f, 1f, (d - 0.98f) / 0.18f) * 0.95f + Mathf.SmoothStep(0f, 1f, (d - 0.6f) / 0.4f) * 0.15f);
+                px[y * w + x] = new Color32(0, 0, 0, (byte)(a * 255));
             }
+        vineta.SetPixels32(px);
         vineta.Apply();
         return vineta;
+    }
+
+    static Texture2D lente;
+
+    // Anillo fino en el borde de la lente (lo tiñe el RawImage).
+    static Texture2D Lente()
+    {
+        if (lente != null) return lente;
+        const int w = 1024, h = 512;
+        lente = new Texture2D(w, h, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+        var px = new Color32[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float d = DistOcular(x, y, w, h) - 1.0f;
+                float a = Mathf.Exp(-(d * d) / (0.006f * 0.006f)) + Mathf.Exp(-((d + 0.02f) * (d + 0.02f)) / (0.012f * 0.012f)) * 0.25f;
+                px[y * w + x] = new Color32(255, 255, 255, (byte)(Mathf.Clamp01(a) * 255));
+            }
+        lente.SetPixels32(px);
+        lente.Apply();
+        return lente;
     }
 
     static Sprite SpriteRadial(int n, System.Func<float, float> alpha)

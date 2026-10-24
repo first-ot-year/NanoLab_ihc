@@ -74,7 +74,8 @@ public static class ConfigurarMetaISDK
         // Seguimiento a nivel de suelo + caminar con joystick (sin teletransporte), en tiempo de ejecución.
         var jugador = Obtener<JugadorNanoLab>(rigRoot);
         // Valores de comodidad (la escena guardaba los del movimiento antiguo: 1,4 m/s y giro de 45°).
-        jugador.velocidad = 1.2f; jugador.suavizado = 0.18f; jugador.zonaMuerta = 0.15f;
+        // RNF-01: velocidad casi constante (sin rampas de aceleración/frenado artificiales).
+        jugador.velocidad = 1.2f; jugador.suavizado = 0.05f; jugador.zonaMuerta = 0.15f;
         jugador.anguloGiro = 30f; jugador.radioCuerpo = 0.16f;
         PrefabUtility.RecordPrefabInstancePropertyModifications(jugador);
         var mgr = rig.GetComponent<OVRManager>();
@@ -337,7 +338,7 @@ public static class ConfigurarMetaISDK
             foreach (var t in raiz.GetComponentsInChildren<Transform>(true)) GameObjectUtility.RemoveMonoBehavioursWithMissingScript(t.gameObject);
             foreach (var r in raiz.GetComponents<Resaltado>()) Object.DestroyImmediate(r);
             var bc = raiz.GetComponent<BoxCollider>();
-            if (bc != null) bc.size = new Vector3(0.075f, 0.006f, 0.026f);
+            if (bc != null) bc.size = new Vector3(0.075f, 0.003f, 0.026f);   // el vidrio mide 1 mm: así no flota sobre la bandeja
             var p = raiz.GetComponent<Portaobjetos>();
             var brillo = raiz.transform.Find("Brillo");
             if (p != null && brillo != null) p.brillo = brillo.GetComponent<Renderer>();

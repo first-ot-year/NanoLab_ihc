@@ -30,11 +30,21 @@ Material:
     m_Ints: []
     m_Floats:
     - _ClipOn: 0
+    - _Especular: 0.25
+    - _RCuerpo: 0.75
+    - _Radial: 0
+    - _RadioObj: 1
     - _RimIntensity: 1.8
     - _RimPower: 3
     - _TintAmount: 0.85
     m_Colors:
+    - _CentroObj: {r: 0, g: 0, b: 0, a: 0}
     - _ClipPlane: {r: 0, g: 0, b: 1, a: 0}
+    - _ColCuerpo: {r: 0.21999997, g: 0.41999996, b: 0.9, a: 1}
+    - _ColEspicula: {r: 0.95, g: 0.29999998, b: 0.39999998, a: 1}
+    - _ColInterior: {r: 0.75, g: 0.29999998, b: 0.9, a: 1}
+    - _ColProt1: {r: 0.62, g: 0.31999996, b: 0.95, a: 1}
+    - _ColProt2: {r: 1, g: 0.62, b: 0.21999997, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _RimColor: {r: 0.5, g: 0.9, b: 1, a: 1}
     - _Tint: {r: 0.3, g: 0.7, b: 1, a: 1}

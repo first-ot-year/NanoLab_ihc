@@ -3,8 +3,21 @@ using UnityEngine;
 
 // Crea el modelo 3D de un virus con material de holograma. Usa el modelo del NIH
 // si la muestra lo tiene; si no, genera uno provisional por código.
+// Color por capas: cuerpo, espículas, proteínas de membrana e interior (ver NanoLab/Holograma).
 public static class ModeloVirus
 {
+    // Paleta común al modelo y a la leyenda del HUD: espícula, cuerpo, proteína 1, proteína 2, interior.
+    public static Color[] Paleta(MuestraData m) => new[]
+    {
+        m.color,
+        new Color(0.16f, 0.3f, 0.78f),
+        new Color(0.62f, 0.32f, 0.95f),
+        new Color(1f, 0.62f, 0.22f),
+        new Color(0.78f, 0.3f, 0.85f),
+    };
+
+    static readonly Dictionary<MuestraData, float> radioCuerpo = new Dictionary<MuestraData, float>();
+
     public static GameObject Instanciar(MuestraData m, Material baseMat, Transform padre, float diametro)
     {
         GameObject go;
@@ -43,7 +56,59 @@ public static class ModeloVirus
                 go.transform.position -= (b.center - padre.position) * s;
             }
         }
+        Capas(go, m, padre.position, diametro / 2f);
         return go;
+    }
+
+    // Pasa a cada material el centro y el radio del virus en su espacio de objeto y la paleta.
+    static void Capas(GameObject go, MuestraData m, Vector3 centro, float radio)
+    {
+        if (!radioCuerpo.TryGetValue(m, out float rc)) radioCuerpo[m] = rc = RadioCuerpo(go, centro, radio);
+        var pal = Paleta(m);
+        foreach (var r in go.GetComponentsInChildren<Renderer>())
+        {
+            var c = r.transform.InverseTransformPoint(centro);
+            float ro = radio / Mathf.Max(1e-5f, r.transform.lossyScale.x);
+            foreach (var mat in r.sharedMaterials)
+            {
+                if (mat == null || !mat.HasProperty("_Radial")) continue;
+                mat.SetFloat("_Radial", 1f);
+                mat.SetVector("_CentroObj", c);
+                mat.SetFloat("_RadioObj", ro);
+                mat.SetFloat("_RCuerpo", rc);
+                mat.SetColor("_ColEspicula", pal[0]);
+                mat.SetColor("_ColCuerpo", pal[1]);
+                mat.SetColor("_ColProt1", pal[2]);
+                mat.SetColor("_ColProt2", pal[3]);
+                mat.SetColor("_ColInterior", pal[4]);
+            }
+        }
+    }
+
+    // Radio de la membrana (0..1 del radio total): la distancia al centro donde más vértices hay
+    // (la superficie del cuerpo); lo que sobresale son espículas.
+    static float RadioCuerpo(GameObject go, Vector3 centro, float radio)
+    {
+        const int Bins = 60;
+        var hist = new int[Bins];
+        foreach (var mf in go.GetComponentsInChildren<MeshFilter>())
+        {
+            var mesh = mf.sharedMesh;
+            if (mesh == null || !mesh.isReadable) continue;
+            var verts = mesh.vertices;
+            var tr = mf.transform;
+            int paso = Mathf.Max(1, verts.Length / 40000);
+            for (int i = 0; i < verts.Length; i += paso)
+            {
+                float d = (tr.TransformPoint(verts[i]) - centro).magnitude / radio;
+                int b = Mathf.Clamp((int)(d * Bins), 0, Bins - 1);
+                hist[b]++;
+            }
+        }
+        int mejor = -1;
+        for (int b = (int)(Bins * 0.45f); b < (int)(Bins * 0.97f); b++) if (mejor < 0 || hist[b] > hist[mejor]) mejor = b;
+        if (mejor < 0 || hist[mejor] == 0) return 0.75f;
+        return Mathf.Clamp((mejor + 0.5f) / Bins, 0.5f, 0.92f);
     }
 
     static Material CopiaHolo(Material baseMat, Material original)

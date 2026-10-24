@@ -216,6 +216,7 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `Encajable` / `ZonaEncaje` | Objetos agarrables con encaje y retorno automático (RNF-04) |
 | `MetricsLogger` | Registro JSON de la sesión para HEART (RF-10) |
 | `AvatarBaymax` | Presentación del personaje Baymax |
+| `Introduccion` / `BalizaArea` / `PanelRedondeado` | Introducción subtitulada (el estudiante es Baby Baymax), balizas de orientación por áreas y tarjeta de la primera muestra seleccionada (RF-01, E2) |
 | `JugadorNanoLab` / `ManosRig` | Configuración del rig de Meta y acceso a manos/mandos |
 
 Las métricas de sesión se guardan como JSON en `Application.persistentDataPath/NanoLab/`.
