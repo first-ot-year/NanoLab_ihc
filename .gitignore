@@ -62,3 +62,6 @@ desktop.ini
 /image.png
 /Captura de pantalla*.png
 /img_ref/
+
+# Informes del curso (PDF locales, no se suben)
+/informe_hito*.pdf
