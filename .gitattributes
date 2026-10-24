@@ -10,6 +10,8 @@
 *.controller text eol=lf
 *.anim     text eol=lf
 *.shadergraph text eol=lf
+# Datos de iluminación horneada: son binarios aunque terminen en .asset (como texto, git los corrompe).
+LightingData.asset binary
 
 # Git LFS: binarios pesados
 # Modelos 3D

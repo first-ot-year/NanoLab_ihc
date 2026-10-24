@@ -45,3 +45,9 @@ MonoBehaviour:
     tracto respiratorio. Sensible a temperatura y desinfectantes."
   observaciones: "Part\xEDcula esf\xE9rica con esp\xEDculas superficiales.\nAlta
     similitud con la familia Coronaviridae.\nManipular en cabina de bioseguridad."
+  componentes:
+  - "Prote\xEDna S (esp\xEDcula)"
+  - "Envoltura lip\xEDdica"
+  - "Prote\xEDna M"
+  - "Prote\xEDna E"
+  - "ARN viral y prote\xEDna N"

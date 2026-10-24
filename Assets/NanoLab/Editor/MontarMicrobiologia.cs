@@ -9,7 +9,7 @@ using UnityEngine.Rendering;
 using ML = MontarLaboratorio;
 
 // Monta Assets/NanoLab/Scenes/Microbiologia.unity a partir de la sala de Animatics:
-// microscopios en las islas, cepario, zona de alto riesgo con la estación 3D,
+// microscopios en las islas, cepario, sala de vidrio de alto riesgo con la estación 3D,
 // cabina de desinfección, tutorial, progreso y portal a Química.
 public static class MontarMicrobiologia
 {
@@ -29,13 +29,8 @@ public static class MontarMicrobiologia
         (4.55f, 11.75f, true),  (5.85f, 11.75f, true),
     };
     internal static readonly Vector3 CeparioCentro = new Vector3(5.2f, 0f, 11.05f);   // fila inferior de la isla derecha
-    const float BslMinX = -10.95f, BslMaxX = -5.0f, BslFrenteZ = 12.3f, BslFondoZ = 15.25f;
-    // Puerta de 1,6 m y consola a ~1,4 m de la entrada: el jugador (radio 0,25 m) pasa con holgura.
-    const float PuertaX0 = -9.45f, PuertaX1 = -7.85f;
+    // La zona de alto riesgo es una sala de vidrio aparte (MontarSalaAltoRiesgo), detrás de la pared norte.
     const float RadioJugador = 0.25f;
-    internal static readonly Vector3 Pedestal = new Vector3(-8.2f, 0f, 14.85f);
-    internal static readonly Vector3 Consola = new Vector3(-8.2f, 0f, 13.85f);
-    internal static readonly Vector2 MesaCriotubos = new Vector2(-7.21f, 15.73f);
 
     internal static readonly string[] Aparatos =
     {
@@ -50,8 +45,10 @@ public static class MontarMicrobiologia
     public static void Montar()
     {
         ML.GenerarUVsDeLightmap();
-        AssetDatabase.DeleteAsset(ScenePath);
-        if (!AssetDatabase.CopyAsset(SourceScene, ScenePath)) throw new System.Exception("No se pudo copiar la escena base");
+        // Se reemplaza el contenido conservando el .meta: así la escena mantiene su GUID entre montajes
+        // (borrarla y copiarla le daba un GUID nuevo cada vez y dejaba obsoletas las referencias).
+        if (!File.Exists(ScenePath)) { if (!AssetDatabase.CopyAsset(SourceScene, ScenePath)) throw new System.Exception("No se pudo copiar la escena base"); }
+        else { File.Copy(SourceScene, ScenePath, true); AssetDatabase.ImportAsset(ScenePath, ImportAssetOptions.ForceUpdate); }
         var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 
         // Después de abrir la escena: OpenScene descarga los assets cargados antes.
@@ -83,8 +80,7 @@ public static class MontarMicrobiologia
             CrearPuesto(puestos, i + 1, new Vector3(p.x, 0f, p.z), p.haciaMasZ ? 0f : 180f, slidePrefab);
         }
         CrearCepario(Grupo(raiz, "Cepario"), bacterias, slidePrefab);
-        CrearZonaBSL(Grupo(raiz, "ZonaAltoRiesgo"), virus, slidePrefab);
-        CrearCabinaDesinfeccion(Grupo(raiz, "CabinaDesinfeccion"));
+        MontarSalaAltoRiesgo.Construir(raiz, virus, slidePrefab);
         CrearTutorialYProgreso(Grupo(raiz, "Bienvenida"), muestras);
         MontarIntroduccion.Aplicar(scene);   // RF-01: "Eres Baymax" frente al punto de aparición
         CrearPortal(Grupo(raiz, "Portal"), "Laboratorio", "LABORATORIO\nDE QUÍMICA");
@@ -92,9 +88,11 @@ public static class MontarMicrobiologia
         MontarCentroExperimentacion.Construir(raiz, slidePrefab);
         Physics.SyncTransforms();
         AcercarMicroscopios.Aplicar(scene);   // platinas a 15 cm del borde de la mesa
+        Utileria.ReubicarPuestos(bacterias);   // bandeja, desinfectante y cultivos junto al microscopio
 
         // Jugador: rig de Meta (OVRCameraRigInteraction) con agarre, teletransporte y objetos agarrables.
         ConfigurarMetaISDK.Configurar(scene);
+        MontarMusica.Agregar();
 
         ML.ConfigurarLuces("Microbiologia_Lighting");
         MontarCentroExperimentacion.LucesTiempoReal();
@@ -160,7 +158,7 @@ public static class MontarMicrobiologia
         CrearMicroscopio(puesto, new Vector3(0f, 0f, -0.05f));
 
         // Bandeja con 3 portaobjetos limpios (a la derecha del microscopio visto por el usuario).
-        var bandeja = Caja(puesto, "Bandeja", new Vector3(-0.3f, 0.006f, 0.02f), new Vector3(0.1f, 0.012f, 0.11f), mats["Oscuro"], true);
+        Utileria.Bandeja(puesto, new Vector3(-0.3f, 0f, 0.02f), new[] { -0.04f, -0.005f, 0.03f });
         for (int i = 0; i < 3; i++)
         {
             var s = (GameObject)PrefabUtility.InstantiatePrefab(slidePrefab, puesto);
@@ -258,14 +256,12 @@ public static class MontarMicrobiologia
         var v = new GameObject("Desinfectante").transform;
         v.SetParent(padre, false);
         v.localPosition = pos;
-        Cilindro(v, "Vaso", new Vector3(0f, 0.045f, 0f), new Vector3(0.07f, 0.045f, 0.07f), Quaternion.identity, mats["Vidrio"]);
-        Cilindro(v, "Liquido", new Vector3(0f, 0.03f, 0f), new Vector3(0.064f, 0.028f, 0.064f), Quaternion.identity, mats["LiquidoAzul"]);
-        var brillo = Cilindro(v, "Brillo", new Vector3(0f, 0.045f, 0f), new Vector3(0.074f, 0.047f, 0.074f), Quaternion.identity, mats["Brillo"]);
-        var bc = v.gameObject.AddComponent<BoxCollider>();
-        bc.isTrigger = true; bc.center = new Vector3(0f, 0.06f, 0f); bc.size = new Vector3(0.09f, 0.1f, 0.09f);
+        var brillo = Utileria.FrascoLavador(v);   // frasco lavador de etanol al 70 %
+        v.gameObject.AddComponent<BoxCollider>();
+        Utileria.AjustarTriggerFrasco(v.gameObject);
         v.gameObject.AddComponent<FuenteMuestra>().esDesinfectante = true;
-        v.gameObject.AddComponent<Resaltado>().brillos = new[] { brillo.GetComponent<Renderer>() };
-        var t = Texto3D(v, "DESINFECTANTE", new Vector3(0f, 0.13f, 0f), Quaternion.identity, 0.16f, new Color(0.5f, 0.85f, 1f), 0.3f);
+        v.gameObject.AddComponent<Resaltado>().brillos = new[] { brillo };
+        var t = Texto3D(v, "DESINFECTANTE", new Vector3(0f, 0.25f, 0f), Quaternion.identity, 0.16f, new Color(0.5f, 0.85f, 1f), 0.3f);
         t.alignment = TextAlignmentOptions.Center;
         t.gameObject.AddComponent<Cartel>();
     }
@@ -304,7 +300,7 @@ public static class MontarMicrobiologia
         }
 
         // Portaobjetos de reserva y desinfectante en el cepario.
-        Caja(c, "Bandeja", new Vector3(0.62f, 0.006f, 0.05f), new Vector3(0.1f, 0.012f, 0.11f), mats["Oscuro"], true);
+        Utileria.Bandeja(c, new Vector3(0.62f, 0f, 0.05f), new[] { -0.04f, -0.005f, 0.03f });
         for (int i = 0; i < 3; i++)
         {
             var s = (GameObject)PrefabUtility.InstantiatePrefab(slidePrefab, c);
@@ -333,74 +329,7 @@ public static class MontarMicrobiologia
         t.outlineWidth = 0.2f; t.outlineColor = new Color32(0, 0, 0, 220);
     }
 
-    // ------------------------------------------------------------------ zona BSL
-
-    internal static void CrearZonaBSL(Transform padre, MuestraData[] virus, GameObject slidePrefab)
-    {
-        float techo = Techo(-8f, 14f);
-        float alto = Mathf.Min(techo - suelo, 3.2f) - 0.02f;
-
-        // Paredes de vidrio con postes metálicos.
-        Pared(padre, new Vector3(BslMinX, 0, BslFrenteZ), new Vector3(PuertaX0, 0, BslFrenteZ), alto);
-        Pared(padre, new Vector3(PuertaX1, 0, BslFrenteZ), new Vector3(BslMaxX, 0, BslFrenteZ), alto);
-        Pared(padre, new Vector3(BslMaxX, 0, BslFrenteZ), new Vector3(BslMaxX, 0, BslFondoZ), alto);
-        Caja(padre, "Dintel", new Vector3((PuertaX0 + PuertaX1) / 2f, suelo + 2.25f + (alto - 2.25f) / 2f, BslFrenteZ), new Vector3(PuertaX1 - PuertaX0, alto - 2.25f, 0.06f), mats["Marco"], true);
-
-        // Luz rosada y franja emisiva.
-        var luz = new GameObject("LuzRosada").AddComponent<Light>();
-        luz.transform.SetParent(padre, false);
-        luz.transform.position = new Vector3(-8f, suelo + alto - 0.3f, 14.2f);
-        luz.type = LightType.Point; luz.color = new Color(1f, 0.5f, 0.62f); luz.range = 7.5f; luz.intensity = 1.6f;
-        luz.lightmapBakeType = LightmapBakeType.Baked;
-        Caja(padre, "FranjaRosa", new Vector3((BslMinX + BslMaxX) / 2f, suelo + alto - 0.05f, BslFrenteZ + 0.05f), new Vector3(BslMaxX - BslMinX, 0.03f, 0.03f), mats["EmisivoRosa"], false);
-
-        // Carteles exteriores.
-        Senal(padre, "SenalRiesgo", new Vector3(-10.3f, suelo + 1.6f, BslFrenteZ - 0.035f), Quaternion.identity,
-              "ÁREA DE ALTO RIESGO\nAGENTES BIOLÓGICOS", 0.75f);
-        Senal(padre, "SenalAcceso", new Vector3(-7.15f, suelo + 1.55f, BslFrenteZ - 0.035f), Quaternion.identity,
-              "ACCESO\nRESTRINGIDO", 0.42f);
-        CartelEPP(padre, new Vector3(-9.6f, suelo + 1.75f, 16.45f));
-
-        // Estación de análisis 3D.
-        CrearEstacion3D(padre);
-
-        // Criotubos de virus sobre la mesa del fondo.
-        float top = AlturaEn(MesaCriotubos.x, 15.3f);
-        Debug.Log($"[Micro] Altura de la mesa de criotubos: {top:F2} m (suelo {suelo:F2})");
-        var rack = new GameObject("RackCriotubos").transform;
-        rack.SetParent(padre, false);
-        rack.position = new Vector3(MesaCriotubos.x, top, 15.3f);   // cerca del borde de la mesa, al alcance del brazo
-        rack.rotation = Quaternion.Euler(0f, 180f, 0f);
-        Caja(rack, "Rack", new Vector3(0f, 0.02f, 0f), new Vector3(0.62f, 0.04f, 0.09f), mats["Marco"], true);
-        for (int i = 0; i < virus.Length; i++)
-        {
-            var v = virus[i];
-            var tubo = new GameObject("Criotubo_" + v.name).transform;
-            tubo.SetParent(rack, false);
-            tubo.localPosition = new Vector3(-0.24f + i * 0.12f, 0.04f, 0f);
-            Cilindro(tubo, "Tubo", new Vector3(0f, 0.035f, 0f), new Vector3(0.026f, 0.035f, 0.026f), Quaternion.identity, mats["TuboBlanco"]);
-            Cilindro(tubo, "Tapa", new Vector3(0f, 0.078f, 0f), new Vector3(0.03f, 0.009f, 0.03f), Quaternion.identity, MaterialTapa(v));
-            var brillo = Cilindro(tubo, "Brillo", new Vector3(0f, 0.045f, 0f), new Vector3(0.036f, 0.047f, 0.036f), Quaternion.identity, mats["Brillo"]);
-            var bc = tubo.gameObject.AddComponent<BoxCollider>();
-            bc.isTrigger = true; bc.center = new Vector3(0f, 0.06f, 0f); bc.size = new Vector3(0.07f, 0.12f, 0.07f);
-            tubo.gameObject.AddComponent<FuenteMuestra>().muestra = v;
-            tubo.gameObject.AddComponent<Resaltado>().brillos = new[] { brillo.GetComponent<Renderer>() };
-            Etiqueta(tubo, v.nombre, v.riesgo, new Vector3(0f, 0.22f, 0f), v.color);
-        }
-        Caja(rack, "Bandeja", new Vector3(0.45f, 0.006f, 0f), new Vector3(0.1f, 0.012f, 0.11f), mats["Oscuro"], true);
-        for (int i = 0; i < 3; i++)
-        {
-            var s = (GameObject)PrefabUtility.InstantiatePrefab(slidePrefab, rack);
-            s.transform.localPosition = new Vector3(0.45f, 0.015f, -0.035f + i * 0.035f);
-        }
-        var titulo = new GameObject("TituloVirus").transform;
-        titulo.SetParent(rack, false);
-        titulo.localPosition = new Vector3(0f, 0.5f, 0f);
-        titulo.gameObject.AddComponent<Cartel>();
-        var t = Texto3D(titulo, "MUESTRAS VIRALES · BSL-3", Vector3.zero, Quaternion.identity, 0.45f, new Color(1f, 0.55f, 0.65f), 1.6f);
-        t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
-        t.outlineWidth = 0.2f; t.outlineColor = new Color32(0, 0, 0, 200);
-    }
+    // ------------------------------------------------------------------ zona de alto riesgo (piezas compartidas)
 
     internal static void Pared(Transform padre, Vector3 a, Vector3 b, float alto)
     {
@@ -455,11 +384,12 @@ public static class MontarMicrobiologia
         t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
     }
 
-    internal static void CrearEstacion3D(Transform padre)
+    // 'pedestal' y 'consolaPos' en planta (se ignora la y); el usuario se coloca en -z de la consola.
+    internal static void CrearEstacion3D(Transform padre, Vector3 pedestal, Vector3 consolaPos)
     {
         var est = new GameObject("EstacionAnalisis3D").transform;
         est.SetParent(padre, false);
-        est.position = new Vector3(Pedestal.x, suelo, Pedestal.z);
+        est.position = new Vector3(pedestal.x, suelo, pedestal.z);
 
         // Pedestal y proyector.
         Cilindro(est, "Pedestal", new Vector3(0f, 0.45f, 0f), new Vector3(0.55f, 0.45f, 0.55f), Quaternion.identity, mats["Negro"]).AddComponent<CapsuleCollider>();
@@ -470,7 +400,7 @@ public static class MontarMicrobiologia
         // Consola con ranura y botones.
         var consola = new GameObject("Consola").transform;
         consola.SetParent(est, false);
-        consola.position = new Vector3(Consola.x, suelo, Consola.z);
+        consola.position = new Vector3(consolaPos.x, suelo, consolaPos.z);
         Caja(consola, "Cuerpo", new Vector3(0f, 0.42f, 0f), new Vector3(0.8f, 0.84f, 0.36f), mats["Blanco"], true);
         var panel = Caja(consola, "Panel", new Vector3(0f, 0.87f, -0.03f), new Vector3(0.8f, 0.03f, 0.42f), mats["Oscuro"], true).transform;
         panel.localRotation = Quaternion.Euler(-25f, 0f, 0f);
@@ -495,6 +425,7 @@ public static class MontarMicrobiologia
         tr.alignment = TextAlignmentOptions.Center;
 
         var e = est.gameObject.AddComponent<EstacionAnalisis3D>();
+        e.plataforma = PlataformaHolo(est);
         e.platina = platina;
         e.holograma = holo;
         e.haz = haz;
@@ -513,8 +444,9 @@ public static class MontarMicrobiologia
         // Panel de información (mira hacia la puerta).
         var info = new GameObject("PanelInfo").transform;
         info.SetParent(est, false);
-        info.position = new Vector3(-6.55f, suelo + 1.55f, 14.6f);
-        var haciaUsuario = new Vector3(-8.4f, 0f, 13.0f) - new Vector3(-6.55f, 0f, 14.6f);
+        var infoPos = new Vector3(pedestal.x + 1.65f, 0f, pedestal.z - 0.25f);
+        info.position = infoPos + Vector3.up * (suelo + 1.55f);
+        var haciaUsuario = new Vector3(pedestal.x - 0.2f, 0f, pedestal.z - 1.85f) - infoPos;
         info.rotation = Quaternion.LookRotation(-haciaUsuario.normalized);
         Caja(info, "Fondo", new Vector3(0f, 0f, 0.01f), new Vector3(1.0f, 0.95f, 0.02f), mats["PanelHUD"], false);
         Caja(info, "Borde", new Vector3(0f, 0f, 0.012f), new Vector3(1.03f, 0.98f, 0.018f), mats["EmisivoCian"], false);
@@ -536,6 +468,32 @@ public static class MontarMicrobiologia
         e.estado.alignment = TextAlignmentOptions.Center;
     }
 
+    // Plataforma holográfica sobre el pedestal: anillos con flechas de giro y rejilla luminosa.
+    internal static Transform PlataformaHolo(Transform est)
+    {
+        var p = new GameObject("Plataforma").transform;
+        p.SetParent(est, false);
+        p.localPosition = new Vector3(0f, 0.915f, 0f);
+        Transform Disco(string nombre, Material mat, float tam, float y)
+        {
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Object.DestroyImmediate(q.GetComponent<Collider>());
+            q.name = nombre;
+            q.transform.SetParent(p, false);
+            q.transform.localPosition = new Vector3(0f, y, 0f);
+            q.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            q.transform.localScale = Vector3.one * tam;
+            var r = q.GetComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            return q.transform;
+        }
+        Disco("Rejilla", mats["RejillaHolo"], 0.95f, 0f);
+        Disco("Anillos", mats["PlataformaHolo"], 1.25f, 0.003f);
+        return p;
+    }
+
     internal static BotonFisico Boton(Transform padre, string texto, Vector3 pos)
     {
         var b = new GameObject("Boton_" + texto).transform;
@@ -551,41 +509,6 @@ public static class MontarMicrobiologia
         bf.etiqueta.alignment = TextAlignmentOptions.Center;
         bf.etiqueta.fontStyle = FontStyles.Bold;
         return bf;
-    }
-
-    // ------------------------------------------------------------------ cabina
-
-    internal static void CrearCabinaDesinfeccion(Transform padre)
-    {
-        float cx = (PuertaX0 + PuertaX1) / 2f;
-        float z0 = BslFrenteZ - 1.15f, z1 = BslFrenteZ - 0.04f, zc = (z0 + z1) / 2f;
-        float ancho = PuertaX1 - PuertaX0, alto = 2.3f;
-        foreach (var x in new[] { PuertaX0 - 0.03f, PuertaX1 + 0.03f })
-        {
-            Caja(padre, "Lateral", new Vector3(x, suelo + alto / 2f, zc), new Vector3(0.06f, alto, z1 - z0), mats["Blanco"], true);
-            float dentro = x < cx ? 0.035f : -0.035f;
-            for (int i = 0; i < 3; i++)
-                Caja(padre, "Boquilla", new Vector3(x + dentro, suelo + 0.6f + i * 0.55f, zc), new Vector3(0.012f, 0.04f, z1 - z0 - 0.2f), mats["EmisivoAzul"], false);
-        }
-        Caja(padre, "Techo", new Vector3(cx, suelo + alto + 0.08f, zc), new Vector3(ancho + 0.14f, 0.16f, z1 - z0), mats["Blanco"], true);
-        Caja(padre, "Rejilla", new Vector3(cx, suelo + 0.006f, zc), new Vector3(ancho - 0.05f, 0.012f, z1 - z0 - 0.05f), mats["Oscuro"], false);
-        Caja(padre, "BordeRejilla", new Vector3(cx, suelo + 0.004f, zc), new Vector3(ancho, 0.006f, z1 - z0), mats["EmisivoAzul"], false);
-        var luz = new GameObject("LuzAzul").AddComponent<Light>();
-        luz.transform.SetParent(padre, false);
-        luz.transform.position = new Vector3(cx, suelo + 2.1f, zc);
-        luz.type = LightType.Point; luz.color = new Color(0.35f, 0.65f, 1f); luz.range = 2.6f; luz.intensity = 1.8f;
-        luz.lightmapBakeType = LightmapBakeType.Baked;
-
-        foreach (var (z, rotY, texto, fondo) in new[] { (z1 + 0.02f, 180f, "DESINFECCIÓN\nANTES DE SALIR", "BlancoMate"), (z0 - 0.02f, 0f, "ENTRADA\nÁREA BSL-3", "Amarillo") })
-        {
-            var cartel = new GameObject("Cartel").transform;
-            cartel.SetParent(padre, false);
-            cartel.position = new Vector3(cx, suelo + alto + 0.36f, z);
-            cartel.rotation = Quaternion.Euler(0f, rotY, 0f);
-            Caja(cartel, "Placa", new Vector3(0f, 0f, 0.012f), new Vector3(ancho + 0.2f, 0.42f, 0.02f), mats[fondo], false);
-            var t = Texto3D(cartel, texto, new Vector3(0f, 0f, -0.002f), Quaternion.identity, 0.85f, Color.black, ancho + 0.15f);
-            t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
-        }
     }
 
     // ------------------------------------------------------------------ bienvenida
@@ -613,7 +536,7 @@ public static class MontarMicrobiologia
             var p = Texto3D(tut, pasos[i], new Vector3(0.1f, y, -0.02f), Quaternion.identity, 0.42f, Color.white, 1.1f);
             p.alignment = TextAlignmentOptions.Left;
         }
-        var extra = Texto3D(tut, "Los virus están en la <color=#FF8CA0>zona de alto riesgo</color> (al fondo, a la izquierda). Toca el <color=#8FD8FF>desinfectante</color> para limpiar un portaobjetos.\n<color=#FFD25A>¡Nuevo! CENTRO DE EXPERIMENTACIÓN</color> (puerta de la pared derecha): resuelve el CASO 01.",
+        var extra = Texto3D(tut, "Los virus están en la <color=#FF8CA0>sala de vidrio de alto riesgo</color> (al fondo, a la izquierda). Toca el <color=#8FD8FF>desinfectante</color> para limpiar un portaobjetos.\n<color=#FFD25A>¡Nuevo! CENTRO DE EXPERIMENTACIÓN</color> (puerta de la pared derecha): resuelve el CASO 01.",
                             new Vector3(0f, -0.64f, -0.02f), Quaternion.identity, 0.32f, new Color(0.8f, 0.88f, 1f), 1.3f);
         extra.alignment = TextAlignmentOptions.Center;
 
@@ -697,20 +620,14 @@ public static class MontarMicrobiologia
         var rb = go.AddComponent<Rigidbody>();
         rb.mass = 0.05f; rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(0.075f, 0.006f, 0.026f);
+        var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(0.075f, 0.003f, 0.026f);
 
-        Caja(go.transform, "Vidrio", Vector3.zero, new Vector3(0.075f, 0.0015f, 0.025f), mats["VidrioPorta"], false);
-        Caja(go.transform, "Esmerilado", new Vector3(0.0275f, 0.0001f, 0f), new Vector3(0.02f, 0.0018f, 0.025f), mats["BlancoMate"], false);
-        var frotis = Caja(go.transform, "Frotis", new Vector3(-0.008f, 0.0009f, 0f), new Vector3(0.024f, 0.0004f, 0.017f), mats["Frotis"], false);
-        var brillo = Caja(go.transform, "Brillo", Vector3.zero, new Vector3(0.078f, 0.004f, 0.028f), mats["Brillo"], false);
-
+        // Vidrio de 75 × 25 × 1 mm con canto, zona esmerilada y frotis (Utileria).
+        var (frotis, brillo, etiqueta) = Utileria.Portaobjetos(go.transform);
         var p = go.AddComponent<Portaobjetos>();
-        p.frotis = frotis.GetComponent<Renderer>();
-        p.etiqueta = Texto3D(go.transform, "LIMPIO", new Vector3(0.0275f, 0.0012f, 0f), Quaternion.Euler(90f, 90f, 0f), 0.028f, Color.black, 0.024f);
-        p.etiqueta.alignment = TextAlignmentOptions.Center;
-        p.etiqueta.fontStyle = FontStyles.Bold;
-        p.etiqueta.enableAutoSizing = true; p.etiqueta.fontSizeMin = 0.01f; p.etiqueta.fontSizeMax = 0.028f;
-        p.brillo = brillo.GetComponent<Renderer>();
+        p.frotis = frotis;
+        p.etiqueta = etiqueta;
+        p.brillo = brillo;
         ConfigurarMetaISDK.HacerAgarrable(go, 0.05f);   // Grabbable + interactables del Interaction SDK
 
         var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabDir + "/Portaobjetos.prefab");
@@ -757,6 +674,8 @@ public static class MontarMicrobiologia
         var haz = Mat("Haz", brillo, new Color(0.15f, 0.5f, 0.8f));
         haz.SetFloat("_Base", 0.15f); haz.SetFloat("_Pulso", 2f); haz.SetFloat("_Grosor", 0f);
 
+        Utileria.Materiales();
+
         var bio = Mat("Biohazard", Shader.Find("Unlit/Transparent"), Color.white);
         bio.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/NanoLab/Muestras/Imagenes/biohazard.png");
         Mat("MicroEstacion", Shader.Find("Unlit/Texture"), Color.white);
@@ -766,8 +685,28 @@ public static class MontarMicrobiologia
         azul.SetColor("_Tint", new Color(0.3f, 0.7f, 1f)); azul.SetFloat("_TintAmount", 0.85f);
         azul.SetColor("_RimColor", new Color(0.5f, 0.9f, 1f)); azul.SetFloat("_RimIntensity", 1.8f);
         var color = MatEn(ResDir, "Holograma_Color", holo);
-        color.SetFloat("_TintAmount", 0.15f);
-        color.SetColor("_RimColor", new Color(0.45f, 0.85f, 1f)); color.SetFloat("_RimIntensity", 1.3f);
+        // Colores reales con un borde holográfico sutil (como una visualización científica 3D).
+        color.SetFloat("_TintAmount", 0.04f);
+        color.SetColor("_RimColor", new Color(0.45f, 0.85f, 1f)); color.SetFloat("_RimIntensity", 0.55f);
+        color.SetFloat("_Especular", 0.4f);
+        azul.SetFloat("_Especular", 0.25f);
+
+        // Luz aditiva: resplandor del visor del microscopio (Resources) y plataforma de la estación 3D.
+        var aditivo = Shader.Find("NanoLab/Aditivo");
+        Material Aditivo(string dir, string nombre, string textura, Color c, float intensidad)
+        {
+            var m = MatEn(dir, nombre, aditivo);
+            m.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/NanoLab/Texturas/{textura}.png");
+            m.color = c;
+            m.SetFloat("_Intensidad", intensidad);
+            mats[nombre] = m;
+            return m;
+        }
+        Aditivo(ResDir, "Resplandor", "Resplandor", new Color(0.2f, 0.5f, 1f), 0.55f);
+        MatEn(ResDir, "LineaPuntero", Shader.Find("Unlit/Color")).color = new Color(0.35f, 0.85f, 1f);
+        MatEn(ResDir, "LineaPunteroOk", Shader.Find("Unlit/Color")).color = new Color(0.35f, 1f, 0.55f);
+        Aditivo(MatDir, "PlataformaHolo", "PlataformaHolo", new Color(0.3f, 0.8f, 1f), 1.1f);
+        Aditivo(MatDir, "RejillaHolo", "RejillaHolo", new Color(0.25f, 0.6f, 0.95f), 0.7f);
         AssetDatabase.SaveAssets();
     }
 
@@ -898,8 +837,9 @@ public static class MontarMicrobiologia
         ML.Capturar(dir, "micro_1_entrada",new Vector3(-3.3f, y + 1.65f, 2.24f), Quaternion.Euler(8f, 24f, 0f) * Vector3.forward);
         ML.Capturar(dir, "micro_2_isla", new Vector3(-1.8f, y + 1.6f, 14.1f), new Vector3(0f, -0.55f, -1f));
         ML.Capturar(dir, "micro_3_puesto", new Vector3(-2.55f, y + 1.35f, 13.25f), new Vector3(0f, -0.75f, -1f));
-        ML.Capturar(dir, "micro_4_bsl_fuera", new Vector3(-6.2f, y + 1.7f, 9.3f), new Vector3(-0.55f, -0.12f, 1f));
-        ML.Capturar(dir, "micro_5_bsl_dentro", new Vector3(-8.3f, y + 1.65f, 12.7f), new Vector3(0.25f, -0.2f, 1f));
+        ML.Capturar(dir, "micro_4_bsl_fuera", new Vector3(-5.6f, y + 1.7f, 11.0f), new Vector3(-0.3f, -0.08f, 1f));
+        ML.Capturar(dir, "micro_5_bsl_dentro", new Vector3(-9.2f, y + 1.65f, 17.3f), new Vector3(0.35f, -0.2f, 1f));
+        ML.Capturar(dir, "micro_9_bsl_fondo", new Vector3(-3.4f, y + 1.8f, 17.4f), new Vector3(-0.8f, -0.25f, 1f));
         ML.Capturar(dir, "micro_6_cepario", new Vector3(5.2f, y + 1.5f, 10.0f), new Vector3(0f, -0.6f, 1f));
         ML.Capturar(dir, "micro_7_tutorial", new Vector3(-3.3f, y + 1.65f, 2.24f), Quaternion.Euler(10f, 50f, 0f) * Vector3.forward);
         ML.Capturar(dir, "micro_8_progreso", new Vector3(-3.3f, y + 1.65f, 2.24f), Quaternion.Euler(10f, -10f, 0f) * Vector3.forward);
@@ -916,9 +856,9 @@ public static class MontarMicrobiologia
         float y = ML.AlturaSuelo(ML.BoundsEscena());
         var rutas = new Dictionary<string, Vector2[]>
         {
-            { "Entrada -> zona de virus -> criotubos", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(-5.4f, 5.6f), new Vector2(-5.4f, 9.8f), new Vector2(-8.65f, 10.6f), new Vector2(-8.65f, 12.9f), new Vector2(-7.2f, 13.0f), new Vector2(-6.9f, 14.6f), new Vector2(-7.2f, 14.7f) } },
             { "Entrada -> introducción -> espejo del recibidor", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-1.0f, 1.85f), new Vector2(1.2f, 1.85f), new Vector2(1.5f, 2.4f) } },
-            { "Zona de virus -> frente a la consola", new[] { new Vector2(-8.65f, 12.9f), new Vector2(-8.2f, 13.3f) } },
+            { "Entrada -> sala de alto riesgo -> criotubos", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(-5.4f, 5.6f), new Vector2(-5.4f, 9.8f), new Vector2(-8.65f, 10.6f), new Vector2(-9.2f, 12.0f), new Vector2(-9.2f, 17.6f), new Vector2(-8.0f, 20.0f), new Vector2(-8.6f, 23.6f) } },
+            { "Sala de alto riesgo -> frente a la consola", new[] { new Vector2(-9.2f, 17.6f), new Vector2(-6.6f, 19.95f) } },
             { "Entrada -> puesto 1", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 14.5f), new Vector2(-2.55f, 14.5f), new Vector2(-2.55f, 13.65f) } },
             { "Entrada -> cepario", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 9.4f), new Vector2(5.2f, 9.4f), new Vector2(5.2f, 10.1f) } },
             { "Entrada -> puerta del centro de experimentación", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 8.1f), new Vector2(8.0f, 8.1f) } },
@@ -1022,12 +962,23 @@ public static class MontarMicrobiologia
             cam.cullingMask &= ~(1 << VisorVirus.Capa);
             var rt = new RenderTexture(1600, 800, 24);
             cam.targetTexture = rt; cam.aspect = 2f;
-            cam.Render();
-            RenderTexture.active = rt;
-            var tex = new Texture2D(1600, 800, TextureFormat.RGB24, false);
-            tex.ReadPixels(new Rect(0, 0, 1600, 800), 0, 0);
-            File.WriteAllBytes(Path.Combine(dir, $"hud_{nombre}.png"), tex.EncodeToPNG());
-            RenderTexture.active = null;
+            void Guardar(string archivo)
+            {
+                Canvas.ForceUpdateCanvases();
+                cam.Render();
+                RenderTexture.active = rt;
+                var tex = new Texture2D(1600, 800, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, 1600, 800), 0, 0);
+                File.WriteAllBytes(Path.Combine(dir, archivo), tex.EncodeToPNG());
+                RenderTexture.active = null;
+            }
+            Guardar($"hud_{nombre}.png");
+            if (m.tipo == TipoMuestra.Virus)
+            {
+                hud.CambiarPestana(2);   // COMPOSICIÓN: leyenda de colores
+                VisorVirus.Obtener().RenderAhora();
+                Guardar($"hud_{nombre}_composicion.png");
+            }
             Object.DestroyImmediate(camGo);
         }
 

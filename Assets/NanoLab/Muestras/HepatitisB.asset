@@ -45,3 +45,9 @@ MonoBehaviour:
     y fluidos. Prevenci\xF3n con vacuna."
   observaciones: "Part\xEDculas de Dane esf\xE9ricas.\nNucleoc\xE1pside icosa\xE9drica.\nAbundantes
     part\xEDculas de HBsAg."
+  componentes:
+  - HBsAg (superficie)
+  - "Envoltura lip\xEDdica"
+  - "Prote\xEDna HBe"
+  - Polimerasa viral
+  - "N\xFAcleo HBc y ADN"

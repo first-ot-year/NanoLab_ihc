@@ -359,7 +359,7 @@ public class RetoManager : MonoBehaviour
             colorRiesgo = revelado ? (Color?)null : new Color(1f, 0.75f, 0.3f),
             cuadernoTitulo = "CUADERNO DE EVIDENCIAS",
             obsTitulo = "QUÉ ESTÁS VIENDO",
-            guia = "• ¿Qué forma tienen las células?\n• ¿Están sueltas, en cadenas o en racimos?\n• ¿De qué color quedaron tras la tinción de Gram?\n\n<color=#8FD8FF>A / X: más aumento     B / Y: menos aumento</color>",
+            guia = "• ¿Qué forma tienen las células?\n• ¿Están sueltas, en cadenas o en racimos?\n• ¿De qué color quedaron tras la tinción de Gram?\n\n<color=#8FD8FF>A / X: más aumento   B / Y: menos   Joystick izq.: mover la muestra</color>",
         };
         var claves = new List<string> { "Origen", "Tinción" };
         var valores = new List<string> { reto.origen, tincion };

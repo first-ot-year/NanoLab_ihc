@@ -11,6 +11,17 @@ public static class CrearMuestras
 
     static MuestraData.Dato D(string c, string v) => new MuestraData.Dato { clave = c, valor = v };
 
+    // Leyenda de COMPOSICIÓN de cada virus, en el orden de ModeloVirus.Paleta:
+    // superficie/espícula, envoltura o cápside, proteína 1, proteína 2, interior (genoma).
+    static readonly System.Collections.Generic.Dictionary<string, string[]> Componentes = new System.Collections.Generic.Dictionary<string, string[]>
+    {
+        { "Influenza", new[] { "Hemaglutinina (HA)", "Envoltura lipídica", "Neuraminidasa (NA)", "Canal M2", "ARN segmentado (8)" } },
+        { "VIH", new[] { "gp120 / gp41 (Env)", "Envoltura lipídica", "Matriz p17", "Transcriptasa inversa", "Cápside p24 y ARN" } },
+        { "SARSCoV2", new[] { "Proteína S (espícula)", "Envoltura lipídica", "Proteína M", "Proteína E", "ARN viral y proteína N" } },
+        { "VPH", new[] { "Capsómeros L1", "Cápside icosaédrica", "Proteína L2", "Histonas celulares", "ADN circular" } },
+        { "HepatitisB", new[] { "HBsAg (superficie)", "Envoltura lipídica", "Proteína HBe", "Polimerasa viral", "Núcleo HBc y ADN" } },
+    };
+
     public static MuestraData[] Todas()
     {
         return new[]
@@ -103,6 +114,7 @@ public static class CrearMuestras
         m.color = color; m.riesgo = riesgo; m.caracteristicas = datos;
         m.gramPositiva = tipo == TipoMuestra.Bacteria && archivo != "Ecoli";
         m.morfologia = morf; m.estructura = estr; m.composicion = comp; m.comportamiento = compor; m.observaciones = obs;
+        m.componentes = Componentes.TryGetValue(archivo, out var cs) ? cs : null;
         m.micrografia = Imagen(imagen);
         m.creditoImagen = Credito(imagen);
         if (modeloClave != null) m.modelo3D = BuscarModelo(modeloClave);

@@ -45,3 +45,9 @@ MonoBehaviour:
     el genoma de la c\xE9lula. Tratamiento: antirretrovirales."
   observaciones: "C\xE1pside c\xF3nica caracter\xEDstica.\nEsp\xEDculas Env escasas.\nMorfolog\xEDa
     de viri\xF3n maduro."
+  componentes:
+  - gp120 / gp41 (Env)
+  - "Envoltura lip\xEDdica"
+  - Matriz p17
+  - Transcriptasa inversa
+  - "C\xE1pside p24 y ARN"

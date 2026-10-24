@@ -3,7 +3,7 @@ using UnityEngine;
 // Sonidos de interfaz sintetizados por código (no necesitan archivos de audio).
 public static class Sonidos
 {
-    static AudioClip clic, carga, encaje, scan, logro, error, gota, etapa, pista, camara, fallo;
+    static AudioClip clic, carga, encaje, scan, logro, error, gota, etapa, pista, camara, fallo, tintineo;
 
     public static void Clic(Vector3 p) => Reproducir(ref clic, "clic", p, 0.5f, 0.05f, 1800f);
     public static void Carga(Vector3 p) => Reproducir(ref carga, "carga", p, 0.6f, 0.22f, 520f, 780f, 1040f);
@@ -16,6 +16,8 @@ public static class Sonidos
     public static void Pista(Vector3 p) => Reproducir(ref pista, "pista", p, 0.5f, 0.35f, 880f, 740f, 880f);
     public static void Camara(Vector3 p) => Reproducir(ref camara, "camara", p, 0.6f, 1.6f, 110f, 130f, 150f, 170f, 190f, 210f, 230f, 250f);
     public static void Fallo(Vector3 p) => Reproducir(ref fallo, "fallo", p, 0.7f, 0.6f, 392f, 330f, 262f);
+    // Vidrio que choca: agudo y muy corto; 'fuerza' (0..1) escala el volumen.
+    public static void Tintineo(Vector3 p, float fuerza) => Reproducir(ref tintineo, "tintineo", p, Mathf.Lerp(0.08f, 0.45f, Mathf.Clamp01(fuerza)), 0.07f, 3400f, 4600f);
 
     static void Reproducir(ref AudioClip clip, string nombre, Vector3 p, float volumen, float duracion, params float[] notas)
     {

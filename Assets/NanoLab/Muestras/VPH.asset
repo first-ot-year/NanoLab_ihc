@@ -45,3 +45,9 @@ MonoBehaviour:
     asocian a c\xE1ncer. Existe vacuna."
   observaciones: "C\xE1pside icosa\xE9drica bien definida.\nSin envoltura lip\xEDdica.\nCaps\xF3meros
     visibles."
+  componentes:
+  - "Caps\xF3meros L1"
+  - "C\xE1pside icosa\xE9drica"
+  - "Prote\xEDna L2"
+  - Histonas celulares
+  - ADN circular

@@ -31,7 +31,8 @@ public static class MontarCentroExperimentacion
     public const string NombreRaiz = "CentroExperimentacion";
 
     // Medidas de la sala de Microbiología (NanoLab/Diagnóstico): pared este en x 6,63–6,87, techo a 4,25 m.
-    const float ParedX0 = 6.63f, ParedX1 = 6.87f, AltoSala = 4.25f, Grosor = 0.25f;
+    const float ParedX0 = 6.63f, ParedX1 = 6.87f;
+    internal const float AltoSala = 4.25f, Grosor = 0.25f;
     // Interior del anexo (el suelo del pack mide 17,5 × 17,5 m).
     public const float X0 = 6.87f, X1 = 24.14f, Z0 = -0.25f, Z1 = 17.26f;
     const float PuertaZ0 = 7.3f, PuertaZ1 = 8.9f, AltoPuerta = 2.25f;
@@ -47,7 +48,8 @@ public static class MontarCentroExperimentacion
     };
 
     static Dictionary<string, Material> M => MM.mats;
-    static float suelo;
+    // Compartido con MontarMicrobiologia (la sala de alto riesgo también usa Equipo y la cabina).
+    static float suelo { get => MM.suelo; set => MM.suelo = value; }
     static RetoData reto;
 
     // ================================================================== entrada
@@ -89,7 +91,6 @@ public static class MontarCentroExperimentacion
     public static void Construir(Transform padre, GameObject slidePrefab)
     {
         suelo = ML.AlturaSuelo(ML.BoundsEscena());
-        MM.suelo = suelo;
         MaterialesCentro();
         reto = CrearReto();
 
@@ -235,7 +236,7 @@ public static class MontarCentroExperimentacion
     }
 
     // Tramo de pared entre dos esquinas (a, b) teselado con wall01.
-    static void Muro(Transform padre, GameObject wall, Vector3 a, Vector3 b, bool alongX)
+    internal static void Muro(Transform padre, GameObject wall, Vector3 a, Vector3 b, bool alongX)
     {
         float largo = alongX ? b.x - a.x : b.z - a.z;
         int n = Mathf.Max(1, Mathf.CeilToInt(largo / 4.25f - 0.05f));
@@ -249,7 +250,7 @@ public static class MontarCentroExperimentacion
     }
 
     // Instancia un prefab del pack y lo escala/coloca para que ocupe exactamente 'objetivo' (ejes del mundo).
-    static GameObject Pieza(Transform padre, GameObject prefab, Bounds objetivo, float yaw, bool colliders = true)
+    internal static GameObject Pieza(Transform padre, GameObject prefab, Bounds objetivo, float yaw, bool colliders = true)
     {
         var cont = new GameObject(prefab.name).transform;
         cont.SetParent(padre, false);
@@ -265,7 +266,7 @@ public static class MontarCentroExperimentacion
     }
 
     // Geometría estática: colliders (como ML.AnadirColliders) y flags para hornear la luz.
-    static void Fijo(GameObject go, bool colliders)
+    internal static void Fijo(GameObject go, bool colliders)
     {
         var flags = StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccluderStatic |
                     StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ReflectionProbeStatic;
@@ -281,7 +282,7 @@ public static class MontarCentroExperimentacion
     }
 
     // Mueble de primitivas que no se mueve: estático pero iluminado con sondas.
-    static void FijoPrimitiva(GameObject go)
+    internal static void FijoPrimitiva(GameObject go)
     {
         foreach (var t in go.GetComponentsInChildren<Transform>(true))
             GameObjectUtility.SetStaticEditorFlags(t.gameObject, StaticEditorFlags.ContributeGI | StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ReflectionProbeStatic);
@@ -1151,11 +1152,16 @@ public static class MontarCentroExperimentacion
         Equipo(g, "Ultracongelador", V(7.75f, 0f, Z1 - 0.38f), 180f, V(0.8f, 1.9f, 0.7f), "ULTRACONGELADOR", "-80 °C", false);
         Equipo(g, "IncubadoraCO2", V(X1 - 0.38f, 0f, 1.8f), -90f, V(0.8f, 1.6f, 0.7f), "INCUBADORA CO2", "37 °C · 5 %", false);
 
-        // Cabina de bioseguridad clase II (abierta por delante, luz azul).
+        CabinaBioseguridad(g, V(X1 - 0.4f, 0f, 14.6f), -90f);
+    }
+
+    // Cabina de bioseguridad clase II (abierta por delante, luz azul).
+    internal static void CabinaBioseguridad(Transform g, Vector3 pos, float yaw)
+    {
         var c = new GameObject("CabinaBioseguridad").transform;
         c.SetParent(g, false);
-        c.position = V(X1 - 0.4f, suelo, 14.6f);
-        c.rotation = Quaternion.Euler(0f, -90f, 0f);
+        c.position = V(pos.x, suelo, pos.z);
+        c.rotation = Quaternion.Euler(0f, yaw, 0f);
         MM.Caja(c, "Base", V(0f, 0.45f, 0f), V(1.6f, 0.9f, 0.75f), M["Blanco"], true);
         MM.Caja(c, "Fondo", V(0f, 1.4f, -0.33f), V(1.6f, 1.0f, 0.08f), M["Blanco"], true);
         MM.Caja(c, "LadoI", V(-0.77f, 1.4f, 0f), V(0.06f, 1.0f, 0.75f), M["Blanco"], true);
@@ -1171,7 +1177,7 @@ public static class MontarCentroExperimentacion
         FijoPrimitiva(c.gameObject);
     }
 
-    static void Equipo(Transform g, string nombre, Vector3 pos, float yaw, Vector3 tam, string rotulo, string pantalla, bool redondo)
+    internal static void Equipo(Transform g, string nombre, Vector3 pos, float yaw, Vector3 tam, string rotulo, string pantalla, bool redondo)
     {
         var e = new GameObject(nombre).transform;
         e.SetParent(g, false);

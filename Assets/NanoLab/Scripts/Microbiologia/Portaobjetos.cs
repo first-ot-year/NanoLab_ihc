@@ -7,6 +7,7 @@ using UnityEngine;
 // Portaobjetos que se agarra con el Meta Interaction SDK (Grabbable + GrabInteractable +
 // PhysicsGrabbable + HandGrab/DistanceGrab). Este script solo añade la lógica del
 // laboratorio: cargar la muestra al tocar un tubo/placa y encajarse en la platina al soltarlo.
+// Si se cae al suelo o queda muy lejos, vuelve solo a su bandeja (tolerancia al error, RNF-04).
 [RequireComponent(typeof(Rigidbody))]
 public class Portaobjetos : MonoBehaviour
 {
@@ -16,7 +17,8 @@ public class Portaobjetos : MonoBehaviour
     public Renderer brillo;              // se enciende cuando el SDK apunta/pasa por encima (hover)
     public float radioPlatina = 0.12f;
     public float radioMuestra = 0.06f;
-    public float distanciaMaxima = 30f;     // se lleva de una sala a otra: solo vuelve si se sale del edificio
+    [Tooltip("Si queda suelto a más de esta distancia de su sitio (m), vuelve a él. Grande: se lleva de una sala a otra.")]
+    public float distanciaMaxima = 30f;
 
     public static readonly List<Portaobjetos> Todos = new List<Portaobjetos>();
     public static bool AlgunoAgarrado { get { foreach (var p in Todos) if (p.Agarrado) return true; return false; } }
@@ -39,10 +41,10 @@ public class Portaobjetos : MonoBehaviour
     bool estabaAgarrado;
     int hovers;
     FuenteMuestra ultimaFuente;
-    MaterialPropertyBlock mpb;
     Vector3 casaPos;
     Quaternion casaRot;
-    float tiempoFuera;
+    float tiempoFuera, ultimoGolpe;
+    MaterialPropertyBlock mpb;
     static readonly Collider[] buffer = new Collider[32];
 
     void Awake()
@@ -50,9 +52,9 @@ public class Portaobjetos : MonoBehaviour
         grabbable = GetComponent<Grabbable>();
         rb = GetComponent<Rigidbody>();
         mpb = new MaterialPropertyBlock();
-        if (brillo != null) brillo.enabled = false;
         casaPos = transform.position;
         casaRot = transform.rotation;
+        if (brillo != null) brillo.enabled = false;
         Refrescar();
     }
 
@@ -97,6 +99,15 @@ public class Portaobjetos : MonoBehaviour
         ultimaFuente = f;
     }
 
+    // Sonido de vidrio al chocar (más fuerte cuanto más rápido); no se repite en el mismo instante.
+    void OnCollisionEnter(Collision c)
+    {
+        float v = c.relativeVelocity.magnitude;
+        if (v < 0.25f || Time.time - ultimoGolpe < 0.12f) return;
+        ultimoGolpe = Time.time;
+        Sonidos.Tintineo(transform.position, v / 2f);
+    }
+
     void AlAgarrar()
     {
         if (brillo != null) brillo.enabled = false;
@@ -113,6 +124,12 @@ public class Portaobjetos : MonoBehaviour
         if (Agarrado) yield break;
         var p = PlatinaCercana();
         if (p != null) Encajar(p);
+        else if (PunteroMuestras.Destino(this, out var apuntada, out var punto, out var rot))
+        {
+            // Soltado apuntando con el rayo: a esa platina, o plano sobre la mesa.
+            if (apuntada != null) Encajar(apuntada);
+            else { ColocarEn(punto + Vector3.up * 0.0016f, rot); Sonidos.Clic(transform.position); }
+        }
         else { rb.isKinematic = false; rb.useGravity = true; }
     }
 

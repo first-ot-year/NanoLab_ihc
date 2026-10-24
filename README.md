@@ -217,10 +217,13 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `PanelResumen` | Informe final, conocimiento recuperado y repetición del caso |
 | `Encajable` / `ZonaEncaje` | Objetos agarrables con encaje y retorno automático (RNF-04) |
 | `MetricsLogger` | Registro JSON de la sesión para HEART (RF-10) |
-| `AvatarBaymax` / `EspejoAvatar` | Baymax como avatar del jugador y espejos donde se ve completo |
+| `AvatarBaymax` / `EspejoAvatar` | Baymax como avatar del jugador (sus manos en primera persona) y espejos donde se ve completo |
 | `IndicadorRecuerdos` / `RecuerdosBaymax` | Recuerdos científicos recuperados (0/3) |
-| `MontarIntroduccion` (Editor) | Tótem de introducción "ERES BAYMAX" y orden de escenas de build |
-| `JugadorNanoLab` / `ManosRig` | Configuración del rig de Meta y acceso a manos/mandos |
+| `MontarIntroduccion` (Editor) | Tótem de introducción "ERES BAYMAX", balizas de las áreas y orden de escenas de build |
+| `BalizaArea` / `PanelRedondeado` | Balizas numeradas sobre cada área del laboratorio (orientación, RF-01) |
+| `JugadorNanoLab` / `PunteroMuestras` / `ManosRig` | Locomoción de Meta, agarre con gatillo o grip y rayo corto para tomar muestras y soltar en platinas o mesas |
+| `MontarSalaAltoRiesgo` / `EstacionAnalisis3D` / `VisorVirus` | Sala de vidrio BSL-3 con los criotubos de virus y la estación holográfica 3D |
+| `Utileria` / `MontarMusica` / `Realismo` (Editor) | Utilería realista (portaobjetos, bandejas, criotubos, frasco lavador), música ambiental y ajustes de realismo |
 
 Las métricas de sesión se guardan como JSON en `Application.persistentDataPath/NanoLab/`.
 

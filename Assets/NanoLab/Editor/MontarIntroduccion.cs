@@ -3,7 +3,9 @@ using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using UnityEngine.TextCore.LowLevel;
 using MM = MontarMicrobiologia;
 using ML = MontarLaboratorio;
 
@@ -11,6 +13,7 @@ using ML = MontarLaboratorio;
 // ha perdido sus recuerdos científicos y debe recuperarlos investigando. Lo invita a mirarse en el espejo
 // del recibidor, lo orienta hacia las áreas (hasta el banco de muestras del Centro) y muestra el
 // indicador de recuerdos recuperados. Incluye el aviso de contenido simplificado (RNF-06).
+// Además coloca las balizas numeradas sobre cada área del laboratorio (diseño de Luis).
 public static class MontarIntroduccion
 {
     const string Microbiologia = "Assets/NanoLab/Scenes/Microbiologia.unity";
@@ -36,8 +39,9 @@ public static class MontarIntroduccion
 
         var tutorial = s.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<Transform>(true)).FirstOrDefault(t => t.name == "Tutorial");
         var padre = tutorial != null ? tutorial.parent : new GameObject("Bienvenida").transform;
-        var vieja = padre.Find("Introduccion");
-        if (vieja != null) Object.DestroyImmediate(vieja.gameObject);
+        // Quita la introducción y las balizas anteriores (también el diálogo de la versión previa).
+        foreach (Transform hijo in padre.Cast<Transform>().ToArray())
+            if (hijo.name == "Introduccion" || hijo.name == "AreasLaboratorio") Object.DestroyImmediate(hijo.gameObject);
 
         // El tutorial de portaobjetos se aparta a la derecha para dejar la introducción delante.
         if (tutorial != null)
@@ -48,7 +52,8 @@ public static class MontarIntroduccion
         }
 
         Construir(padre);
-        Debug.Log($"[Intro] {s.name}: introducción de Baymax montada en {PosIntro}.");
+        Areas(padre);
+        Debug.Log($"[Intro] {s.name}: introducción de Baymax montada en {PosIntro} y {AreasLab.Length} balizas de áreas.");
     }
 
     static void Construir(Transform padre)
@@ -80,9 +85,9 @@ public static class MontarIntroduccion
         var dondeT = MM.Texto3D(panel, "DÓNDE IR", new Vector3(0f, 0.07f, -0.02f), Quaternion.identity, 0.42f, cian, 1.3f);
         dondeT.alignment = TextAlignmentOptions.Center; dondeT.fontStyle = FontStyles.Bold;
         var donde = MM.Texto3D(panel,
-            "<b>1.</b> Puestos de microscopio: observa muestras libremente.\n" +
-            "<b>2.</b> Cepario (bacterias) y zona de alto riesgo (virus, al fondo).\n" +
-            "<b>3.</b> <color=#FFD25A><b>CENTRO DE EXPERIMENTACIÓN</b></color> (puerta de la pared derecha): en el <b>BANCO DE MUESTRAS</b> elige el CASO 01 y recupera tu primer recuerdo.",
+            "Sigue las <b>balizas numeradas</b>:\n" +
+            "<b>1</b> Puestos de microscopio  ·  <b>2</b> Cepario (bacterias)  ·  <b>3</b> Sala de alto riesgo (virus)\n" +
+            "<b>4</b> <color=#FFD25A><b>CENTRO DE EXPERIMENTACIÓN</b></color>: en el <b>BANCO DE MUESTRAS</b> elige el CASO 01 y recupera tu primer recuerdo  ·  <b>5</b> Química",
             new Vector3(0f, -0.16f, -0.02f), Quaternion.identity, 0.33f, Color.white, 1.3f);
         donde.alignment = TextAlignmentOptions.Left;
 
@@ -98,7 +103,7 @@ public static class MontarIntroduccion
         }
         indicador.texto.text = $"RECUERDOS CIENTÍFICOS: <color=#FFD25A>0/{RecuerdosBaymax.Total}</color>";
 
-        var controles = MM.Texto3D(panel, "Joystick izq.: caminar  ·  joystick der.: girar  ·  gatillo o grip: agarrar",
+        var controles = MM.Texto3D(panel, "Joystick izq.: caminar  ·  joystick der.: girar  ·  gatillo o grip: agarrar (también con el rayo)",
             new Vector3(0f, -0.6f, -0.02f), Quaternion.identity, 0.28f, new Color(0.56f, 0.85f, 1f), 1.3f);
         controles.alignment = TextAlignmentOptions.Center;
         var aviso = MM.Texto3D(panel, "Complemento educativo: las muestras, intervenciones y resultados están simplificados; no son protocolos clínicos ni de laboratorio reales.",
@@ -108,12 +113,146 @@ public static class MontarIntroduccion
         GameObjectUtility.SetStaticEditorFlags(raiz.Find("Pie").gameObject, StaticEditorFlags.BatchingStatic);
     }
 
+    // ------------------------------------------------------------------ balizas de las áreas (orientación, RF-01)
+    // Siempre visibles: anillo y haz de luz en el suelo y un rótulo numerado que mira al jugador y crece
+    // con la distancia (BalizaArea). Paneles con el estilo de Quest (esquinas redondeadas del Interaction
+    // SDK) y tipografía Atkinson Hyperlegible. El color siempre va con número y texto (RNF-03).
+
+    const string MatDir = "Assets/NanoLab/Materiales/Micro";
+    const string FuenteDir = "Assets/NanoLab/Fuentes";
+    // Caracteres que se rasterizan al crear la fuente (el resto se añade al vuelo).
+    const string Caracteres = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~" +
+                              "¡¿ÁÉÍÓÚÜÑáéíóúüñ·°×–—…“”‘’";
+    // Opaco: con mezcla en espacio lineal, incluso un 3 % de transparencia deja ver el texto de detrás.
+    static readonly Color Fondo = new Color(0.075f, 0.09f, 0.115f, 1f);
+    static readonly Color TextoTenue = new Color(0.62f, 0.7f, 0.78f, 1f);
+    static Material matPanel;
+    static TMP_FontAsset fuente, fuenteNegrita;
+
+    // Mismo orden que el "DÓNDE IR" del tótem.
+    static readonly (string titulo, string sub, float x, float z, Color color)[] AreasLab =
+    {
+        ("PUESTOS DE MICROSCOPÍA", "Portaobjetos y microscopios", -1.85f, 9.9f, new Color(0.35f, 0.85f, 1f)),
+        ("CEPARIO", "Muestras de bacterias", 5.2f, 10.3f, new Color(0.45f, 0.65f, 1f)),
+        ("SALA DE ALTO RIESGO", "Muestras de virus · BSL-3", -9.2f, 14.7f, new Color(1f, 0.5f, 0.65f)),
+        ("CENTRO DE EXPERIMENTACIÓN", "Caso 01", 5.9f, 8.1f, new Color(1f, 0.82f, 0.35f)),
+        ("LABORATORIO DE QUÍMICA", "Portal", -5.9f, 1.9f, new Color(0.4f, 1f, 0.6f)),
+    };
+
+    static void Areas(Transform padre)
+    {
+        Recursos();
+        var g = new GameObject("AreasLaboratorio").transform;
+        g.SetParent(padre, false);
+        for (int i = 0; i < AreasLab.Length; i++)
+        {
+            var a = AreasLab[i];
+            var e = new GameObject("Area_" + (i + 1)).transform;
+            e.SetParent(g, false);
+            e.position = new Vector3(a.x, MM.suelo, a.z);
+            var emis = Emisivo(a.color);
+            MM.Cilindro(e, "Anillo", new Vector3(0f, 0.004f, 0f), new Vector3(0.9f, 0.002f, 0.9f), Quaternion.identity, emis);
+            MM.Cilindro(e, "Haz", new Vector3(0f, 1.15f, 0f), new Vector3(0.025f, 1.15f, 0.025f), Quaternion.identity, emis);
+
+            var rot = new GameObject("Rotulo").transform;
+            rot.SetParent(e, false);
+            rot.localPosition = new Vector3(0f, 2.55f, 0f);
+            Panel(rot, "Fondo", 0f, 0f, 0f, 0.86f, 0.2f, 0.05f, Fondo, a.color, 0.004f, 0);
+            Panel(rot, "Numero", -0.36f, 0f, -0.002f, 0.1f, 0.1f, 0.05f, a.color, Color.clear, 0f, 1);
+            Texto(rot, (i + 1).ToString(), -0.36f, 0f, 0.1f, 0.5f, new Color(0.03f, 0.08f, 0.12f), true, TextAlignmentOptions.Center);
+            Texto(rot, a.titulo, 0.06f, 0.035f, 0.68f, 0.34f, Color.white, true, TextAlignmentOptions.Left);
+            Texto(rot, a.sub, 0.06f, -0.04f, 0.68f, 0.26f, TextoTenue, false, TextAlignmentOptions.Left);
+            var baliza = e.gameObject.AddComponent<BalizaArea>();
+            baliza.rotulo = rot;
+            baliza.distanciaBase = 3f; baliza.escalaMax = 3.5f;
+        }
+    }
+
+    static void Recursos()
+    {
+        var sh = Shader.Find("Interaction/RoundedBoxUnlit");
+        if (sh == null) Debug.LogWarning("[Intro] No se encontró el shader Interaction/RoundedBoxUnlit (Meta Interaction SDK).");
+        matPanel = MM.MatEn(MatDir, "PanelRedondeado", sh != null ? sh : Shader.Find("Unlit/Color"));
+        matPanel.enableInstancing = true;
+        EditorUtility.SetDirty(matPanel);
+        fuente = Fuente("AtkinsonHyperlegible-Regular");
+        fuenteNegrita = Fuente("AtkinsonHyperlegible-Bold");
+        AssetDatabase.SaveAssets();
+    }
+
+    // Fuente TMP dinámica a partir del TTF (con los caracteres del español ya rasterizados).
+    static TMP_FontAsset Fuente(string nombre)
+    {
+        string ruta = $"{FuenteDir}/{nombre} SDF.asset";
+        var fa = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ruta);
+        if (fa != null) return fa;
+        var ttf = AssetDatabase.LoadAssetAtPath<Font>($"{FuenteDir}/{nombre}.ttf");
+        if (ttf == null) { Debug.LogWarning($"[Intro] Falta {FuenteDir}/{nombre}.ttf: se usa la fuente por defecto de TMP."); return null; }
+        fa = TMP_FontAsset.CreateFontAsset(ttf, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
+        fa.name = nombre + " SDF";
+        fa.TryAddCharacters(Caracteres, out string faltan);
+        if (!string.IsNullOrEmpty(faltan)) Debug.LogWarning($"[Intro] {nombre}: sin glifo para '{faltan}'.");
+        AssetDatabase.CreateAsset(fa, ruta);
+        foreach (var tex in fa.atlasTextures) { tex.name = nombre + " Atlas"; AssetDatabase.AddObjectToAsset(tex, fa); }
+        fa.material.name = nombre + " Material";
+        AssetDatabase.AddObjectToAsset(fa.material, fa);
+        EditorUtility.SetDirty(fa);
+        return fa;
+    }
+
+    static Material Emisivo(Color c)
+    {
+        string n = "Baliza_" + ColorUtility.ToHtmlStringRGB(c);
+        var m = MM.MatEn(MatDir, n, Shader.Find("Unlit/Color"));
+        m.color = c;
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    // Quad con PanelRedondeado. 'orden' fija qué capa se dibuja encima (todos son transparentes).
+    static PanelRedondeado Panel(Transform padre, string nombre, float x, float y, float z, float ancho, float alto, float radio,
+                                 Color color, Color borde, float grosorBorde, int orden)
+    {
+        var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        Object.DestroyImmediate(q.GetComponent<Collider>());
+        q.name = nombre;
+        q.transform.SetParent(padre, false);
+        q.transform.localPosition = new Vector3(x, y, z);
+        var r = q.GetComponent<MeshRenderer>();
+        r.sharedMaterial = matPanel;
+        r.shadowCastingMode = ShadowCastingMode.Off;
+        r.receiveShadows = false;
+        r.lightProbeUsage = LightProbeUsage.Off;
+        r.reflectionProbeUsage = ReflectionProbeUsage.Off;
+        r.sortingOrder = orden;
+        var p = q.AddComponent<PanelRedondeado>();
+        p.ancho = ancho; p.alto = alto; p.radio = radio;
+        p.color = color; p.colorBorde = borde; p.borde = grosorBorde;
+        p.Aplicar();
+        return p;
+    }
+
+    static TextMeshPro Texto(Transform padre, string s, float x, float y, float ancho, float tam, Color color, bool negrita, TextAlignmentOptions alin)
+    {
+        var t = MM.Texto3D(padre, s, new Vector3(x, y, -0.004f), Quaternion.identity, tam, color, ancho);
+        var f = negrita ? fuenteNegrita : fuente;
+        if (f != null) t.font = f;
+        else if (negrita) t.fontStyle = FontStyles.Bold;
+        t.alignment = alin;
+        t.sortingOrder = 10;
+        return t;
+    }
+
     // La experiencia empieza en Microbiología; Química queda como sala secundaria y sin escenas de ejemplo.
     public static void OrdenarEscenas()
     {
-        var lista = new System.Collections.Generic.List<EditorBuildSettingsScene> { new EditorBuildSettingsScene(Microbiologia, true) };
-        if (System.IO.File.Exists(Quimica)) lista.Add(new EditorBuildSettingsScene(Quimica, true));
+        EditorBuildSettingsScene Escena(string ruta) => new EditorBuildSettingsScene(new GUID(AssetDatabase.AssetPathToGUID(ruta)), true);
+        var lista = new System.Collections.Generic.List<EditorBuildSettingsScene> { Escena(Microbiologia) };
+        if (System.IO.File.Exists(Quimica)) lista.Add(Escena(Quimica));
+        // Se vacía antes para que Unity reescriba los GUID aunque las rutas no hayan cambiado.
+        EditorBuildSettings.scenes = new EditorBuildSettingsScene[0];
         EditorBuildSettings.scenes = lista.ToArray();
-        Debug.Log("[Intro] Escenas de build: " + string.Join(", ", lista.Select(e => e.path)));
+        AssetDatabase.SaveAssets();
+        Debug.Log("[Intro] Escenas de build: " + string.Join(", ", lista.Select(e => $"{e.path} ({e.guid})")));
     }
 }

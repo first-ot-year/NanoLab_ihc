@@ -45,3 +45,9 @@ MonoBehaviour:
     la NA libera los nuevos virus. Cambia cada temporada (deriva antig\xE9nica)."
   observaciones: "Esp\xEDculas HA/NA claramente visibles.\nEnvoltura \xEDntegra.\nCompatible
     con cepa aviar H5N1."
+  componentes:
+  - Hemaglutinina (HA)
+  - "Envoltura lip\xEDdica"
+  - Neuraminidasa (NA)
+  - Canal M2
+  - ARN segmentado (8)

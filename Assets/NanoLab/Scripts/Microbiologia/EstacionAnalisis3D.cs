@@ -11,6 +11,7 @@ public class EstacionAnalisis3D : MonoBehaviour
     public Transform holograma;          // punto donde flota el modelo
     public float diametro = 0.7f;
     public GameObject haz;               // cono de luz del proyector
+    public Transform plataforma;         // anillos holográficos (giran despacio; más intensos con un modelo)
     public TMP_Text titulo, ficha, estado;
     public Renderer micrografia;
     public BotonFisico rotarIzq, rotarDer, zoomMas, zoomMenos, vistaSuperior, vistaLateral, corte;
@@ -89,6 +90,12 @@ public class EstacionAnalisis3D : MonoBehaviour
 
     void Update()
     {
+        if (plataforma != null)
+        {
+            plataforma.Rotate(0f, (modelo != null ? -14f : -5f) * Time.deltaTime, 0f, Space.Self);
+            float s = Mathf.Lerp(plataforma.localScale.x, modelo != null ? 1f : 0.85f, Time.deltaTime * 3f);
+            plataforma.localScale = Vector3.one * s;
+        }
         if (modelo == null) return;
         float dt = Time.deltaTime;
         if (auto) holograma.Rotate(0f, 18f * dt, 0f, Space.World);

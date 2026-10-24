@@ -33,5 +33,11 @@ Reducidos de polígonos y recoloreados para usarlos en Meta Quest.
 - Chemistry Lab Items Pack — Animatics Studio (https://assetstore.unity.com/packages/3d/environments/chemistry-lab-items-pack-220212)
 - Free Laboratory Pack — StormBringer Studios (https://assetstore.unity.com/packages/3d/props/tools/free-laboratory-pack-123782)
 
+## Audio
+- Música ambiental `Audio/AmbienteLaboratorio.wav`: sintetizada para NanoLab con `Herramientas/musica.py` (sin material de terceros). Los efectos de interfaz se sintetizan en `Sonidos.cs`.
+
+## Tipografía (SIL Open Font License 1.1)
+- Atkinson Hyperlegible — Braille Institute of America (https://fonts.google.com/specimen/Atkinson+Hyperlegible). Licencia en `Assets/NanoLab/Fuentes/OFL.txt`. Usada en la introducción por su legibilidad.
+
 ## Meta
 - Meta XR SDK (Meta Platforms Technologies SDK License)

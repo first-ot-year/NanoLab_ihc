@@ -1,11 +1,16 @@
+using Oculus.Interaction;
+using Oculus.Interaction.Input;
 using Oculus.Interaction.Locomotion;
 using UnityEngine;
 
 // Va en la raíz del OVRCameraRigInteraction. Al arrancar:
 //  - fuerza el seguimiento a nivel de suelo (la cabeza queda a la altura real del usuario),
 //  - configura la locomoción de Meta (Locomotor del Interaction SDK, instalado por ConfigurarMetaISDK):
-//    joystick izquierdo = deslizamiento con aceleración y frenado suaves, colisiones de cápsula y
-//    viñeta de confort; joystick derecho = giro por pasos de Meta; sin teletransporte.
+//    joystick izquierdo = deslizamiento a velocidad constante, colisiones de cápsula y viñeta de
+//    confort; joystick derecho = giro por pasos de Meta; sin teletransporte,
+//  - agarre con el rayo a corta distancia: el agarre a distancia de Meta responde también al
+//    gatillo y su alcance se limita (el objeto viene a la mano); con un portaobjetos en la mano,
+//    el rayo toma muestras y lo deja en platinas o mesas (PunteroMuestras).
 // Si no encuentra el Locomotor, usa un movimiento propio de respaldo.
 public class JugadorNanoLab : MonoBehaviour
 {
@@ -16,6 +21,10 @@ public class JugadorNanoLab : MonoBehaviour
     public float suavizado = 0.05f;
     [Tooltip("Zona muerta del joystick (0..1).")]
     [Range(0f, 0.5f)] public float zonaMuerta = 0.15f;
+
+    [Header("Agarre con el rayo")]
+    [Tooltip("Alcance máximo (m) del agarre a distancia. Corto, para no perder realismo.")]
+    [Range(0.3f, 3f)] public float alcanceRayo = 1.2f;
 
     [Header("Giro")]
     public float anguloGiro = 30f;
@@ -38,8 +47,12 @@ public class JugadorNanoLab : MonoBehaviour
         locomotor = GetComponentInChildren<FirstPersonLocomotor>(true);
         respaldo = locomotor == null;
         if (respaldo) Debug.LogWarning("[Jugador] No hay FirstPersonLocomotor en el rig: se usa el movimiento de respaldo. Ejecuta 'NanoLab/Configurar interacción Meta'.");
+        var puntero = GetComponent<PunteroMuestras>();
+        if (puntero == null) puntero = gameObject.AddComponent<PunteroMuestras>();
+        puntero.alcance = alcanceRayo;
         ConfigurarGrupos();
         ConfigurarLocomotor();
+        ConfigurarAgarre();
     }
 
     // Se repite en Start y medio segundo después por si el OVRManager aplica su valor guardado al iniciar.
@@ -91,6 +104,26 @@ public class JugadorNanoLab : MonoBehaviour
         }
         slides = listaSlides.ToArray();
         turners = listaTurners.ToArray();
+    }
+
+    // Agarre a distancia de Meta: también con el gatillo ("click") y con alcance corto.
+    void ConfigurarAgarre()
+    {
+        int selectores = 0, conos = 0;
+        foreach (var cs in GetComponentsInChildren<ControllerSelector>(true))
+        {
+            if ((cs.ControllerButtonUsage & ControllerButtonUsage.GripButton) == 0) continue;   // solo los de agarrar
+            cs.ControllerButtonUsage |= ControllerButtonUsage.TriggerButton;
+            cs.RequireButtonUsages = ControllerSelector.ControllerSelectorLogicOperator.Any;
+            selectores++;
+        }
+        foreach (var cf in GetComponentsInChildren<ConicalFrustum>(true))
+        {
+            if (cf.MaxLength <= alcanceRayo) continue;
+            cf.MaxLength = alcanceRayo;
+            conos++;
+        }
+        Debug.Log($"[Jugador] Agarre: {selectores} selector(es) con gatillo o grip; alcance del rayo {alcanceRayo} m ({conos} cono(s)).");
     }
 
     static bool EsIzquierdo(Transform t)
