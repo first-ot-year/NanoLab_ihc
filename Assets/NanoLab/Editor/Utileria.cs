@@ -150,6 +150,71 @@ public static class Utileria
         return m;
     }
 
+    // ================================================================== gradilla de cultivos del puesto
+
+    // Gradilla con un tubo de cultivo de cada bacteria, junto al microscopio: se puede tomar una
+    // muestra nada más llegar al puesto, sin ir al cepario. Los virus siguen en la sala de alto riesgo.
+    internal static void GradillaCultivos(Transform puesto, Vector3 pos, MuestraData[] bacterias)
+    {
+        Limpiar(puesto, "GradillaCultivos");
+        var g = new GameObject("GradillaCultivos").transform;
+        g.SetParent(puesto, false);
+        g.localPosition = new Vector3(pos.x, 0f, pos.z);
+        const float paso = 0.065f;
+        float ancho = paso * bacterias.Length + 0.035f;
+        MM.Caja(g, "Base", new Vector3(0f, 0.0175f, 0f), new Vector3(ancho, 0.035f, 0.05f), M["PlasticoAzul"], true);
+        for (int i = 0; i < bacterias.Length; i++)
+        {
+            var b = bacterias[i];
+            float x = (i - (bacterias.Length - 1) / 2f) * paso;
+            MM.Cilindro(g, "Hueco", new Vector3(x, 0.0352f, 0f), new Vector3(0.019f, 0.0002f, 0.019f), Quaternion.identity, M["Hueco"]);
+            var tubo = new GameObject("Cultivo_" + b.name).transform;
+            tubo.SetParent(g, false);
+            tubo.localPosition = new Vector3(x, 0.022f, 0f);
+            var brillo = Criotubo(tubo, b);
+            var bc = tubo.gameObject.AddComponent<BoxCollider>();
+            bc.isTrigger = true; bc.center = new Vector3(0f, 0.04f, 0f); bc.size = new Vector3(0.055f, 0.09f, 0.055f);
+            tubo.gameObject.AddComponent<FuenteMuestra>().muestra = b;
+            var res = tubo.gameObject.AddComponent<Resaltado>();
+            res.brillos = new[] { brillo };
+            res.radio = 0.08f;
+            // Nombre impreso en el frente de la gradilla (lado del usuario: +z local del puesto).
+            var t = MM.Texto3D(g, b.nombre, new Vector3(x, 0.0175f, 0.0252f), Quaternion.Euler(0f, 180f, 0f), 0.09f, Color.white, paso);
+            t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
+            t.enableWordWrapping = false;
+        }
+        var titulo = MM.Texto3D(g, "CULTIVOS", new Vector3(0f, 0.115f, 0f), Quaternion.Euler(0f, 180f, 0f), 0.12f, new Color(0.4f, 0.9f, 1f), ancho);
+        titulo.alignment = TextAlignmentOptions.Center; titulo.fontStyle = FontStyles.Bold;
+    }
+
+    // Los microscopios se acercan al borde de la mesa (AcercarMicroscopios) y la bandeja y el
+    // desinfectante quedaban ~0,5 m al fondo. Se ponen a la altura del microscopio, al alcance de la
+    // mano, y se añade la gradilla de cultivos al otro lado del desinfectante.
+    internal static void ReubicarPuestos(MuestraData[] bacterias)
+    {
+        int n = 0;
+        foreach (var puesto in Object.FindObjectsOfType<Transform>(true).Where(t => t.name.StartsWith("Puesto_") && t.parent != null && t.parent.name == "Puestos").ToArray())
+        {
+            var micro = puesto.GetComponentInChildren<MicroscopioOptico>(true);
+            if (micro == null || micro.platina == null || micro.platina.anclaje == null) continue;
+            float z = puesto.InverseTransformPoint(micro.platina.anclaje.position).z;   // profundidad cómoda
+            var bandeja = puesto.Find("Bandeja");
+            if (bandeja != null)
+            {
+                float dz = z - bandeja.localPosition.z;
+                bandeja.localPosition += new Vector3(0f, 0f, dz);
+                foreach (var p in puesto.GetComponentsInChildren<Portaobjetos>(true))
+                    if (p.transform.parent == puesto && Mathf.Abs(p.transform.localPosition.x - bandeja.localPosition.x) < 0.02f)
+                        p.transform.localPosition += new Vector3(0f, 0f, dz);
+            }
+            var desinf = puesto.Find("Desinfectante");
+            if (desinf != null) desinf.localPosition = new Vector3(desinf.localPosition.x, desinf.localPosition.y, z);
+            if (bacterias != null && bacterias.Length > 0) GradillaCultivos(puesto, new Vector3(0.48f, 0f, z), bacterias);
+            n++;
+        }
+        Debug.Log($"[Utileria] {n} puestos con bandeja, desinfectante y gradilla de cultivos junto al microscopio.");
+    }
+
     // ================================================================== frasco lavador
 
     // Frasco lavador de 250 ml con etanol al 70 %: cuerpo de polietileno translúcido, líquido, tapa
@@ -341,6 +406,9 @@ public static class Utileria
             Object.DestroyImmediate(vieja.gameObject);
             if (ranuras.Length > 0) { Bandeja(padre, pos, ranuras); bandejas++; }
         }
+
+        Physics.SyncTransforms();
+        ReubicarPuestos(CrearMuestras.Todas().Where(m => m.tipo == TipoMuestra.Bacteria).ToArray());
 
         ConfigurarMetaISDK.ActualizarPrefabPortaobjetos();
         ConfigurarMetaISDK.Configurar(scene);

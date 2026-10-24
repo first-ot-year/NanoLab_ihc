@@ -4,13 +4,16 @@ using UnityEngine;
 // El modelo no tiene esqueleto: son piezas rígidas. El cuerpo se coloca bajo la cabeza del
 // jugador y gira con ella; la cabeza sigue al visor; cada mano va a su mando y el brazo se
 // estira del hombro a la muñeca (como un robot inflable).
-// Igual que Meta Avatars, en primera persona solo se ven las manos (el cuerpo, los brazos y la
-// cabeza no tapan la mesa ni lo que se manipula); los espejos sí ven a Baymax completo.
+// En primera persona se ven las manos/mandos de Meta (tamaño y forma reales, animadas con los
+// botones): las manos de Baby Baymax, escaladas a su cuerpo, tapaban la vista como un globo.
+// Los espejos ven a Baymax completo, con sus manos, y no ven las de Meta.
 [DefaultExecutionOrder(100)]
 public class AvatarBaymax : MonoBehaviour
 {
     // Capa que la cámara del jugador no renderiza y los espejos sí.
     public const int CapaCabeza = 29;
+    // Capa de las manos y mandos de Meta: la cámara del jugador sí la ve y los espejos no.
+    public const int CapaManosMeta = 28;
 
     [Header("Piezas (las rellena ConvertirBaymax)")]
     public Transform cuello;
@@ -29,9 +32,10 @@ public class AvatarBaymax : MonoBehaviour
     public Vector3 proporcion = new Vector3(0.9f, 1.2f, 0.9f);
 
     [Header("Comportamiento")]
-    [Tooltip("Ver también la barriga y los brazos en primera persona (por defecto, solo las manos, como Meta Avatars).")]
+    [Tooltip("Ver también la barriga y los brazos en primera persona.")]
     public bool cuerpoEnPrimeraPersona = false;
-    public bool ocultarManosMeta = true;
+    [Tooltip("En primera persona: manos/mandos de Meta (recomendado). Desactivado: manos de Baymax.")]
+    public bool manosMetaEnPrimeraPersona = true;
     [Tooltip("Retroceso de la mano respecto al mando (m) para no tapar el punto de agarre.")]
     public float retrocesoMano = 0.03f;
     [Tooltip("Grados que puede girar la cabeza antes de que el cuerpo la siga.")]
@@ -69,24 +73,26 @@ public class AvatarBaymax : MonoBehaviour
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             bool esMano = (manoIzq && r.transform.IsChildOf(manoIzq)) || (manoDer && r.transform.IsChildOf(manoDer));
             bool esCabeza = cuello && r.transform.IsChildOf(cuello);
-            r.gameObject.layer = esMano || (cuerpoEnPrimeraPersona && !esCabeza) ? 0 : CapaCabeza;
+            bool visible = (esMano && !manosMetaEnPrimeraPersona) || (cuerpoEnPrimeraPersona && !esCabeza && !esMano);
+            r.gameObject.layer = visible ? 0 : CapaCabeza;
         }
         if (rig != null)
             foreach (var c in rig.GetComponentsInChildren<Camera>(true)) c.cullingMask &= ~(1 << CapaCabeza);
-        OcultarManosMeta();
-        Invoke(nameof(OcultarManosMeta), 1f);   // por si el SDK activa modelos de mando al conectarse
+        PrepararManosMeta();
+        Invoke(nameof(PrepararManosMeta), 1f);   // por si el SDK activa modelos de mando al conectarse
     }
 
-    // Los mandos y las manos sintéticas de Meta se ocultan: las manos son las de Baymax.
-    // (Los rayos y cursores de interacción se mantienen.)
-    void OcultarManosMeta()
+    // Manos y mandos de Meta: visibles en primera persona (en su propia capa, que los espejos no ven)
+    // o, si se eligen las manos de Baymax, ocultos. Los rayos y cursores de interacción no se tocan.
+    void PrepararManosMeta()
     {
-        if (!ocultarManosMeta || rig == null) return;
+        if (rig == null) return;
         var raiz = rig.transform.parent != null ? rig.transform.parent : rig.transform;
         foreach (var r in raiz.GetComponentsInChildren<Renderer>(true))
         {
-            if (r.transform.IsChildOf(transform)) continue;
-            if (EsVisualDeMano(r.transform)) r.forceRenderingOff = true;
+            if (r.transform.IsChildOf(transform) || !EsVisualDeMano(r.transform)) continue;
+            r.forceRenderingOff = !manosMetaEnPrimeraPersona;
+            r.gameObject.layer = CapaManosMeta;
         }
     }
 

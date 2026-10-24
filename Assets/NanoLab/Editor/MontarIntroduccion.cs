@@ -178,14 +178,15 @@ public static class MontarIntroduccion
             "Las <color=#8FD8FF><b>balizas</b></color> marcan las áreas: puestos de microscopía, cepario (bacterias), " +
             "sala de alto riesgo (virus), centro de experimentación y el portal a química. Gira para verlas." },
         new Introduccion.Paso { titulo = "Cómo moverte", texto =
-            "<b>Joystick izquierdo:</b> caminar.   <b>Joystick derecho:</b> girar.\n<b>Gatillo o grip:</b> agarrar.\n" +
+            "<b>Joystick izquierdo:</b> caminar.   <b>Joystick derecho:</b> girar.\n<b>Gatillo o grip:</b> agarrar (también apuntando con el rayo).\n" +
             "Si se te cae un portaobjetos, vuelve solo a su bandeja. Equivocarte no tiene penalización." },
         new Introduccion.Paso { titulo = "Antes de empezar", texto =
             "NanoLab es un <b>complemento educativo</b>. Las muestras, intervenciones y resultados están simplificados " +
             "y no son protocolos clínicos ni de laboratorio reales." },
         new Introduccion.Paso { titulo = "Primera meta: elige una muestra", texto =
-            "<color=#8FD8FF><b>1.</b></color> Coge un <b>portaobjetos</b> de la bandeja de un puesto.\n" +
-            "<color=#8FD8FF><b>2.</b></color> Tócalo con una placa del <b>cepario</b> o con un criotubo de la <b>sala de alto riesgo</b>." },
+            "<color=#8FD8FF><b>1.</b></color> Coge un <b>portaobjetos</b> de la bandeja de un puesto (con la mano o apuntando con el rayo).\n" +
+            "<color=#8FD8FF><b>2.</b></color> Apunta a un tubo de la gradilla <b>CULTIVOS</b> de tu puesto y pulsa el <b>gatillo</b>. " +
+            "Los virus están en la <b>sala de alto riesgo</b>." },
     };
 
     // Indicación de control: botón (píldora) + acción.

@@ -85,6 +85,7 @@ public static class MontarMicrobiologia
         MontarCentroExperimentacion.Construir(raiz, slidePrefab);
         Physics.SyncTransforms();
         AcercarMicroscopios.Aplicar(scene);   // platinas a 15 cm del borde de la mesa
+        Utileria.ReubicarPuestos(bacterias);   // bandeja, desinfectante y cultivos junto al microscopio
 
         // Jugador: rig de Meta (OVRCameraRigInteraction) con agarre, teletransporte y objetos agarrables.
         ConfigurarMetaISDK.Configurar(scene);
@@ -703,6 +704,9 @@ public static class MontarMicrobiologia
             return m;
         }
         Aditivo(ResDir, "Resplandor", "Resplandor", new Color(0.2f, 0.5f, 1f), 0.55f);
+        MatEn(ResDir, "LineaPuntero", Shader.Find("Unlit/Color")).color = new Color(0.35f, 0.85f, 1f);
+        MatEn(ResDir, "JaulaConfort", Shader.Find("NanoLab/JaulaConfort"));   // marco de reposo al caminar
+        MatEn(ResDir, "LineaPunteroOk", Shader.Find("Unlit/Color")).color = new Color(0.35f, 1f, 0.55f);
         Aditivo(MatDir, "PlataformaHolo", "PlataformaHolo", new Color(0.3f, 0.8f, 1f), 1.1f);
         Aditivo(MatDir, "RejillaHolo", "RejillaHolo", new Color(0.25f, 0.6f, 0.95f), 0.7f);
         AssetDatabase.SaveAssets();

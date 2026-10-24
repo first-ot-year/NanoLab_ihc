@@ -71,7 +71,7 @@ public class MicroscopioOptico : MonoBehaviour
         Bloquear(false);
     }
 
-    // Mientras se mira por el ocular no hay teletransporte ni giro (el joystick cambia pestañas).
+    // Mientras se mira por el ocular no hay desplazamiento ni giro (los joysticks mueven la muestra y cambian pestañas).
     static void Bloquear(bool b)
     {
         foreach (var j in FindObjectsOfType<JugadorNanoLab>(true)) j.PausarLocomocion(b);
@@ -83,7 +83,9 @@ public class MicroscopioOptico : MonoBehaviour
         if (hud == null) return;
         if (OVRInput.GetDown(OVRInput.Button.One) || OVRInput.GetDown(OVRInput.Button.Three)) { hud.CambiarAumento(+1); Sonidos.Clic(ocular.position); }
         if (OVRInput.GetDown(OVRInput.Button.Two) || OVRInput.GetDown(OVRInput.Button.Four)) { hud.CambiarAumento(-1); Sonidos.Clic(ocular.position); }
-        float x = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick).x + OVRInput.Get(OVRInput.Axis2D.SecondaryThumbstick).x;
+        // Joystick izquierdo: mover la muestra (o girar el virus). Joystick derecho: pestañas.
+        hud.Mover(OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch));
+        float x = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch).x;
         if (Mathf.Abs(x) > 0.7f && Mathf.Abs(ejeAnterior) <= 0.7f) { hud.CambiarPestana(x > 0 ? 1 : -1); Sonidos.Clic(ocular.position); }
         ejeAnterior = x;
     }

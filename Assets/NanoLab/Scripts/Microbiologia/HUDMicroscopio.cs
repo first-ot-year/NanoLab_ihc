@@ -50,6 +50,8 @@ public class HUDMicroscopio : MonoBehaviour
     readonly TMP_Text[] leyendaTxt = new TMP_Text[5];
     MuestraData actual;
     int aumento, pestana;
+    Vector2 pan;               // desplazamiento de la muestra (uv), como mover la platina
+    bool comparando;           // la micrografía pequeña es el ANTES y debe seguir al desplazamiento
     float alphaObjetivo;
     Material holo;
 
@@ -87,6 +89,7 @@ public class HUDMicroscopio : MonoBehaviour
         actual = m;
         aumento = m.AumentoInicial;
         pestana = 0;
+        pan = Vector2.zero;
         gameObject.SetActive(true);
         var visor = VisorVirus.Obtener();
         if (m.tipo == TipoMuestra.Virus)
@@ -120,6 +123,34 @@ public class HUDMicroscopio : MonoBehaviour
         AumentoCambiado?.Invoke(aumento);
     }
 
+    // Joystick: mueve la muestra (bacterias: recorre la imagen ampliada; virus: gira el modelo).
+    public void Mover(Vector2 eje)
+    {
+        if (actual == null || eje.sqrMagnitude < 0.04f) return;
+        if (actual.tipo == TipoMuestra.Virus && proveedorReto == null)
+        {
+            VisorVirus.Obtener().Orbitar(eje * Time.deltaTime);
+            return;
+        }
+        float s = vista.uvRect.width;
+        if (s >= 0.999f) return;   // a poco aumento se ve la muestra entera
+        pan += eje * (Time.deltaTime * s * 0.6f);   // más aumento, movimiento más fino
+        AplicarRecorte(s);
+        if (comparando)
+        {
+            var r = vista.uvRect;
+            float h = r.width * 170f / 380f;
+            micro.uvRect = new Rect(r.x, r.y + (r.height - h) / 2f, r.width, h);
+        }
+    }
+
+    void AplicarRecorte(float s)
+    {
+        float lim = Mathf.Max(0f, (1f - s) / 2f);
+        pan = new Vector2(Mathf.Clamp(pan.x, -lim, lim), Mathf.Clamp(pan.y, -lim, lim));
+        vista.uvRect = new Rect(0.5f - s / 2f + pan.x, 0.5f - s / 2f + pan.y, s, s);
+    }
+
     public void CambiarPestana(int d)
     {
         pestana = (pestana + d + 4) % 4;
@@ -151,9 +182,8 @@ public class HUDMicroscopio : MonoBehaviour
         }
         else
         {
-            // Recorte centrado: más aumento = trozo más pequeño de la micrografía.
-            float s = 1f / f;
-            vista.uvRect = new Rect(0.5f - s / 2f, 0.5f - s / 2f, s, s);
+            // Recorte: más aumento = trozo más pequeño de la micrografía, desplazado por 'pan'.
+            AplicarRecorte(1f / f);
         }
 
         for (int i = 0; i < claves.Length; i++)
@@ -224,6 +254,7 @@ public class HUDMicroscopio : MonoBehaviour
         avisoTxt.text = d.aviso;
         avisoTxt.color = d.colorAviso;
         creditoTxt.text = "";
+        comparando = d.antes != null;
         if (d.antes != null)
         {
             // Mismo recorte que la vista principal para comparar a igual aumento.
@@ -367,7 +398,7 @@ public class HUDMicroscopio : MonoBehaviour
 
         // Pie
         Txt(raiz, "Pie", -520, -305, 360, 20, "LAB. DE BIOCIENCIAS  |  NANOLAB", 13, TextoGris, TextAlignmentOptions.Left);
-        Txt(raiz, "Ayuda", 0, -305, 760, 20, "A / X: más aumento     B / Y: menos aumento     Joystick izq./der.: pestañas     Aléjate del ocular para salir", 13, TextoGris, TextAlignmentOptions.Center);
+        Txt(raiz, "Ayuda", 0, -305, 820, 20, "Joystick izq.: mover la muestra     Joystick der.: pestañas     A / X: más aumento     B / Y: menos     Aléjate del ocular para salir", 13, TextoGris, TextAlignmentOptions.Center);
         Img(raiz, "Led", 468, -305, 12, 12, new Color(0.25f, 1f, 0.5f), Circulo());
         Txt(raiz, "Captura", 575, -305, 200, 20, "IMAGEN CAPTURADA", 13, new Color(0.25f, 1f, 0.5f), TextAlignmentOptions.Left);
 

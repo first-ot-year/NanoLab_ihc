@@ -136,6 +136,12 @@ public class Portaobjetos : MonoBehaviour
         if (Agarrado) yield break;
         var p = PlatinaCercana();
         if (p != null) Encajar(p);
+        else if (PunteroMuestras.Destino(this, out var apuntada, out var punto, out var rot))
+        {
+            // Soltado apuntando con el rayo: a esa platina, o plano sobre la mesa.
+            if (apuntada != null) Encajar(apuntada);
+            else { ColocarEn(punto + Vector3.up * 0.0016f, rot); Sonidos.Clic(transform.position); }
+        }
         else { rb.isKinematic = false; rb.useGravity = true; }
     }
 

@@ -13,6 +13,7 @@ public class VisorVirus : MonoBehaviour
     Transform pivote;
     GameObject modelo;
     Transform particulas;
+    float manualHasta;   // mientras el usuario lo gira con el joystick no gira solo
     const float DistanciaBase = 3.6f;
 
     public static VisorVirus Obtener()
@@ -59,6 +60,15 @@ public class VisorVirus : MonoBehaviour
         foreach (var t in modelo.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Capa;
     }
 
+    // Giro manual con el joystick ('delta' ya multiplicado por el tiempo del frame).
+    public void Orbitar(Vector2 delta)
+    {
+        if (pivote == null) return;
+        pivote.Rotate(Vector3.up, -delta.x * 140f, Space.World);
+        pivote.Rotate(Vector3.right, delta.y * 100f, Space.World);
+        manualHasta = Time.time + 3f;
+    }
+
     public void Zoom(float factor) => cam.transform.localPosition = new Vector3(0f, 0f, -DistanciaBase / Mathf.Max(0.1f, factor));
 
     public void Activo(bool v) { if (cam != null) cam.enabled = v; }
@@ -67,7 +77,7 @@ public class VisorVirus : MonoBehaviour
 
     void Update()
     {
-        if (pivote != null) pivote.Rotate(8f * Time.deltaTime, 22f * Time.deltaTime, 0f, Space.World);
+        if (pivote != null && Time.time > manualHasta) pivote.Rotate(8f * Time.deltaTime, 22f * Time.deltaTime, 0f, Space.World);
         if (particulas != null) particulas.Rotate(0f, 0f, 2.5f * Time.deltaTime, Space.Self);
     }
 

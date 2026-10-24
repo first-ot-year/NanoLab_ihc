@@ -75,7 +75,10 @@ public static class ConfigurarMetaISDK
         var jugador = Obtener<JugadorNanoLab>(rigRoot);
         // Valores de comodidad (la escena guardaba los del movimiento antiguo: 1,4 m/s y giro de 45°).
         // RNF-01: velocidad casi constante (sin rampas de aceleración/frenado artificiales).
-        jugador.velocidad = 1.2f; jugador.suavizado = 0.05f; jugador.zonaMuerta = 0.15f;
+        jugador.velocidad = 1.5f; jugador.suavizado = 0.05f; jugador.zonaMuerta = 0.15f;
+        jugador.factorLateral = 0.5f; jugador.factorAtras = 0.6f; jugador.fovCaminando = 80f;
+        jugador.alcanceRayo = 1.2f;
+        jugador.teletransporte = false; jugador.marcoReposo = true; jugador.campoLibre = 70f;
         jugador.anguloGiro = 30f; jugador.radioCuerpo = 0.16f;
         PrefabUtility.RecordPrefabInstancePropertyModifications(jugador);
         var mgr = rig.GetComponent<OVRManager>();
@@ -91,6 +94,11 @@ public static class ConfigurarMetaISDK
         foreach (var t in rigRoot.GetComponentsInChildren<Transform>(true).Where(t => t != null && t.name == NombreLocomotor).ToArray())
             Object.DestroyImmediate(t.gameObject);
         int quitadosTp = QuitarTeletransporte();
+        if (jugador.teletransporte)
+        {
+            int bloqueos = ConfigurarTeletransporte(suelo);
+            Debug.Log($"[MetaISDK] {s.name}: teletransporte sobre el suelo de las salas; {bloqueos} bloqueos (paredes, vidrios, muebles).");
+        }
 
         // 2b) Caminar con el Locomotor de Meta (aceleración, frenado, colisiones y viñeta de confort).
         ConfigurarLocomocion(rigRoot, rig);
@@ -286,19 +294,21 @@ public static class ConfigurarMetaISDK
         return n;
     }
 
-    // (No se usa por ahora.) Suelo teletransportable + bloqueos en paredes y muebles.
+    // Suelo teletransportable (los suelos de seguridad de la sala, la sala de alto riesgo y el centro)
+    // + bloqueos en paredes, vidrios y muebles.
+    static readonly string[] SuelosTeletransporte = { "SueloSeguridad", "SueloSeguridadBSL", "SueloSeguridadAnexo" };
+
     static int ConfigurarTeletransporte(float suelo)
     {
-        // Suelo teletransportable: el suelo de seguridad cubre toda la sala a la altura del piso.
-        var sueloGo = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "SueloSeguridad")?.gameObject;
-        if (sueloGo != null) Teleport(sueloGo, sueloGo.GetComponent<BoxCollider>(), true);
-        else Debug.LogWarning("[MetaISDK] No hay SueloSeguridad: no se configuró el suelo de teletransporte.");
+        var suelos = Object.FindObjectsOfType<Transform>(true).Where(t => SuelosTeletransporte.Contains(t.name)).Select(t => t.gameObject).ToList();
+        foreach (var sg in suelos) Teleport(sg, sg.GetComponent<BoxCollider>(), true);
+        if (suelos.Count == 0) Debug.LogWarning("[MetaISDK] No hay SueloSeguridad: no se configuró el suelo de teletransporte.");
 
         // Bloqueos: paredes, vidrios, mesas y armarios (colliders grandes que no son el suelo).
         int n = 0;
         foreach (var c in Object.FindObjectsOfType<Collider>(true))
         {
-            if (c.isTrigger || c.gameObject == sueloGo) continue;
+            if (c.isTrigger || suelos.Contains(c.gameObject)) continue;
             if (c.attachedRigidbody != null) continue;                 // objetos agarrables
             if (c.GetComponentInParent<OVRCameraRig>() != null) continue;
             var b = c.bounds;

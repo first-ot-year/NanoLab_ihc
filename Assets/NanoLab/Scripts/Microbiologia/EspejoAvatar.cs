@@ -29,6 +29,7 @@ public class EspejoAvatar : MonoBehaviour
         cam.stereoTargetEye = StereoTargetEyeMask.None;
         cam.targetTexture = rt;
         cam.clearFlags = CameraClearFlags.Skybox;
+        cam.cullingMask &= ~(1 << AvatarBaymax.CapaManosMeta);   // en el espejo, las manos de Baymax
         var mat = superficie.material;   // instancia propia
         mat.mainTexture = rt;
         mat.mainTextureScale = new Vector2(-1f, 1f);   // el reflejo se ve invertido de izquierda a derecha
