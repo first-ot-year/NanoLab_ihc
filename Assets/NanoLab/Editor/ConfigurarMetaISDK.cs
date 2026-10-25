@@ -74,7 +74,7 @@ public static class ConfigurarMetaISDK
         // Seguimiento a nivel de suelo + caminar con joystick (sin teletransporte), en tiempo de ejecución.
         var jugador = Obtener<JugadorNanoLab>(rigRoot);
         // Valores de comodidad (la escena guardaba los del movimiento antiguo: 1,4 m/s y giro de 45°).
-        jugador.velocidad = 1.2f; jugador.suavizado = 0.18f; jugador.zonaMuerta = 0.15f;
+        jugador.velocidad = 1.5f; jugador.suavizado = 0.05f; jugador.zonaMuerta = 0.15f;
         jugador.anguloGiro = 30f; jugador.radioCuerpo = 0.16f;
         PrefabUtility.RecordPrefabInstancePropertyModifications(jugador);
         var mgr = rig.GetComponent<OVRManager>();

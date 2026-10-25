@@ -39,7 +39,7 @@ Gran parte del objeto de estudio de la microbiología no puede observarse a simp
 
 ## La experiencia
 
-El estudiante entra a un laboratorio virtual acompañado por **Baymax** (versión infantil), un personaje guía que ha perdido sus recuerdos científicos y los recupera a medida que ambos investigan. Baymax ofrece contexto y pistas, pero **no resuelve los retos**.
+El estudiante **es Baymax** (versión infantil): ha perdido sus recuerdos científicos y los recupera a medida que investiga muestras en el laboratorio. Baymax no es un guía externo: es el avatar del jugador (manos en primera persona, cuerpo completo en los espejos). Las pistas y el feedback orientan, pero **no resuelven los retos**.
 
 El reto MVP (10–15 minutos) sigue el ciclo:
 
@@ -47,13 +47,13 @@ El reto MVP (10–15 minutos) sigue el ciclo:
 EXPLORAR → OBSERVAR → INVESTIGAR → HIPÓTESIS → PREPARAR → EXPERIMENTAR → ANALIZAR → APRENDER
 ```
 
-1. **Introducción narrativa:** Baymax explica que perdió sus recuerdos e invita a explorar.
+1. **Introducción narrativa:** al aparecer, el tótem "ERES BAYMAX" explica que perdiste tus recuerdos, te invita a mirarte en el espejo y te orienta hasta el banco de muestras.
 2. **Exploración y elección:** el estudiante reconoce los recursos y elige un caso en el banco de muestras.
 3. **Primera observación:** coloca la muestra en el microscopio y registra el estado inicial.
 4. **Investigación e hipótesis:** consulta una ficha digital y elige una hipótesis predefinida.
 5. **Experimentación:** prepara una intervención predefinida, la coloca en la cámara experimental y activa la prueba con un botón.
 6. **Verificación:** vuelve al microscopio y compara el estado inicial con el posterior.
-7. **Recuerdo recuperado:** si la interpretación es correcta, Baymax recupera conocimiento; si falla, recibe una pista y puede reintentar sin penalización.
+7. **Recuerdo recuperado:** si la interpretación es correcta, Baymax recupera un recuerdo científico (indicador 0/3); si falla, recibe una pista y puede reintentar sin penalización.
 8. **Cierre:** resumen de lo observado, las decisiones tomadas y lo aprendido.
 
 ## Audiencia y persona
@@ -184,6 +184,8 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 | `NanoLab/Probar reto completo (play mode)` | Ejecuta el Caso 01 de extremo a extremo sin visor |
 | `NanoLab/Configurar interacción Meta (…)` | Configura los componentes del Meta Interaction SDK en las salas |
 | `NanoLab/Avatar Baymax/…` | Convierte e instala el modelo de Baymax |
+| `NanoLab/Montar introducción Baymax` | Coloca el tótem "ERES BAYMAX" frente al punto de aparición y ordena las escenas de build |
+| `NanoLab/Probar locomoción (play mode)` · `NanoLab/Probar recorrido del jugador` | Pruebas de confort (velocidad constante, giro por pasos) y de rutas transitables |
 
 ### Probar sin visor
 
@@ -195,7 +197,7 @@ En Play Mode, el componente `DebugReto` permite recorrer el Caso 01 desde el tec
 ### Compilar para Meta Quest
 
 1. **File → Build Settings → Android → Switch Platform.**
-2. Verificar que `Laboratorio.unity` y `Microbiologia.unity` estén en la lista de escenas.
+2. Verificar que `Microbiologia.unity` sea la **primera** escena de la lista (la experiencia empieza ahí) y `Laboratorio.unity` la segunda. `NanoLab/Montar introducción Baymax` las deja en ese orden.
 3. Conectar el visor por USB y usar **Build And Run**.
 
 ## Arquitectura del código
@@ -215,7 +217,9 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `PanelResumen` | Informe final, conocimiento recuperado y repetición del caso |
 | `Encajable` / `ZonaEncaje` | Objetos agarrables con encaje y retorno automático (RNF-04) |
 | `MetricsLogger` | Registro JSON de la sesión para HEART (RF-10) |
-| `AvatarBaymax` | Presentación del personaje Baymax |
+| `AvatarBaymax` / `EspejoAvatar` | Baymax como avatar del jugador y espejos donde se ve completo |
+| `IndicadorRecuerdos` / `RecuerdosBaymax` | Recuerdos científicos recuperados (0/3) |
+| `MontarIntroduccion` (Editor) | Tótem de introducción "ERES BAYMAX" y orden de escenas de build |
 | `JugadorNanoLab` / `ManosRig` | Configuración del rig de Meta y acceso a manos/mandos |
 
 Las métricas de sesión se guardan como JSON en `Application.persistentDataPath/NanoLab/`.
@@ -255,14 +259,16 @@ Plan de evaluación (aún no son resultados medidos):
 
 ## Cronograma
 
-| Entrega | Semana | Avance | Objetivo |
-|---|---|---|---|
-| E1 | 10 | 15 % | Alcance del MVP, matriz de trazabilidad y backlog priorizado |
-| E2 | 11 | 30 % | XR, escala, introducción de Baymax, selección de muestra y microscopía básica |
-| E3 | 12 | 50 % | Observación, ficha digital, hipótesis y preparación de la intervención |
-| E4 | 13 | 70 % | Cámara experimental, comparación antes/después, pista y reintento |
-| E5 | 14 | 100 % | Integración, pruebas de extremo a extremo, 72 FPS y piloto |
-| E6 | 15 | — | Demostración, video de respaldo y exposición |
+Según el informe del hito 1 (Cuadro 6):
+
+| Entrega | Semana | Avance | Objetivo | RF | RNF | Estado |
+|---|---|---|---|---|---|---|
+| E1 | 10 | 15 % | Alcance del MVP, matriz de trazabilidad, criterios de aceptación, backlog y lista de ajustes | RF-02, 03, 07, 08 | RNF-02, 03 | ✅ [Docs/E1](Docs/E1_alcance_y_trazabilidad.md) |
+| E2 | 11 | 30 % | Entorno VR, introducción en la que el estudiante es Baymax y selección de una muestra | RF-01 | RNF-01, 04 | ✅ [Docs/E2](Docs/E2_avance.md) (validar en Quest) |
+| E3 | 12 | 50 % | Observación microscópica inicial y ficha digital | RF-04 | RNF-05, 07 | Implementado (falta RNF-07) |
+| E4 | 13 | 70 % | Hipótesis y preparación de la intervención | RF-05, 06 | RNF-06 | Implementado |
+| E5 | 14 | 85 % | Cámara experimental, feedback, pistas y reintento | RF-09 | RNF-01, 08 | Implementado (falta perfilar 72 FPS) |
+| E6 | 15 | 100 % | Integración, piloto, preguntas de comprensión, demostración y video | RF-01…09 | RNF-01…08 | Pendiente |
 
 ## Enlaces
 

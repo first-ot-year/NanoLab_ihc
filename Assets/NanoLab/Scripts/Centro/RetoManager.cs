@@ -281,6 +281,7 @@ public class RetoManager : MonoBehaviour
         metricas.Datos.comparacionAntesDespues = true;
         if (Exito)
         {
+            RecuerdosBaymax.Recuperar(reto.codigo);   // Baymax recupera el recuerdo de este caso
             Poner(EtapaReto.Cierre);
             MostrarResumen();
             if (!sesionGuardada) { metricas.Guardar(true); sesionGuardada = true; }
@@ -437,7 +438,7 @@ public class RetoManager : MonoBehaviour
                 ? $"Las células perdieron su forma y se rompieron. El agente {a.sigla} {a.accion.ToLower()} Tu muestra tiene una pared gruesa de peptidoglucano: por eso quedó VIOLETA en la tinción de Gram."
                 : a.pistaSiFalla,
             obsTitulo = "SIGUIENTE PASO",
-            obs = exito ? "Ve al ARCHIVO (8): el informe del caso y el fragmento recuperado te esperan."
+            obs = exito ? "¡Recuerdo recuperado! Ve al ARCHIVO (8): el informe del caso y tu recuerdo científico te esperan."
                         : "Vuelve a la TERMINAL (5): revisa tu hipótesis y prueba otro agente. La cámara ya tiene una placa nueva del cultivo.",
             aviso = exito ? "RESULTADO: EFICAZ · La intervención detuvo a la bacteria" : "RESULTADO: SIN EFECTO · Compara con el ANTES y piensa por qué",
             colorAviso = exito ? new Color(0.35f, 1f, 0.55f) : new Color(1f, 0.45f, 0.4f),
@@ -468,6 +469,6 @@ public class RetoManager : MonoBehaviour
         if (Hipotesis != m) der.AppendLine($"\n<color=#FFD25A>Tu última hipótesis fue {(Hipotesis != null ? Hipotesis.nombre : "-")}. Fíjate: la evidencia (cocos violetas en racimo) apuntaba a {m.nombre}.</color>");
         der.AppendLine("\n<size=80%><color=#A9BED2>Modelo educativo simplificado: no es un protocolo clínico ni un tratamiento real.</color></size>");
 
-        resumen.Mostrar($"{reto.codigo} RESUELTO · {m.nombre.ToUpper()}", izq.ToString(), der.ToString(), $"<b>{reto.fragmento} restaurado</b>\n{reto.textoFragmento}");
+        resumen.Mostrar($"{reto.codigo} RESUELTO · {m.nombre.ToUpper()}", izq.ToString(), der.ToString(), $"<b>{reto.fragmento} recuperado · Baymax recuerda {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}</b>\n{reto.textoFragmento}");
     }
 }

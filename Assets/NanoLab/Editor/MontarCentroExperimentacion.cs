@@ -1010,11 +1010,11 @@ public static class MontarCentroExperimentacion
         return ps;
     }
 
-    // ---------------------------------------------------------------- 8 archivo científico
+    // ---------------------------------------------------------------- 8 archivo de recuerdos de Baymax
 
     static PanelResumen Archivo(Transform padre, out EstacionGuia guia)
     {
-        var e = Estacion(padre, "8_Archivo", V(10.2f, 0f, 16.6f), 180f, 8, "ARCHIVO CIENTÍFICO", 3.2f);
+        var e = Estacion(padre, "8_Archivo", V(10.2f, 0f, 16.6f), 180f, 8, "ARCHIVO DE RECUERDOS", 3.2f);
         float fondo = -(Z1 - 16.6f);
         var p = new GameObject("Panel").transform;
         p.SetParent(e, false);
@@ -1032,7 +1032,7 @@ public static class MontarCentroExperimentacion
         r.derecha.rectTransform.pivot = new Vector2(0.5f, 1f);
         r.derecha.rectTransform.sizeDelta = new Vector2(1.55f, 1.2f);
         MM.Caja(p, "Separador", V(0f, 0f, -0.005f), V(0.006f, 1.2f, 0.004f), M["Zona8"], false);
-        // Fragmentos del archivo (3 ranuras con número).
+        // Recuerdos de Baymax (3 ranuras con número).
         r.fragmentos = new Renderer[3];
         for (int i = 0; i < 3; i++)
         {
@@ -1055,8 +1055,8 @@ public static class MontarCentroExperimentacion
         r.reiniciar = b;
         var tb = MM.Texto3D(e, "REPETIR EL CASO", V(1.3f, 0.922f, -0.38f), Quaternion.Euler(90f, 180f, 0f), 0.16f, Color.white, 0.4f);
         tb.alignment = TextAlignmentOptions.Center;
-        guia = Cartel(e, V(-2.15f, 0f, 0.15f), 8, "ARCHIVO CIENTÍFICO",
-            "Cada caso resuelto restaura un fragmento del archivo del centro. Aquí verás tu informe.", V(0f, 2.95f, fondo + 0.4f));
+        guia = Cartel(e, V(-2.15f, 0f, 0.15f), 8, "ARCHIVO DE RECUERDOS",
+            "Cada caso resuelto le devuelve a Baymax un recuerdo científico. Aquí verás tu informe.", V(0f, 2.95f, fondo + 0.4f));
         return r;
     }
 
@@ -1128,7 +1128,7 @@ public static class MontarCentroExperimentacion
         var t1 = Txt(bien, "CENTRO DE EXPERIMENTACIÓN\nMICROBIOLÓGICA", 0f, 0.6f, 0.4f, Cian, 1.5f, TextAlignmentOptions.Center);
         t1.fontStyle = FontStyles.Bold;
         var cuerpo = Txt(bien,
-            "<color=#FFD25A><b>SISTEMA DEL CENTRO:</b></color> bienvenido/a, investigador/a. Un fallo borró el <b>Archivo Científico</b> del centro. Cada caso que resuelvas restaura un fragmento.\n\n" +
+            "<color=#FFD25A><b>BAYMAX:</b></color> perdiste tus <b>recuerdos científicos</b>. En este centro se investigan casos: cada caso que resuelvas te devuelve un recuerdo.\n\n" +
             $"<b>{reto.codigo} · {reto.titulo}</b>\n{reto.historia}\n\n" +
             "<color=#8FD8FF>Joystick izq.: caminar · joystick der.: girar · gatillo/grip: agarrar · acerca la mano a un botón para pulsarlo · cada estación tiene un botón PISTA.</color>",
             0f, 0.42f, 0.235f, Color.white, 1.48f, TextAlignmentOptions.TopLeft);
@@ -1314,8 +1314,8 @@ public static class MontarCentroExperimentacion
         r.explicacion = "S. aureus es una bacteria Gram positiva: su pared de peptidoglucano es gruesa y retiene el cristal violeta (por eso la viste VIOLETA). Forma cocos agrupados en racimos. " +
                         "Un agente que impide construir esa pared (como los antibióticos betalactámicos) la debilita hasta que la célula se rompe. " +
                         "El agente ME no sirve porque ataca una membrana externa que las Gram + no tienen, y un antiviral no actúa sobre bacterias.";
-        r.fragmento = "Fragmento 1/3 del Archivo Científico";
-        r.textoFragmento = "\"La estructura decide el efecto: primero observa, después interviene.\"";
+        r.fragmento = "Recuerdo científico 1/3";
+        r.textoFragmento = "Baymax recuerda: \"La estructura decide el efecto: primero observa, después interviene.\"";
         GenerarTexturas(r);
 
         if (nuevo) AssetDatabase.CreateAsset(r, RetoPath);

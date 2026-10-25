@@ -82,9 +82,9 @@ public class DebugLocomocion : MonoBehaviour
         float frenado = parado.t > 0f ? parado.t - 2f : 99f;
         var curva = string.Join("  ", new[] { 0.05f, 0.1f, 0.2f, 0.3f, 0.5f, 1f, 1.9f, 2.1f, 2.2f, 2.4f, 2.8f }.Select(x => $"{x:F2}s:{muestras.OrderBy(m => Mathf.Abs(m.t - x)).First().v:F2}"));
         log.AppendLine("Curva de velocidad (m/s): " + curva);
-        Comprobar(vmax > 0.9f && vmax < 1.5f, $"Velocidad de paseo {vmax:F2} m/s (objetivo ~{jugador.velocidad:F1})");
-        Comprobar(t90 > 0.08f && t90 < 0.8f, $"Arranque suave: 90% de la velocidad en {t90:F2} s");
-        Comprobar(frenado < 0.8f, $"Frenado suave: parado en {frenado:F2} s");
+        Comprobar(Mathf.Abs(vmax - jugador.velocidad) < 0.15f, $"Velocidad de paseo {vmax:F2} m/s (objetivo ~{jugador.velocidad:F1})");
+        Comprobar(t90 <= 0.2f, $"Velocidad constante sin rampa (RNF-01): 90% de la velocidad en {t90:F2} s");
+        Comprobar(frenado <= 0.25f, $"Frenado inmediato: parado en {frenado:F2} s");
 
         // Mirar por el microscopio pausa caminar y girar.
         jugador.PausarLocomocion(true);

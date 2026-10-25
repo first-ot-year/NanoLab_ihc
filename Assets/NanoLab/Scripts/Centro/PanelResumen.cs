@@ -1,8 +1,8 @@
 using TMPro;
 using UnityEngine;
 
-// Archivo científico del centro: informe final del caso (decisiones, intentos, ayudas, tiempo),
-// fragmento recuperado y botón para repetir el caso (RF-12).
+// Archivo de recuerdos de Baymax: informe final del caso (decisiones, intentos, ayudas, tiempo),
+// recuerdo recuperado y botón para repetir el caso.
 public class PanelResumen : MonoBehaviour
 {
     public TMP_Text titulo, izquierda, derecha, fragmentoTxt;
@@ -19,10 +19,10 @@ public class PanelResumen : MonoBehaviour
 
     public void Pendiente(RetoData reto)
     {
-        if (titulo != null) titulo.text = "ARCHIVO CIENTÍFICO DEL CENTRO";
+        if (titulo != null) titulo.text = "ARCHIVO DE RECUERDOS DE BAYMAX";
         if (izquierda != null) izquierda.text = $"<color=#8FD8FF><b>{reto.codigo} · {reto.titulo.ToUpper()}</b></color>\n\n{reto.historia}";
         if (derecha != null) derecha.text = "<color=#A9BED2>El informe del caso aparecerá aquí cuando lo resuelvas: lo que observaste, lo que decidiste y lo que cambió en la muestra.</color>";
-        if (fragmentoTxt != null) fragmentoTxt.text = "Registros dañados: 0/3 fragmentos recuperados";
+        if (fragmentoTxt != null) fragmentoTxt.text = $"Recuerdos científicos recuperados: {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}";
         Encender(false);
     }
 

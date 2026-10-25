@@ -86,6 +86,7 @@ public static class MontarMicrobiologia
         CrearZonaBSL(Grupo(raiz, "ZonaAltoRiesgo"), virus, slidePrefab);
         CrearCabinaDesinfeccion(Grupo(raiz, "CabinaDesinfeccion"));
         CrearTutorialYProgreso(Grupo(raiz, "Bienvenida"), muestras);
+        MontarIntroduccion.Aplicar(scene);   // RF-01: "Eres Baymax" frente al punto de aparición
         CrearPortal(Grupo(raiz, "Portal"), "Laboratorio", "LABORATORIO\nDE QUÍMICA");
         // Sala anexa con el Caso 01 (detrás de la pared este).
         MontarCentroExperimentacion.Construir(raiz, slidePrefab);
@@ -105,9 +106,7 @@ public static class MontarMicrobiologia
         Debug.Log(ok ? "[Micro] Bake completado." : "[Micro] El bake falló.");
         EditorSceneManager.SaveScene(scene);
 
-        var escenas = EditorBuildSettings.scenes.Where(s => s.path != ScenePath).ToList();
-        escenas.Add(new EditorBuildSettingsScene(ScenePath, true));
-        EditorBuildSettings.scenes = escenas.ToArray();
+        MontarIntroduccion.OrdenarEscenas();   // la app arranca en Microbiología
 
         AgregarPortalEnQuimica();
         Capturas();
@@ -595,7 +594,7 @@ public static class MontarMicrobiologia
     {
         var spawn = new Vector3(-3.3f, 0f, 2.24f);
 
-        var tut = Totem(padre, "Tutorial", new Vector3(-1.9f, 0f, 3.7f), spawn, 1.4f, 1.5f);
+        var tut = Totem(padre, "Tutorial", MontarIntroduccion.PosTutorial, spawn, 1.4f, 1.5f);
         var tt = Texto3D(tut, "LABORATORIO DE MICROBIOLOGÍA", new Vector3(0f, 0.64f, -0.02f), Quaternion.identity, 0.75f, new Color(0.4f, 0.9f, 1f), 1.3f);
         tt.alignment = TextAlignmentOptions.Center; tt.fontStyle = FontStyles.Bold;
         string[] pasos =
@@ -894,7 +893,9 @@ public static class MontarMicrobiologia
         string dir = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "Capturas");
         Directory.CreateDirectory(dir);
         float y = ML.AlturaSuelo(ML.BoundsEscena());
-        ML.Capturar(dir, "micro_1_entrada", new Vector3(-3.3f, y + 1.65f, 2.24f), Quaternion.Euler(8f, 24f, 0f) * Vector3.forward);
+        ML.Capturar(dir, "micro_0_intro", new Vector3(-3.3f, y + 1.65f, 2.24f), Quaternion.Euler(6f, 24f, 0f) * Vector3.forward);
+        ML.Capturar(dir, "micro_0_intro_espejo", new Vector3(-1.4f, y + 1.65f, 2.4f), Quaternion.Euler(4f, 88f, 0f) * Vector3.forward);
+        ML.Capturar(dir, "micro_1_entrada",new Vector3(-3.3f, y + 1.65f, 2.24f), Quaternion.Euler(8f, 24f, 0f) * Vector3.forward);
         ML.Capturar(dir, "micro_2_isla", new Vector3(-1.8f, y + 1.6f, 14.1f), new Vector3(0f, -0.55f, -1f));
         ML.Capturar(dir, "micro_3_puesto", new Vector3(-2.55f, y + 1.35f, 13.25f), new Vector3(0f, -0.75f, -1f));
         ML.Capturar(dir, "micro_4_bsl_fuera", new Vector3(-6.2f, y + 1.7f, 9.3f), new Vector3(-0.55f, -0.12f, 1f));
@@ -916,6 +917,7 @@ public static class MontarMicrobiologia
         var rutas = new Dictionary<string, Vector2[]>
         {
             { "Entrada -> zona de virus -> criotubos", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(-5.4f, 5.6f), new Vector2(-5.4f, 9.8f), new Vector2(-8.65f, 10.6f), new Vector2(-8.65f, 12.9f), new Vector2(-7.2f, 13.0f), new Vector2(-6.9f, 14.6f), new Vector2(-7.2f, 14.7f) } },
+            { "Entrada -> introducción -> espejo del recibidor", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-1.0f, 1.85f), new Vector2(1.2f, 1.85f), new Vector2(1.5f, 2.4f) } },
             { "Zona de virus -> frente a la consola", new[] { new Vector2(-8.65f, 12.9f), new Vector2(-8.2f, 13.3f) } },
             { "Entrada -> puesto 1", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 14.5f), new Vector2(-2.55f, 14.5f), new Vector2(-2.55f, 13.65f) } },
             { "Entrada -> cepario", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 9.4f), new Vector2(5.2f, 9.4f), new Vector2(5.2f, 10.1f) } },

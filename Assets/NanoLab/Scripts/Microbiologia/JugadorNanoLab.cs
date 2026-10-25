@@ -11,9 +11,9 @@ public class JugadorNanoLab : MonoBehaviour
 {
     [Header("Caminar (Locomotor de Meta)")]
     [Tooltip("Velocidad de paseo con el joystick a fondo (m/s).")]
-    public float velocidad = 1.2f;
-    [Tooltip("Tiempo aproximado para arrancar o frenar (s). Más alto = más suave.")]
-    public float suavizado = 0.18f;
+    public float velocidad = 1.5f;
+    [Tooltip("Tiempo para arrancar o frenar (s). Bajo = velocidad constante, sin aceleración artificial (RNF-01).")]
+    public float suavizado = 0.05f;
     [Tooltip("Zona muerta del joystick (0..1).")]
     [Range(0f, 0.5f)] public float zonaMuerta = 0.15f;
 
@@ -103,8 +103,8 @@ public class JugadorNanoLab : MonoBehaviour
     static AnimationCurve CurvaJoystick(float zona)
     {
         var c = new AnimationCurve(
-            new Keyframe(-1f, -1f), new Keyframe(-0.6f, -0.35f), new Keyframe(-zona, 0f),
-            new Keyframe(zona, 0f), new Keyframe(0.6f, 0.35f), new Keyframe(1f, 1f));
+            new Keyframe(-1f, -1f), new Keyframe(-0.6f, -0.5f), new Keyframe(-zona, 0f),
+            new Keyframe(zona, 0f), new Keyframe(0.6f, 0.5f), new Keyframe(1f, 1f));
         for (int i = 0; i < c.length; i++) c.SmoothTangents(i, 0f);
         return c;
     }

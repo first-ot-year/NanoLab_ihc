@@ -6,14 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/NanoLab/Scenes/Laboratorio.unity
-    guid: 94515419049b09f44beb2ab19a8ef39a
-  - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 9fc0d4010bbf28b4594072e72b8655ab
-  - enabled: 1
     path: Assets/NanoLab/Scenes/Microbiologia.unity
-    guid: 45de7e44b6890814386d3bfedf35f489
+    guid: e94226f2590f0d24a879ef1a1d260588
+  - enabled: 1
+    path: Assets/NanoLab/Scenes/Laboratorio.unity
+    guid: 46a305ebc59324f4aa46eef83c3861cd
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: 0f5931f0d96f3a24cbe96c3275e1e7a4, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 48d92612d495dc44a80f454b0379a67d, type: 2}

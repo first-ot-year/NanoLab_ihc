@@ -64,6 +64,20 @@ public class DebugReto : MonoBehaviour
         FuenteMuestra Gotero(int r) => fuentes.FirstOrDefault(f => f.reactivo == r);
         var desinfectante = fuentes.FirstOrDefault(f => f.esDesinfectante);
 
+        // 0) Introducción (RF-01) y tolerancia al error (RNF-04): un portaobjetos que cae al suelo vuelve solo.
+        var indicador = FindObjectOfType<IndicadorRecuerdos>();
+        Comprobar(indicador != null && indicador.texto != null && indicador.texto.text.Contains($"{RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}"),
+                  $"Introducción con indicador de recuerdos ({(indicador != null && indicador.texto != null ? indicador.texto.text : "no encontrado")})");
+        var otro = Portaobjetos.Todos.Where(p => p != porta && !p.Despues && !p.Agarrado && p.Encajada == null).OrderBy(p => p.name).FirstOrDefault();
+        if (Comprobar(otro != null, "Hay otro portaobjetos para probar la recuperación"))
+        {
+            var casa = otro.transform.position;
+            otro.transform.position = casa + Vector3.down * 1.2f;   // simula que se cae al suelo
+            float t0 = Time.time;
+            while (Time.time - t0 < 3f && (otro.transform.position - casa).sqrMagnitude > 0.0001f) yield return null;
+            Comprobar((otro.transform.position - casa).sqrMagnitude <= 0.0001f, $"Un portaobjetos caído vuelve a su sitio en {Time.time - t0:F1} s (RNF-04)");
+        }
+
         // 1) Frotis y tinción (con un error de orden a propósito para probar el feedback).
         fuentePlaca.Aplicar(porta);
         Comprobar(porta.muestra == rm.reto.muestra && rm.Actual == EtapaReto.Tincion, "Frotis del CASO 01 cargado > etapa Tinción");
@@ -119,6 +133,8 @@ public class DebugReto : MonoBehaviour
         yield return Intento(rm, opcionCorrecta, correcto, viales, prensa, camara, micro, porta);
         Comprobar(rm.Actual == EtapaReto.Cierre, "Tras el éxito y el análisis el caso se cierra");
         Comprobar(rm.Metricas.Datos.comparacionAntesDespues, "Se registró la comparación antes/después");
+        Comprobar(RecuerdosBaymax.Cantidad >= 1 && indicador != null && indicador.texto.text.Contains($"{RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}"),
+                  $"Baymax recupera un recuerdo: el indicador muestra {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}");
         string pista = rm.PedirPista();
         Paso($"Pista en cierre: {pista}");
         yield return null;

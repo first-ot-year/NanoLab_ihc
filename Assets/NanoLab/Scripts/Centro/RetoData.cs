@@ -60,7 +60,7 @@ public class RetoData : ScriptableObject
 
     [Header("Cierre")]
     [TextArea(3, 8)] public string explicacion;
-    public string fragmento = "Fragmento 1/3 del Archivo Científico";
+    public string fragmento = "Recuerdo científico 1/3";
     [TextArea(2, 4)] public string textoFragmento;
 
     // Eficacia (0..1) de un agente sobre la muestra del caso: depende de su estructura, no de su nombre.

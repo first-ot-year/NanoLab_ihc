@@ -16,6 +16,7 @@ public class Portaobjetos : MonoBehaviour
     public Renderer brillo;              // se enciende cuando el SDK apunta/pasa por encima (hover)
     public float radioPlatina = 0.12f;
     public float radioMuestra = 0.06f;
+    public float distanciaMaxima = 30f;     // se lleva de una sala a otra: solo vuelve si se sale del edificio
 
     public static readonly List<Portaobjetos> Todos = new List<Portaobjetos>();
     public static bool AlgunoAgarrado { get { foreach (var p in Todos) if (p.Agarrado) return true; return false; } }
@@ -39,6 +40,9 @@ public class Portaobjetos : MonoBehaviour
     int hovers;
     FuenteMuestra ultimaFuente;
     MaterialPropertyBlock mpb;
+    Vector3 casaPos;
+    Quaternion casaRot;
+    float tiempoFuera;
     static readonly Collider[] buffer = new Collider[32];
 
     void Awake()
@@ -47,6 +51,8 @@ public class Portaobjetos : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         mpb = new MaterialPropertyBlock();
         if (brillo != null) brillo.enabled = false;
+        casaPos = transform.position;
+        casaRot = transform.rotation;
         Refrescar();
     }
 
@@ -76,7 +82,15 @@ public class Portaobjetos : MonoBehaviour
         else if (!agarrado && estabaAgarrado) StartCoroutine(AlSoltar());
         estabaAgarrado = agarrado;
 
-        if (!agarrado) return;
+        if (!agarrado)
+        {
+            // Suelto en el suelo o muy lejos: vuelve a su sitio con la muestra intacta (tolerancia al error, RNF-04).
+            bool perdido = Encajada == null && (transform.position.y < casaPos.y - 0.4f || (transform.position - casaPos).sqrMagnitude > distanciaMaxima * distanciaMaxima);
+            tiempoFuera = perdido ? tiempoFuera + Time.deltaTime : 0f;
+            if (tiempoFuera > 1.5f) VolverACasa();
+            return;
+        }
+        tiempoFuera = 0f;
         // Mientras se lleva en la mano: tocar un tubo/placa carga la muestra (o la limpia el desinfectante).
         var f = Buscar<FuenteMuestra>(transform.position, radioMuestra);
         if (f != null && f != ultimaFuente) f.Aplicar(this);
@@ -172,6 +186,20 @@ public class Portaobjetos : MonoBehaviour
         if (rb == null) rb = GetComponent<Rigidbody>();
         rb.isKinematic = true;
         transform.SetPositionAndRotation(pos, rot);
+        casaPos = pos; casaRot = rot;   // si luego se cae, vuelve aquí
+    }
+
+    public void VolverACasa()
+    {
+        tiempoFuera = 0f;
+        if (Encajada != null) { Encajada.Liberar(this); Encajada = null; }
+        if (rb == null) rb = GetComponent<Rigidbody>();
+        rb.velocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+        rb.isKinematic = true;
+        transform.SetPositionAndRotation(casaPos, casaRot);
+        Sonidos.Clic(transform.position);
+        Aviso.Mostrar("Ha vuelto a su sitio.", transform.position + Vector3.up * 0.15f, Aviso.Tipo.Info, 2.5f);
     }
 
     // Portaobjetos ya teñido que entrega la cámara experimental tras la intervención.
