@@ -186,6 +186,8 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 | `NanoLab/Avatar Baymax/…` | Convierte e instala el modelo de Baymax |
 | `NanoLab/Montar introducción Baymax` | Coloca el tótem "ERES BAYMAX" frente al punto de aparición y ordena las escenas de build |
 | `NanoLab/Probar locomoción (play mode)` · `NanoLab/Probar recorrido del jugador` | Pruebas de confort (velocidad constante, giro por pasos) y de rutas transitables |
+| `NanoLab/Reemplazar sillas (las dos salas)` | Cambia las sillas decorativas del paquete por sillas en las que sentarse (sin volver a hornear) |
+| `NanoLab/Capturas del E3 (sillas, ajustes, fichas)` | Capturas de la vista sentado, el panel de ajustes y la ficha del virus |
 
 ### Probar sin visor
 
@@ -210,7 +212,7 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `RetoData` / `MuestraData` | Datos configurables del caso y de cada muestra (sin tocar código) |
 | `PlacaCaso` | Placa de Petri cuyas colonias cambian tras la intervención |
 | `MicroscopioOptico` / `HUDMicroscopio` / `Platina` | Observación ampliada antes y después |
-| `EstacionFicha` | Fichas de investigación consultables (RF-04) |
+| `EstacionFicha` | Fichas de investigación consultables (RF-04): 3 bacterias, el virus (micrografía electrónica) y la pared celular; se abren con el botón, el rayo o tocándolas |
 | `TerminalHipotesis` | Registro de la hipótesis (RF-05) |
 | `VialAgente` / `PrensaCapsulas` / `Capsula` | Preparación de la intervención (RF-06) |
 | `CamaraExperimental` | Activación de la prueba con feedback multicanal (RF-07) |
@@ -224,6 +226,9 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `JugadorNanoLab` / `PunteroMuestras` / `ManosRig` | Locomoción de Meta, agarre con gatillo o grip y rayo corto para tomar muestras y soltar en platinas o mesas |
 | `MontarSalaAltoRiesgo` / `EstacionAnalisis3D` / `VisorVirus` | Sala de vidrio BSL-3 con los criotubos de virus y la estación holográfica 3D |
 | `Utileria` / `MontarMusica` / `Realismo` (Editor) | Utilería realista (portaobjetos, bandejas, criotubos, frasco lavador), música ambiental y ajustes de realismo |
+| `AjustesNanoLab` / `MenuAjustes` / `BotonMenu` / `MontarAjustes` (Editor) | Panel ☰ (botón menú del mando izquierdo): volumen de música y efectos, modo sentado y recalibrar la altura (RNF-07) |
+| `Silla` / `MontarSillas` (Editor) | Sillas frente a cada microscopio de puesto: se sienta con el rayo y se levanta con el joystick; no bloquean al jugador. Prefab propio en `Assets/NanoLab/Prefabs/Silla.prefab` (cambia el hijo `Modelo` por tu modelo) |
+| `Apuntable` | Base de lo que se usa con el rayo de la mano vacía (fichas, botones del panel, sillas) |
 
 Las métricas de sesión se guardan como JSON en `Application.persistentDataPath/NanoLab/`.
 
@@ -268,7 +273,7 @@ Según el informe del hito 1 (Cuadro 6):
 |---|---|---|---|---|---|---|
 | E1 | 10 | 15 % | Alcance del MVP, matriz de trazabilidad, criterios de aceptación, backlog y lista de ajustes | RF-02, 03, 07, 08 | RNF-02, 03 | ✅ [Docs/E1](Docs/E1_alcance_y_trazabilidad.md) |
 | E2 | 11 | 30 % | Entorno VR, introducción en la que el estudiante es Baymax y selección de una muestra | RF-01 | RNF-01, 04 | ✅ [Docs/E2](Docs/E2_avance.md) (validar en Quest) |
-| E3 | 12 | 50 % | Observación microscópica inicial y ficha digital | RF-04 | RNF-05, 07 | Implementado (falta RNF-07) |
+| E3 | 12 | 50 % | Observación microscópica inicial y ficha digital | RF-04 | RNF-05, 07 | ✅ [Docs/E3](Docs/E3_avance.md) (validar en Quest) |
 | E4 | 13 | 70 % | Hipótesis y preparación de la intervención | RF-05, 06 | RNF-06 | Implementado |
 | E5 | 14 | 85 % | Cámara experimental, feedback, pistas y reintento | RF-09 | RNF-01, 08 | Implementado (falta perfilar 72 FPS) |
 | E6 | 15 | 100 % | Integración, piloto, preguntas de comprensión, demostración y video | RF-01…09 | RNF-01…08 | Pendiente |

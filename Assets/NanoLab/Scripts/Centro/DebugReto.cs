@@ -118,6 +118,21 @@ public class DebugReto : MonoBehaviour
         var ficha = rm.fichas.FirstOrDefault(f => f.id == rm.reto.muestra.nombre) ?? rm.fichas.First();
         ficha.Alternar();
         Comprobar(rm.Actual == EtapaReto.Hipotesis, "Consultar una ficha > etapa Hipótesis");
+        // RF-04: la ficha del virus (A6) y abrir con el rayo o tocando el panel.
+        var fichaVirus = rm.fichas.FirstOrDefault(f => f.id == "Hepatitis B");
+        bool textoElectronica = fichaVirus != null && fichaVirus.GetComponentsInChildren<TMPro.TMP_Text>(true).Any(t => t.text.Contains("electrónica"));
+        Comprobar(rm.fichas.Length == 5 && textoElectronica, $"La biblioteca tiene {rm.fichas.Length} fichas, con la del virus como micrografía electrónica (A6)");
+        if (fichaVirus != null)
+        {
+            fichaVirus.Activar();   // lo que hace el rayo al pulsar el gatillo
+            Comprobar(fichaVirus.Abierta && rm.Metricas.Datos.fichasConsultadas.Contains("Hepatitis B"), "Una ficha se abre apuntándola con el rayo y se registra la consulta");
+            var cara = fichaVirus.transform.position + fichaVirus.transform.forward * -0.03f;
+            Comprobar(fichaVirus.Contiene(cara) && !fichaVirus.Contiene(cara + fichaVirus.transform.forward * -0.5f) && fichaVirus.GetComponentInChildren<Collider>() != null,
+                      "La ficha se abre al tocar el panel (zona de toque y collider para el rayo)");
+            yield return new WaitForSeconds(0.45f);
+            fichaVirus.Activar();
+            Comprobar(!fichaVirus.Abierta, "La misma acción la cierra");
+        }
 
         int correcto = System.Array.FindIndex(rm.reto.agentes, a => rm.reto.Eficacia(a) >= rm.reto.umbralExito);
         int incorrecto = System.Array.FindIndex(rm.reto.agentes, a => rm.reto.Eficacia(a) < rm.reto.umbralExito);

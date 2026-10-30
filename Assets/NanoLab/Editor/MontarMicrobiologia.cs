@@ -62,6 +62,7 @@ public static class MontarMicrobiologia
 
         int quitados = QuitarAparatos();
         int colliders = ML.AnadirColliders();
+        MontarSillas.QuitarOriginales(scene);   // decorativas y repartidas por el suelo: se ponen sillas propias en los puestos
         ML.MarcarEstatico();
         var sala = ML.BoundsEscena();
         suelo = ML.AlturaSuelo(sala);
@@ -89,6 +90,7 @@ public static class MontarMicrobiologia
         Physics.SyncTransforms();
         AcercarMicroscopios.Aplicar(scene);   // platinas a 15 cm del borde de la mesa
         Utileria.ReubicarPuestos(bacterias);   // bandeja, desinfectante y cultivos junto al microscopio
+        MontarSillas.EnPuestos(scene, suelo);   // RNF-07: una silla frente a cada microscopio de puesto
 
         // Jugador: rig de Meta (OVRCameraRigInteraction) con agarre, teletransporte y objetos agarrables.
         ConfigurarMetaISDK.Configurar(scene);

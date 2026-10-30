@@ -19,10 +19,16 @@ public static class Sonidos
     // Vidrio que choca: agudo y muy corto; 'fuerza' (0..1) escala el volumen.
     public static void Tintineo(Vector3 p, float fuerza) => Reproducir(ref tintineo, "tintineo", p, Mathf.Lerp(0.08f, 0.45f, Mathf.Clamp01(fuerza)), 0.07f, 3400f, 4600f);
 
+    // Volumen con el que se pidió el último sonido (para las pruebas).
+    public static float UltimoVolumen { get; private set; }
+
     static void Reproducir(ref AudioClip clip, string nombre, Vector3 p, float volumen, float duracion, params float[] notas)
     {
+        float v = volumen * AjustesNanoLab.VolumenEfectos;   // RNF-07: volumen de efectos del panel ☰
+        UltimoVolumen = v;
+        if (v <= 0f) return;
         if (clip == null) clip = Tono(nombre, duracion, notas);
-        AudioSource.PlayClipAtPoint(clip, p, volumen);
+        AudioSource.PlayClipAtPoint(clip, p, v);
     }
 
     // Secuencia de notas con envolvente suave (ataque corto, caída exponencial).

@@ -79,6 +79,7 @@ public static class ConfigurarMetaISDK
         jugador.alcanceRayo = 1.2f;   // agarre a distancia corto (el objeto viene a la mano)
         jugador.anguloGiro = 30f; jugador.radioCuerpo = 0.16f;
         PrefabUtility.RecordPrefabInstancePropertyModifications(jugador);
+        MontarAjustes.Construir(rigRoot);   // RNF-07: panel ☰ con volumen y modo sentado
         var mgr = rig.GetComponent<OVRManager>();
         if (mgr != null)
         {

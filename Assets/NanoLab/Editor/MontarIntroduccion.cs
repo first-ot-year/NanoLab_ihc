@@ -103,7 +103,7 @@ public static class MontarIntroduccion
         }
         indicador.texto.text = $"RECUERDOS CIENTÍFICOS: <color=#FFD25A>0/{RecuerdosBaymax.Total}</color>";
 
-        var controles = MM.Texto3D(panel, "Joystick izq.: caminar  ·  joystick der.: girar  ·  gatillo o grip: agarrar (también con el rayo)",
+        var controles = MM.Texto3D(panel, "Joystick izq.: caminar  ·  der.: girar  ·  gatillo o grip: agarrar (también con el rayo)  ·  botón menú: volumen y modo sentado",
             new Vector3(0f, -0.6f, -0.02f), Quaternion.identity, 0.28f, new Color(0.56f, 0.85f, 1f), 1.3f);
         controles.alignment = TextAlignmentOptions.Center;
         var aviso = MM.Texto3D(panel, "Complemento educativo: las muestras, intervenciones y resultados están simplificados; no son protocolos clínicos ni de laboratorio reales.",
@@ -168,7 +168,7 @@ public static class MontarIntroduccion
         }
     }
 
-    static void Recursos()
+    internal static void Recursos()
     {
         var sh = Shader.Find("Interaction/RoundedBoxUnlit");
         if (sh == null) Debug.LogWarning("[Intro] No se encontró el shader Interaction/RoundedBoxUnlit (Meta Interaction SDK).");
@@ -210,7 +210,7 @@ public static class MontarIntroduccion
     }
 
     // Quad con PanelRedondeado. 'orden' fija qué capa se dibuja encima (todos son transparentes).
-    static PanelRedondeado Panel(Transform padre, string nombre, float x, float y, float z, float ancho, float alto, float radio,
+    internal static PanelRedondeado Panel(Transform padre, string nombre, float x, float y, float z, float ancho, float alto, float radio,
                                  Color color, Color borde, float grosorBorde, int orden)
     {
         var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -232,7 +232,7 @@ public static class MontarIntroduccion
         return p;
     }
 
-    static TextMeshPro Texto(Transform padre, string s, float x, float y, float ancho, float tam, Color color, bool negrita, TextAlignmentOptions alin)
+    internal static TextMeshPro Texto(Transform padre, string s, float x, float y, float ancho, float tam, Color color, bool negrita, TextAlignmentOptions alin)
     {
         var t = MM.Texto3D(padre, s, new Vector3(x, y, -0.004f), Quaternion.identity, tam, color, ancho);
         var f = negrita ? fuenteNegrita : fuente;

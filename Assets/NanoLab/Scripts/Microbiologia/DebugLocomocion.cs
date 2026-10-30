@@ -91,8 +91,101 @@ public class DebugLocomocion : MonoBehaviour
         bool pausado = FindObjectsOfType<SlideLocomotionBroadcaster>().All(s => !s.enabled) && FindObjectsOfType<TurnerEventBroadcaster>().All(s => !s.enabled);
         jugador.PausarLocomocion(false);
         Comprobar(pausado, "Al mirar por el microscopio se pausa la locomoción");
+
+        yield return Accesibilidad(jugador, fpl, personaje);
         Fin();
     }
+
+    // RNF-07: volumen de música y efectos, modo sentado, panel ☰ y sillas en las que sentarse.
+    IEnumerator Accesibilidad(JugadorNanoLab jugador, FirstPersonLocomotor fpl, Oculus.Interaction.Locomotion.CharacterController personaje)
+    {
+        AjustesNanoLab.VolumenEfectos = 0f;
+        Sonidos.Clic(Vector3.zero);
+        bool mudo = Sonidos.UltimoVolumen == 0f;
+        AjustesNanoLab.VolumenEfectos = 0.5f;
+        Sonidos.Clic(Vector3.zero);
+        Comprobar(mudo && Mathf.Abs(Sonidos.UltimoVolumen - 0.25f) < 0.001f, $"Volumen de efectos: 0 % silencia y 50 % reduce a la mitad ({Sonidos.UltimoVolumen:F2})");
+
+        var musica = FindObjectOfType<MusicaAmbiente>();
+        if (musica != null)
+        {
+            AjustesNanoLab.VolumenMusica = 0f;
+            yield return new WaitForSeconds(1.2f);
+            var fuente = musica.GetComponent<AudioSource>();
+            Comprobar(fuente.volume < 0.01f, $"Volumen de música al 0 %: la música baja a {fuente.volume:F3}");
+        }
+        else log.AppendLine("(sin música en la escena)");
+
+        var menu = MenuAjustes.Instancia;
+        Comprobar(menu != null && menu.panel != null && menu.botones != null && menu.botones.Length == 7 && !menu.Abierto,
+                  $"Panel ☰ de ajustes montado en el rig ({(menu != null && menu.botones != null ? menu.botones.Length : 0)} botones), cerrado al empezar");
+        if (menu != null && menu.panel != null)
+        {
+            menu.Abrir(true);
+            bool abierto = menu.Abierto;
+            AjustesNanoLab.VolumenMusica = 1f;
+            menu.Pulsar("musica-");
+            menu.Pulsar("musica-");
+            bool baja = Mathf.Abs(AjustesNanoLab.VolumenMusica - 0.8f) < 0.001f;
+            menu.Pulsar("cerrar");
+            Comprobar(abierto && baja && !menu.Abierto, "El panel se abre, sus botones cambian el volumen (100 % > 80 %) y CERRAR lo cierra");
+        }
+
+        // Modo sentado: sin visor la cabeza se toma a 1.15 m, así que la vista sube 0.45 m.
+        AjustesNanoLab.ModoSentado = false;
+        jugador.CalibrarSentado();
+        AjustesNanoLab.ModoSentado = true;
+        yield return null;
+        Comprobar(Mathf.Abs(fpl.HeightOffset - (jugador.alturaDePie - 1.15f)) < 0.01f, $"Modo sentado: la vista sube {fpl.HeightOffset:F2} m hasta la altura de alguien de pie");
+        AjustesNanoLab.ModoSentado = false;
+        yield return null;
+        Comprobar(Mathf.Abs(fpl.HeightOffset) < 0.001f, "Sin modo sentado no hay desplazamiento de altura");
+
+        // Sentarse en la silla más cercana a un microscopio de puesto y levantarse.
+        var sillas = FindObjectsOfType<Silla>();
+        var micros = FindObjectsOfType<MicroscopioOptico>().Where(m => !m.modoReto).ToArray();
+        var silla = sillas.OrderBy(s => micros.Length == 0 ? 0f : micros.Min(m => Vector3.Distance(m.transform.position, s.transform.position))).FirstOrDefault();
+        Comprobar(silla != null && silla.asiento != null && silla.salida != null, $"Hay {sillas.Length} sillas en las que sentarse");
+        if (silla == null) yield break;
+        float distMicro = micros.Length == 0 ? -1f : micros.Min(m => Vector3.Distance(m.transform.position, silla.transform.position));
+        // En batchmode no corre el fin de frame en el que el rig sigue a la cápsula: se emula, porque si no
+        // el Locomotor devuelve la cápsula hacia la cabeza (que no se movió) en el siguiente Update.
+        var finDeFrame = gameObject.AddComponent<FinDeFrame>();
+        finDeFrame.locomotor = fpl;
+        fpl.ResetPlayerToCharacter();   // la prueba de velocidad dejó la cápsula 3 m por delante del rig
+        yield return null;
+        silla.Activar();   // lo que hace el rayo
+        for (int i = 0; i < 5; i++) yield return null;
+        var asiento = silla.PuntoAsiento;
+        float dx = personaje != null ? Vector2.Distance(new Vector2(personaje.transform.position.x, personaje.transform.position.z), new Vector2(asiento.x, asiento.z)) : 99f;
+        float esperado = asiento.y + silla.ojosSobreAsiento - silla.transform.position.y - jugador.alturaDePie;
+        bool solidosApagados = silla.GetComponentsInChildren<Collider>().Where(c => !c.isTrigger).All(c => !c.enabled);
+        Comprobar(JugadorNanoLab.Sentado(out var s1) && s1 == silla && jugador.LocomocionPausada && Mathf.Abs(fpl.HeightOffset - esperado) < 0.01f && dx < 0.2f && solidosApagados,
+                  $"Sentado en '{silla.name}' (a {distMicro:F2} m del microscopio): cuerpo a {dx:F2} m del asiento, ojos a {asiento.y + silla.ojosSobreAsiento - silla.transform.position.y:F2} m, locomoción pausada");
+        yield return null;
+        jugador.Levantarse();
+        yield return new WaitForSeconds(0.4f);
+        var salida = silla.PuntoSalida;
+        float dsal = personaje != null ? Vector2.Distance(new Vector2(personaje.transform.position.x, personaje.transform.position.z), new Vector2(salida.x, salida.z)) : 99f;
+        bool solidos = silla.GetComponentsInChildren<Collider>().Where(c => !c.isTrigger).All(c => c.enabled);
+        Comprobar(!JugadorNanoLab.Sentado(out _) && !jugador.LocomocionPausada && Mathf.Abs(fpl.HeightOffset) < 0.001f && dsal < 0.25f && solidos,
+                  $"Al levantarse queda detrás de la silla (a {dsal:F2} m de la salida), altura normal y locomoción activa");
+
+        Destroy(finDeFrame);
+
+        // Deja los ajustes como estaban por defecto.
+        AjustesNanoLab.VolumenMusica = 1f; AjustesNanoLab.VolumenEfectos = 1f; AjustesNanoLab.AlturaSentado = 0f;
+    }
+
+    // Llama al LastUpdate del Locomotor (lo que hace su corrutina de fin de frame en el visor).
+    [DefaultExecutionOrder(32000)]
+    class FinDeFrame : MonoBehaviour
+    {
+        public FirstPersonLocomotor locomotor;
+        static readonly MethodInfo Ultimo = typeof(FirstPersonLocomotor).GetMethod("LastUpdate", BindingFlags.NonPublic | BindingFlags.Instance);
+        void LateUpdate() { if (locomotor != null && Ultimo != null) Ultimo.Invoke(locomotor, null); }
+    }
+
 
     void Fin()
     {

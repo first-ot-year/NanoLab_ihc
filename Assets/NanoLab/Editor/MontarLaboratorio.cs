@@ -45,6 +45,7 @@ public static class MontarLaboratorio
         if (cam) Object.DestroyImmediate(cam.gameObject);
 
         int colliders = AnadirColliders();
+        MontarSillas.Aplicar(scene);   // RNF-07: sillas en las que sentarse
         MarcarEstatico();
         Bounds sala = BoundsEscena();
         float suelo = AlturaSuelo(sala);

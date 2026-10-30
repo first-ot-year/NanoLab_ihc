@@ -628,20 +628,25 @@ public static class MontarCentroExperimentacion
         FijoPrimitiva(mueble.gameObject);
 
         var fichas = new List<EstacionFicha>();
-        var orden = new[] { "Ecoli", "Saureus", "Bsubtilis" };
-        for (int i = 0; i < 4; i++)
+        // Tres bacterias, el virus (micrografía electrónica A6) y el panel de la pared celular.
+        var orden = new[] { "Ecoli", "Saureus", "Bsubtilis", "HepatitisB" };
+        int total = orden.Length + 1;
+        const float paso = 1.44f, escala = 0.82f;   // 5 fichas en el mismo mostrador de 7.2 m
+        for (int i = 0; i < total; i++)
         {
-            float x = -2.7f + i * 1.8f;
-            var panel = new GameObject(i < 3 ? "Ficha_" + orden[i] : "Ficha_Pared").transform;
+            float x = -paso * (total - 1) / 2f + i * paso;
+            bool muestra = i < orden.Length;
+            var panel = new GameObject(muestra ? "Ficha_" + orden[i] : "Ficha_Pared").transform;
             panel.SetParent(e, false);
             panel.localPosition = V(x, 1.78f, fondo + 0.03f);
             panel.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            panel.localScale = Vector3.one * escala;
             MM.Caja(panel, "Fondo", V(0f, 0f, 0.01f), V(1.65f, 1.3f, 0.03f), M["PanelHUD"], true);
             MM.Caja(panel, "Borde", V(0f, 0f, 0.012f), V(1.68f, 1.33f, 0.028f), M["Zona4"], false);
             var f = panel.gameObject.AddComponent<EstacionFicha>();
             f.cerrada = MM.Grupo(panel, "Cerrada").gameObject;
             f.abierta = MM.Grupo(panel, "Abierta").gameObject;
-            if (i < 3)
+            if (muestra)
             {
                 var m = AssetDatabase.LoadAssetAtPath<MuestraData>($"Assets/NanoLab/Muestras/{orden[i]}.asset");
                 f.id = m.nombre;
@@ -657,46 +662,50 @@ public static class MontarCentroExperimentacion
             b.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             f.boton = b;
             f.botonTxt = b.etiqueta;
-            var hint = MM.Texto3D(e, i < 3 ? "FICHA" : "PANEL", V(x, 0.932f, fondo + 0.26f), Quaternion.Euler(90f, 180f, 0f), 0.2f, ColorZona[3], 0.4f);
+            var hint = MM.Texto3D(e, muestra ? "FICHA" : "PANEL", V(x, 0.932f, fondo + 0.26f), Quaternion.Euler(90f, 180f, 0f), 0.2f, ColorZona[3], 0.4f);
             hint.alignment = TextAlignmentOptions.Center; hint.fontStyle = FontStyles.Bold;
             fichas.Add(f);
         }
         var titulo = MM.Texto3D(e, "BIBLIOTECA  ·  FICHAS DE REFERENCIA", V(0f, 2.75f, fondo + 0.02f), Quaternion.Euler(0f, 180f, 0f), 0.6f, ColorZona[3], 6f);
         titulo.alignment = TextAlignmentOptions.Center; titulo.fontStyle = FontStyles.Bold;
         guia = Cartel(e, V(-4.2f, 0f, 0.0f), 4, "BIBLIOTECA",
-            "Compara lo que observaste con las fichas. La respuesta no se adivina: se deduce de la evidencia.", V(0f, 2.45f, fondo + 0.5f));
+            "Compara lo que observaste con las fichas. Ábrelas con el botón, apuntándolas con el rayo o tocándolas.", V(0f, 2.45f, fondo + 0.5f));
         return fichas.ToArray();
     }
 
     static void FichaMuestra(EstacionFicha f, MuestraData m)
     {
         var hex = ColorUtility.ToHtmlStringRGB(m.color);
-        var c = Txt(f.cerrada.transform, $"<b>{m.nombre.ToUpper()}</b>\n<size=60%><i>{m.nombreCientifico}</i></size>\n\n<size=55%><color=#A9BED2>Pulsa ABRIR en el mostrador</color></size>", 0f, 0.15f, 0.55f, Color.white, 1.5f, TextAlignmentOptions.Center);
+        var c = Txt(f.cerrada.transform, $"<b>{m.nombre.ToUpper()}</b>\n<size=60%><i>{m.nombreCientifico}</i></size>\n\n<size=55%><color=#A9BED2>Pulsa ABRIR, tócala o apúntala con el rayo</color></size>", 0f, 0.15f, 0.55f, Color.white, 1.5f, TextAlignmentOptions.Center);
         var a = f.abierta.transform;
         var t = Txt(a, $"<b><color=#{hex}>{m.nombre.ToUpper()}</color></b>  <size=65%><i>{m.nombreCientifico}</i></size>", 0f, 0.55f, 0.42f, Color.white, 1.55f, TextAlignmentOptions.Center);
         var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
         Object.DestroyImmediate(quad.GetComponent<Collider>());
         quad.name = "Micrografia";
         quad.transform.SetParent(a, false);
-        quad.transform.localPosition = V(-0.4f, 0.12f, -0.005f);
+        quad.transform.localPosition = V(-0.4f, 0.12f, -0.012f);   // delante de la cara del fondo (-0.005): sin z-fighting
         quad.transform.localScale = V(0.72f, 0.54f, 1f);
         var mat = MM.MatEn(MatDir, "Ficha_" + m.name, Shader.Find("Unlit/Texture"));
         mat.mainTexture = m.micrografia;
         quad.GetComponent<Renderer>().sharedMaterial = mat;
-        var pie = Txt(a, "Tinción de Gram · 1000x", -0.4f, -0.18f, 0.18f, Gris, 0.72f, TextAlignmentOptions.Center);
+        // Virus (A6): micrografía electrónica; se aclara que el microscopio del laboratorio no los ve (RNF-06).
+        bool virus = m.tipo == TipoMuestra.Virus;
+        var pie = Txt(a, virus ? "Micrografía <b>electrónica</b> · ~100 000x" : "Tinción de Gram · 1000x", -0.4f, -0.18f, 0.18f, Gris, 0.72f, TextAlignmentOptions.Center);
         var datos = new System.Text.StringBuilder();
         foreach (var d in m.caracteristicas.Where(d => d.clave != "Tipo")) datos.AppendLine($"<color=#8FD8FF>{d.clave}:</color> {d.valor}");
         var dt = Txt(a, datos.ToString(), 0.42f, 0.36f, 0.22f, Color.white, 0.75f, TextAlignmentOptions.TopLeft);
         dt.rectTransform.pivot = new Vector2(0.5f, 1f);
         dt.rectTransform.sizeDelta = new Vector2(0.75f, 0.6f);
-        var morf = Txt(a, $"<b>Al microscopio:</b> {m.morfologia}\n<b>Pared:</b> {m.estructura}", 0f, -0.27f, 0.21f, Color.white, 1.5f, TextAlignmentOptions.TopLeft);
+        var morf = Txt(a, virus
+                ? $"<b>Forma:</b> {m.morfologia}\n<color=#FFD25A><b>Ojo:</b></color> un virus (~42 nm) es unas 25 veces más pequeño que una bacteria: <b>no se ve con el microscopio óptico</b> del laboratorio. Esta imagen es de microscopía electrónica."
+                : $"<b>Al microscopio:</b> {m.morfologia}\n<b>Pared:</b> {m.estructura}", 0f, -0.27f, 0.21f, Color.white, 1.5f, TextAlignmentOptions.TopLeft);
         morf.rectTransform.pivot = new Vector2(0.5f, 1f);
         morf.rectTransform.sizeDelta = new Vector2(1.5f, 0.35f);
     }
 
     static void FichaPared(EstacionFicha f)
     {
-        Txt(f.cerrada.transform, "<b>PARED CELULAR</b>\n<size=60%>Gram +  vs  Gram -</size>\n\n<size=55%><color=#A9BED2>Pulsa ABRIR en el mostrador</color></size>", 0f, 0.15f, 0.55f, Color.white, 1.5f, TextAlignmentOptions.Center);
+        Txt(f.cerrada.transform, "<b>PARED CELULAR</b>\n<size=60%>Gram +  vs  Gram -</size>\n\n<size=55%><color=#A9BED2>Pulsa ABRIR, tócala o apúntala con el rayo</color></size>", 0f, 0.15f, 0.55f, Color.white, 1.5f, TextAlignmentOptions.Center);
         var a = f.abierta.transform;
         Txt(a, "<b>PARED CELULAR: GRAM +  vs  GRAM -</b>", 0f, 0.55f, 0.36f, Cian, 1.55f, TextAlignmentOptions.Center);
         // Esquema de capas (forma + texto, no solo color).

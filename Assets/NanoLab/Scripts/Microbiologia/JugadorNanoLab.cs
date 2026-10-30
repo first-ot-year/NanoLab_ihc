@@ -10,7 +10,9 @@ using UnityEngine;
 //    confort; joystick derecho = giro por pasos de Meta; sin teletransporte,
 //  - agarre con el rayo a corta distancia: el agarre a distancia de Meta responde también al
 //    gatillo y su alcance se limita (el objeto viene a la mano); con un portaobjetos en la mano,
-//    el rayo toma muestras y lo deja en platinas o mesas (PunteroMuestras).
+//    el rayo toma muestras y lo deja en platinas o mesas (PunteroMuestras),
+//  - accesibilidad (RNF-07): panel ☰ de ajustes (MenuAjustes), modo sentado que sube la vista a la
+//    de alguien de pie y sillas en las que sentarse (Silla); ambos usan el HeightOffset del Locomotor.
 // Si no encuentra el Locomotor, usa un movimiento propio de respaldo.
 public class JugadorNanoLab : MonoBehaviour
 {
@@ -32,16 +34,33 @@ public class JugadorNanoLab : MonoBehaviour
     [Header("Respaldo (solo si falta el Locomotor de Meta)")]
     public float radioCuerpo = 0.16f;
 
+    [Header("Altura (RNF-07)")]
+    [Tooltip("Altura de los ojos de una persona de pie (m): a ella se sube la vista en modo sentado.")]
+    public float alturaDePie = 1.6f;
+
     static readonly string[] Teletransporte = { "TeleportControllerInteractor", "ControllerStepInteractor", "ControllerLocomotionSlideActions" };
+
+    public static JugadorNanoLab Instancia { get; private set; }
 
     OVRCameraRig rig;
     FirstPersonLocomotor locomotor;
     SlideLocomotionBroadcaster[] slides = new SlideLocomotionBroadcaster[0];
     TurnerEventBroadcaster[] turners = new TurnerEventBroadcaster[0];
-    bool respaldo, girando, pausado;
+    bool respaldo, girando, pausado, esperarSoltar;
+    Silla sentadoEn;
+
+    // Desplazamiento vertical de la vista que se aplica ahora (m).
+    public float OffsetAltura { get; private set; }
+
+    public static bool Sentado(out Silla silla)
+    {
+        silla = Instancia != null ? Instancia.sentadoEn : null;
+        return silla != null;
+    }
 
     void Awake()
     {
+        Instancia = this;
         rig = GetComponentInChildren<OVRCameraRig>(true);
         ForzarSuelo();
         locomotor = GetComponentInChildren<FirstPersonLocomotor>(true);
@@ -55,11 +74,117 @@ public class JugadorNanoLab : MonoBehaviour
         ConfigurarAgarre();
     }
 
+    void OnEnable() => AjustesNanoLab.Cambiado += AplicarAltura;
+    void OnDisable() => AjustesNanoLab.Cambiado -= AplicarAltura;
+
     // Se repite en Start y medio segundo después por si el OVRManager aplica su valor guardado al iniciar.
     void Start()
     {
         ForzarSuelo();
         Invoke(nameof(ForzarSuelo), 0.5f);
+        AplicarAltura();
+    }
+
+    // ---------------------------------------------------------------- altura, modo sentado y sillas
+
+    // Altura real de los ojos sobre el suelo real (no cambia con el offset). Sin visor vale ~0.
+    float AlturaCabeza => rig != null && rig.centerEyeAnchor != null && rig.trackingSpace != null
+        ? rig.centerEyeAnchor.position.y - rig.trackingSpace.position.y : 0f;
+
+    // Modo sentado: mide la cabeza ahora (el usuario sentado) y guarda cuánto hay que subirla.
+    public void CalibrarSentado()
+    {
+        float h = AlturaCabeza;
+        if (h < 0.3f) h = 1.15f;   // sin visor (pruebas): altura típica de unos ojos sentados
+        AjustesNanoLab.AlturaSentado = alturaDePie - h;
+    }
+
+    public void AplicarAltura()
+    {
+        if (sentadoEn != null) return;   // sentado en una silla manda la silla
+        PonerOffset(AjustesNanoLab.ModoSentado ? AjustesNanoLab.AlturaSentado : 0f);
+    }
+
+    void PonerOffset(float y)
+    {
+        OffsetAltura = y;
+        if (locomotor != null) locomotor.HeightOffset = y;
+        else if (rig != null && rig.trackingSpace != null)
+        {
+            var p = rig.trackingSpace.localPosition;
+            p.y = y;
+            rig.trackingSpace.localPosition = p;
+        }
+    }
+
+    // Se sienta en la silla mirando hacia donde mira ella (la mesa) con los ojos a la altura de sentado.
+    public void Sentarse(Silla silla)
+    {
+        if (silla == null || silla == sentadoEn) return;
+        if (sentadoEn != null) sentadoEn.Colisiones(true);
+        sentadoEn = silla;
+        silla.Colisiones(false);
+        var pies = silla.PuntoAsiento;
+        pies.y = silla.transform.position.y;
+        Mover(pies, silla.transform.forward);
+        float h = AlturaCabeza;
+        if (h < 0.3f) h = alturaDePie;   // sin visor (pruebas)
+        PonerOffset(silla.PuntoAsiento.y + silla.ojosSobreAsiento - pies.y - h);
+        esperarSoltar = true;
+        ActualizarPausa();
+        Aviso.Mostrar("Sentado. Mueve el joystick izquierdo para levantarte.", pies + Vector3.up * 1.1f + silla.transform.forward * 0.5f, Aviso.Tipo.Info, 4f);
+        Sonidos.Clic(pies);
+    }
+
+    public void Levantarse()
+    {
+        var s = sentadoEn;
+        if (s == null) return;
+        sentadoEn = null;
+        var cabeza = rig != null ? rig.centerEyeAnchor : null;
+        var adelante = cabeza != null ? cabeza.forward : s.transform.forward;
+        var salida = s.PuntoSalida;
+        salida.y = s.transform.position.y;
+        Mover(salida, adelante);
+        AplicarAltura();
+        ActualizarPausa();
+        StartCoroutine(ReactivarSilla(s));   // cuando la cápsula ya salió de ella
+    }
+
+    System.Collections.IEnumerator ReactivarSilla(Silla s)
+    {
+        yield return new WaitForSeconds(0.25f);
+        if (s != null && s != sentadoEn) s.Colisiones(true);
+    }
+
+    // Lleva los pies a un punto del suelo y gira la vista hacia 'adelante'.
+    void Mover(Vector3 pies, Vector3 adelante)
+    {
+        adelante = Vector3.ProjectOnPlane(adelante, Vector3.up);
+        if (adelante.sqrMagnitude < 1e-4f) adelante = transform.forward;
+        var rot = Quaternion.LookRotation(adelante.normalized, Vector3.up);
+        if (locomotor != null)
+        {
+            locomotor.HandleLocomotionEvent(new LocomotionEvent(0, new Pose(pies, rot),
+                LocomotionEvent.TranslationType.Absolute, LocomotionEvent.RotationType.Absolute));
+            return;
+        }
+        var cab = rig != null ? rig.centerEyeAnchor : transform;
+        float giro = Vector3.SignedAngle(Vector3.ProjectOnPlane(cab.forward, Vector3.up), adelante, Vector3.up);
+        transform.RotateAround(cab.position, Vector3.up, giro);
+        var d = pies - cab.position;
+        d.y = pies.y - transform.position.y;
+        transform.position += d;
+    }
+
+    // Sentado: se levanta al mover el joystick izquierdo (después de soltarlo una vez y fuera del microscopio).
+    void ComprobarLevantarse()
+    {
+        if (sentadoEn == null) return;
+        if (MicroscopioOptico.AlgunoActivo) { esperarSoltar = true; return; }   // ahí el joystick mueve la muestra
+        float eje = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch).magnitude;
+        if (esperarSoltar) { if (eje < 0.3f) esperarSoltar = false; return; }
+        if (eje > 0.6f) Levantarse();
     }
 
     void ForzarSuelo()
@@ -153,16 +278,26 @@ public class JugadorNanoLab : MonoBehaviour
     }
 
     // Mientras se mira por el microscopio el joystick cambia pestañas: se pausa caminar y girar.
+    // Sentado en una silla también se pausa (se levanta con el joystick izquierdo).
     public void PausarLocomocion(bool pausar)
     {
         pausado = pausar;
-        foreach (var s in slides) if (s != null) s.enabled = !pausar;
-        foreach (var t in turners) if (t != null) t.enabled = !pausar;
+        ActualizarPausa();
+    }
+
+    public bool LocomocionPausada => pausado || sentadoEn != null;
+
+    void ActualizarPausa()
+    {
+        bool parar = LocomocionPausada;
+        foreach (var s in slides) if (s != null) s.enabled = !parar;
+        foreach (var t in turners) if (t != null) t.enabled = !parar;
     }
 
     void Update()
     {
-        if (!respaldo || pausado || rig == null || rig.centerEyeAnchor == null) return;
+        ComprobarLevantarse();
+        if (!respaldo || LocomocionPausada || rig == null || rig.centerEyeAnchor == null) return;
         var cabeza = rig.centerEyeAnchor;
 
         // Respaldo: caminar con el joystick izquierdo hacia donde se mira, con colisiones.

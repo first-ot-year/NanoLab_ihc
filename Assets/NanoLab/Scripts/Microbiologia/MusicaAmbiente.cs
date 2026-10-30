@@ -37,7 +37,7 @@ public class MusicaAmbiente : MonoBehaviour
     {
         if (fuente == null) return;
         float entrada = fundidoEntrada > 0f ? Mathf.Clamp01((Time.unscaledTime - inicio) / fundidoEntrada) : 1f;
-        float objetivo = volumen * entrada * (MicroscopioOptico.AlgunoActivo ? atenuacionMicroscopio : 1f);
+        float objetivo = volumen * AjustesNanoLab.VolumenMusica * entrada * (MicroscopioOptico.AlgunoActivo ? atenuacionMicroscopio : 1f);
         fuente.volume = Mathf.MoveTowards(fuente.volume, objetivo, Time.unscaledDeltaTime * 0.25f);
     }
 }

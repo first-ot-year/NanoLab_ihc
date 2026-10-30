@@ -5,6 +5,7 @@ using UnityEngine;
 //  - un tubo, placa, desinfectante o gotero -> gatillo o A/X: toma la muestra (o la limpia/tiñe),
 //  - la platina de un microscopio o la ranura de la estación 3D -> al soltar, se encaja allí,
 //  - una mesa -> al soltar, el portaobjetos se deja plano en ese punto.
+// Con la mano vacía, el rayo aparece solo sobre un Apuntable (ficha, botón del panel ☰, silla).
 // Alcance corto (1,2 m) para no perder realismo. Lo instala JugadorNanoLab en la raíz del rig.
 [DefaultExecutionOrder(50)]   // después de Portaobjetos (que detecta el soltar) y antes de su corrutina
 public class PunteroMuestras : MonoBehaviour
@@ -19,6 +20,7 @@ public class PunteroMuestras : MonoBehaviour
         public Portaobjetos sostenido;
         public FuenteMuestra fuente, fuenteAvisada;
         public Platina platina;
+        public Apuntable apuntable, apuntableAvisado;
         public bool superficie;
         public Vector3 punto;
     }
@@ -102,7 +104,8 @@ public class PunteroMuestras : MonoBehaviour
     void Apuntar(Mano m)
     {
         m.fuente = null; m.platina = null; m.superficie = false;
-        if (m.sostenido == null) { m.linea.enabled = false; m.fuenteAvisada = null; return; }
+        if (m.sostenido == null) { m.fuenteAvisada = null; ApuntarManoVacia(m); return; }
+        m.apuntable = null; m.apuntableAvisado = null;
 
         var o = m.ancla.position;
         var dir = m.ancla.forward;
@@ -143,6 +146,44 @@ public class PunteroMuestras : MonoBehaviour
         }
         else m.fuenteAvisada = null;
     }
+
+    // Mano vacía: el rayo solo aparece al apuntar a algo usable (ficha, botón del panel ☰, silla),
+    // para no competir con el rayo de agarre de Meta. Gatillo o A/X lo activa.
+    void ApuntarManoVacia(Mano m)
+    {
+        m.apuntable = null;
+        Vector3 fin = Vector3.zero;
+        if (!MicroscopioOptico.AlgunoActivo)   // A/X cambian el aumento
+        {
+            var o = m.ancla.position;
+            var dir = m.ancla.forward;
+            int n = Physics.RaycastNonAlloc(o, dir, hits, AlcanceApuntables, ~0, QueryTriggerInteraction.Collide);
+            OrdenarPorDistancia(n);
+            for (int i = 0; i < n; i++)
+            {
+                var c = hits[i].collider;
+                if (c == null) continue;
+                var a = c.GetComponentInParent<Apuntable>();   // incluye los botones del panel ☰, que van en el rig
+                if (a != null && a.Disponible && hits[i].distance <= a.alcanceRayo) { m.apuntable = a; fin = hits[i].point; break; }
+                if (c.isTrigger || c.transform.IsChildOf(transform)) continue;
+                break;   // lo primero sólido tapa lo que hay detrás
+            }
+        }
+        if (m.apuntable == null) { m.linea.enabled = false; m.apuntableAvisado = null; return; }
+        m.linea.enabled = true;
+        m.linea.SetPosition(0, m.ancla.position);
+        m.linea.SetPosition(1, fin);
+        if (valido != null && m.linea.sharedMaterial != valido) m.linea.sharedMaterial = valido;
+        if (m.apuntable != m.apuntableAvisado)
+        {
+            m.apuntableAvisado = m.apuntable;
+            Aviso.Mostrar($"Gatillo o A/X: {m.apuntable.Accion}", fin + Vector3.up * 0.1f, Aviso.Tipo.Info, 2f);
+        }
+        if (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, m.mando) || OVRInput.GetDown(OVRInput.Button.One, m.mando))
+            m.apuntable.Activar();
+    }
+
+    const float AlcanceApuntables = 2.5f;
 
     // Platina libre apuntada: su zona, o cualquier parte del microscopio / estación 3D que la tenga.
     static Platina PlatinaDe(Collider c)
