@@ -65,3 +65,6 @@ desktop.ini
 
 # Informes del curso (PDF locales, no se suben)
 /informe_hito*.pdf
+
+# latex que no va
+/IHC_latex/
