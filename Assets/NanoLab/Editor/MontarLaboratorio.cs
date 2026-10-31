@@ -69,6 +69,8 @@ public static class MontarLaboratorio
         CrearSondas(sala, suelo);
 
         ConfigurarMetaISDK.Configurar(scene);   // rig de Meta (OVRCameraRigInteraction) y objetos agarrables
+        AsegurarColisiones.CapaYMatriz();
+        AsegurarColisiones.Aplicar(scene);   // sillas, armarios y muebles bloquean al jugador
         AgruparLab.Agrupar(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log($"[Montar] Colliders añadidos: {colliders}. Horneando iluminación...");

@@ -426,6 +426,7 @@ public class RetoManager : MonoBehaviour
         {
             subtitulo = $"ANTES | DESPUÉS  ·  {reto.codigo}  ·  INTENTO {Intentos}",
             vista = exito ? reto.vistaDespuesEficaz : crecio ? reto.vistaDespuesCrecimiento : m.micrografia,
+            inmoviles = exito,   // tratamiento eficaz: células lisadas, ya no se mueven por sí mismas
             antes = m.micrografia,
             antesTitulo = "ANTES (sin intervención)",
             claves = new[] { "Vista central", "Agente", "Acción", "Hipótesis", "Células vivas", "Intento" },

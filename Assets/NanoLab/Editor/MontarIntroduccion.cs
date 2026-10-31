@@ -9,10 +9,11 @@ using UnityEngine.TextCore.LowLevel;
 using MM = MontarMicrobiologia;
 using ML = MontarLaboratorio;
 
-// Introducción narrativa (RF-01): tótem estático frente al punto de aparición. El estudiante es Baymax,
-// ha perdido sus recuerdos científicos y debe recuperarlos investigando. Lo invita a mirarse en el espejo
-// del recibidor, lo orienta hacia las áreas (hasta el banco de muestras del Centro) y muestra el
-// indicador de recuerdos recuperados. Incluye el aviso de contenido simplificado (RNF-06).
+// Introducción narrativa (RF-01): ventana pequeña paso a paso (VentanaIntro) que aparece delante de la
+// cara al entrar. Explica quién es Baymax (el estudiante ES Baymax y ha perdido sus recuerdos
+// científicos), el objetivo de NanoLab VR, el ciclo de investigación, los controles, el espejo del
+// recibidor y dónde empezar (banco de muestras del Centro). Incluye el aviso de contenido simplificado
+// (RNF-06). Al cerrarla queda una insignia con los recuerdos recuperados y un botón para volver a verla.
 // Además coloca las balizas numeradas sobre cada área del laboratorio (diseño de Luis).
 public static class MontarIntroduccion
 {
@@ -53,64 +54,98 @@ public static class MontarIntroduccion
 
         Construir(padre);
         Areas(padre);
-        Debug.Log($"[Intro] {s.name}: introducción de Baymax montada en {PosIntro} y {AreasLab.Length} balizas de áreas.");
+        Debug.Log($"[Intro] {s.name}: ventana de introducción de Baymax ({VentanaIntro.PasosPorDefecto().Length} pasos), insignia en {PosIntro} y {AreasLab.Length} balizas de áreas.");
     }
+
+    // Ventana pequeña paso a paso (VentanaIntro) en lugar del tótem: en tiempo de ejecución se coloca
+    // delante de la cara; aquí queda delante del punto de aparición para verla en el Editor. Al cerrarla
+    // queda la insignia con los recuerdos recuperados (en el sitio del antiguo tótem) para volver a abrirla.
+    static readonly Color FondoVentana = new Color(0.075f, 0.09f, 0.115f, 1f);
+    static readonly Color Cian = new Color(0.37f, 0.83f, 1f);
+    static readonly Color Amarillo = new Color(1f, 0.82f, 0.35f);
 
     static void Construir(Transform padre)
     {
-        var panel = MM.Totem(padre, "Introduccion", PosIntro, Spawn, 1.4f, 1.62f);
-        var raiz = panel.parent;
-        var cian = new Color(0.4f, 0.9f, 1f);
-        var amarillo = new Color(1f, 0.82f, 0.35f);
+        Recursos();
+        var raiz = new GameObject("Introduccion").transform;
+        raiz.SetParent(padre, false);
+        var intro = raiz.gameObject.AddComponent<VentanaIntro>();
+        var haciaIntro = PosIntro - Spawn; haciaIntro.y = 0f; haciaIntro.Normalize();
 
-        // Cara de Baymax (dos ojos unidos por una línea) junto al título.
-        var cara = MM.Grupo(panel, "CaraBaymax");
-        cara.localPosition = new Vector3(-0.52f, 0.64f, -0.02f);
-        MM.Cilindro(cara, "Cara", Vector3.zero, new Vector3(0.24f, 0.004f, 0.2f), Quaternion.Euler(90f, 0f, 0f), MM.mats["BlancoMate"]);
-        foreach (var x in new[] { -0.055f, 0.055f })
-            MM.Cilindro(cara, "Ojo", new Vector3(x, 0f, -0.005f), new Vector3(0.04f, 0.002f, 0.04f), Quaternion.Euler(90f, 0f, 0f), MM.mats["NegroMate"]);
-        MM.Caja(cara, "Linea", new Vector3(0f, 0f, -0.005f), new Vector3(0.11f, 0.006f, 0.002f), MM.mats["NegroMate"], false);
+        // ---------------- ventana
+        var v = new GameObject("Ventana").transform;
+        v.SetParent(raiz, false);
+        v.position = new Vector3(Spawn.x, MM.suelo + 1.45f, Spawn.z) + haciaIntro * intro.distancia;
+        v.rotation = Quaternion.LookRotation(haciaIntro, Vector3.up);
+        const float W = 0.64f, H = 0.48f;
+        Panel(v, "Fondo", 0f, 0f, 0f, W, H, 0.03f, FondoVentana, Cian, 0.003f, 0);
 
-        var titulo = MM.Texto3D(panel, "ERES BAYMAX", new Vector3(0.12f, 0.64f, -0.02f), Quaternion.identity, 0.85f, cian, 1.1f);
-        titulo.alignment = TextAlignmentOptions.Center; titulo.fontStyle = FontStyles.Bold;
+        CaraBaymax(v, -0.275f, 0.195f);
+        intro.titulo = Texto(v, "¡HOLA! ERES BAYMAX", -0.235f + 0.21f, 0.195f, 0.42f, 0.34f, Cian, true, TextAlignmentOptions.Left);
+        intro.contador = Texto(v, "PASO 1 DE 7", 0.245f, 0.195f, 0.13f, 0.17f, TextoTenue, false, TextAlignmentOptions.Right);
+        Panel(v, "Separador", 0f, 0.155f, -0.002f, W - 0.06f, 0.002f, 0f, new Color(0.25f, 0.33f, 0.42f, 1f), Color.clear, 0f, 1);
 
-        var historia = MM.Texto3D(panel,
-            "Has perdido tus <b>recuerdos científicos</b>. Para recuperarlos tendrás que investigar muestras como un microbiólogo: observar, consultar, decidir y comprobar.",
-            new Vector3(0f, 0.41f, -0.02f), Quaternion.identity, 0.4f, Color.white, 1.3f);
-        historia.alignment = TextAlignmentOptions.Center;
+        intro.texto = Texto(v, "", 0f, 0.01f, W - 0.06f, 0.25f, Color.white, false, TextAlignmentOptions.TopLeft);
+        intro.texto.rectTransform.sizeDelta = new Vector2(W - 0.06f, 0.25f);
+        intro.texto.enableAutoSizing = true;
+        intro.texto.fontSizeMin = 0.15f; intro.texto.fontSizeMax = 0.25f;
+        intro.texto.overflowMode = TextOverflowModes.Truncate;
 
-        var espejo = MM.Texto3D(panel, "<b>Mírate en el ESPEJO de tu derecha  >></b>", new Vector3(0f, 0.2f, -0.02f), Quaternion.identity, 0.45f, amarillo, 1.3f);
-        espejo.alignment = TextAlignmentOptions.Center;
+        intro.pasos = VentanaIntro.PasosPorDefecto();
+        int n = intro.pasos.Length;
+        intro.puntos = new PanelRedondeado[n];
+        for (int i = 0; i < n; i++)
+            intro.puntos[i] = Panel(v, "Punto" + i, (i - (n - 1) / 2f) * 0.026f, -0.145f, -0.002f, 0.014f, 0.014f, 0.007f, i == 0 ? Cian : new Color(0.2f, 0.26f, 0.33f), Color.clear, 0f, 1);
 
-        var dondeT = MM.Texto3D(panel, "DÓNDE IR", new Vector3(0f, 0.07f, -0.02f), Quaternion.identity, 0.42f, cian, 1.3f);
-        dondeT.alignment = TextAlignmentOptions.Center; dondeT.fontStyle = FontStyles.Bold;
-        var donde = MM.Texto3D(panel,
-            "Sigue las <b>balizas numeradas</b>:\n" +
-            "<b>1</b> Puestos de microscopio  ·  <b>2</b> Cepario (bacterias)  ·  <b>3</b> Sala de alto riesgo (virus)\n" +
-            "<b>4</b> <color=#FFD25A><b>CENTRO DE EXPERIMENTACIÓN</b></color>: en el <b>BANCO DE MUESTRAS</b> elige el CASO 01 y recupera tu primer recuerdo  ·  <b>5</b> Química",
-            new Vector3(0f, -0.16f, -0.02f), Quaternion.identity, 0.33f, Color.white, 1.3f);
-        donde.alignment = TextAlignmentOptions.Left;
+        intro.atras = MontarAjustes.Boton(v, "atras", "< ATRÁS", "volver al paso anterior", -0.215f, -0.195f, 0.15f);
+        intro.saltar = MontarAjustes.Boton(v, "saltar", "SALTAR", "saltar la introducción", 0f, -0.195f, 0.13f);
+        intro.siguiente = MontarAjustes.Boton(v, "siguiente", "SIGUIENTE >", "ver el siguiente paso", 0.2f, -0.195f, 0.18f);
+        intro.etiquetaSiguiente = intro.siguiente.etiqueta;
+        intro.titulo.text = intro.pasos[0].titulo;
+        intro.texto.text = intro.pasos[0].texto;
+        intro.contador.text = $"PASO 1 DE {n}";
+        intro.atras.gameObject.SetActive(false);
+        // Como el panel ☰: por encima de rótulos y balizas transparentes que queden detrás.
+        foreach (var r in v.GetComponentsInChildren<Renderer>(true))
+            r.sortingOrder += r.GetComponent<TMP_Text>() != null ? 40 : 30;
+        intro.ventana = v.gameObject;
 
-        // Indicador de recuerdos recuperados (se actualiza en tiempo de ejecución).
-        var indicador = panel.gameObject.AddComponent<IndicadorRecuerdos>();
-        indicador.texto = MM.Texto3D(panel, "", new Vector3(-0.12f, -0.46f, -0.02f), Quaternion.identity, 0.4f, Color.white, 1.0f);
-        indicador.texto.alignment = TextAlignmentOptions.Left; indicador.texto.fontStyle = FontStyles.Bold;
+        // ---------------- insignia (ventana cerrada): recuerdos y botón para volver a verla
+        var ins = new GameObject("Insignia").transform;
+        ins.SetParent(raiz, false);
+        ins.position = new Vector3(PosIntro.x, MM.suelo, PosIntro.z);
+        ins.rotation = Quaternion.LookRotation(haciaIntro, Vector3.up);
+        MM.Caja(ins, "Pie", new Vector3(0f, 0.02f, 0f), new Vector3(0.36f, 0.04f, 0.26f), MM.mats["Marco"], true);
+        MM.Caja(ins, "Poste", new Vector3(0f, 0.6f, 0.02f), new Vector3(0.05f, 1.2f, 0.04f), MM.mats["Marco"], true);
+        var pi = new GameObject("Panel").transform;
+        pi.SetParent(ins, false);
+        pi.localPosition = new Vector3(0f, 1.32f, 0f);
+        Panel(pi, "Fondo", 0f, 0f, 0f, 0.5f, 0.24f, 0.025f, FondoVentana, Cian, 0.003f, 0);
+        CaraBaymax(pi, -0.205f, 0.075f);
+        Texto(pi, "BAYMAX", -0.17f + 0.1f, 0.075f, 0.2f, 0.26f, Cian, true, TextAlignmentOptions.Left);
+        var indicador = pi.gameObject.AddComponent<IndicadorRecuerdos>();
+        indicador.texto = Texto(pi, $"RECUERDOS CIENTÍFICOS: <color=#FFD25A>0/{RecuerdosBaymax.Total}</color>", 0f, 0.015f, 0.46f, 0.2f, Color.white, true, TextAlignmentOptions.Center);
         indicador.ranuras = new Renderer[RecuerdosBaymax.Total];
         for (int i = 0; i < indicador.ranuras.Length; i++)
         {
-            var r = MM.Caja(panel, "Recuerdo" + i, new Vector3(0.38f + i * 0.11f, -0.46f, -0.015f), new Vector3(0.08f, 0.08f, 0.01f), MM.mats["BlancoMate"], false);
+            var r = MM.Caja(pi, "Recuerdo" + i, new Vector3(0.12f + i * 0.045f, 0.075f, -0.004f), new Vector3(0.032f, 0.032f, 0.004f), MM.mats["BlancoMate"], false);
             indicador.ranuras[i] = r.GetComponent<Renderer>();
         }
-        indicador.texto.text = $"RECUERDOS CIENTÍFICOS: <color=#FFD25A>0/{RecuerdosBaymax.Total}</color>";
+        intro.reabrir = MontarAjustes.Boton(pi, "reabrir", "VER INTRODUCCIÓN", "volver a ver la introducción", 0f, -0.065f, 0.26f);
+        intro.insignia = ins.gameObject;
+        ins.gameObject.SetActive(false);   // al empezar se ve la ventana
 
-        var controles = MM.Texto3D(panel, "Joystick izq.: caminar  ·  der.: girar  ·  gatillo o grip: agarrar (también con el rayo)  ·  botón menú: volumen y modo sentado",
-            new Vector3(0f, -0.6f, -0.02f), Quaternion.identity, 0.28f, new Color(0.56f, 0.85f, 1f), 1.3f);
-        controles.alignment = TextAlignmentOptions.Center;
-        var aviso = MM.Texto3D(panel, "Complemento educativo: las muestras, intervenciones y resultados están simplificados; no son protocolos clínicos ni de laboratorio reales.",
-            new Vector3(0f, -0.72f, -0.02f), Quaternion.identity, 0.24f, new Color(0.66f, 0.75f, 0.82f), 1.3f);
-        aviso.alignment = TextAlignmentOptions.Center; aviso.fontStyle = FontStyles.Italic;
+        GameObjectUtility.SetStaticEditorFlags(ins.Find("Pie").gameObject, StaticEditorFlags.BatchingStatic);
+        EditorUtility.SetDirty(intro);
+    }
 
-        GameObjectUtility.SetStaticEditorFlags(raiz.Find("Pie").gameObject, StaticEditorFlags.BatchingStatic);
+    // Cara de Baymax (dos ojos unidos por una línea) sobre un óvalo blanco.
+    static void CaraBaymax(Transform p, float x, float y)
+    {
+        Panel(p, "Cara", x, y, -0.002f, 0.07f, 0.05f, 0.025f, Color.white, Color.clear, 0f, 1);
+        foreach (var dx in new[] { -0.016f, 0.016f })
+            Panel(p, "Ojo", x + dx, y, -0.003f, 0.012f, 0.012f, 0.006f, new Color(0.05f, 0.05f, 0.06f), Color.clear, 0f, 2);
+        Panel(p, "Linea", x, y, -0.003f, 0.032f, 0.002f, 0f, new Color(0.05f, 0.05f, 0.06f), Color.clear, 0f, 2);
     }
 
     // ------------------------------------------------------------------ balizas de las áreas (orientación, RF-01)

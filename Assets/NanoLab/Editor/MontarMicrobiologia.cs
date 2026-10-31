@@ -99,6 +99,8 @@ public static class MontarMicrobiologia
         ML.ConfigurarLuces("Microbiologia_Lighting");
         MontarCentroExperimentacion.LucesTiempoReal();
         ML.CrearSondas(ML.BoundsEscena(), suelo);   // incluye el anexo
+        AsegurarColisiones.CapaYMatriz();
+        AsegurarColisiones.Aplicar(scene);   // sillas, armarios y muebles bloquean al jugador
         AgruparLab.Agrupar(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log("[Micro] Horneando iluminación...");

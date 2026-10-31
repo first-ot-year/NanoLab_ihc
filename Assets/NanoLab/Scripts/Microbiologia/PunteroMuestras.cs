@@ -110,7 +110,7 @@ public class PunteroMuestras : MonoBehaviour
         var o = m.ancla.position;
         var dir = m.ancla.forward;
         var fin = o + dir * alcance;
-        int n = Physics.RaycastNonAlloc(o, dir, hits, alcance, ~0, QueryTriggerInteraction.Collide);
+        int n = Physics.RaycastNonAlloc(o, dir, hits, alcance, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Collide);
         OrdenarPorDistancia(n);
         for (int i = 0; i < n; i++)
         {
@@ -176,7 +176,7 @@ public class PunteroMuestras : MonoBehaviour
     public static Apuntable ApuntableEn(Vector3 o, Vector3 dir, Transform rig, out Vector3 punto)
     {
         punto = Vector3.zero;
-        int n = Physics.RaycastNonAlloc(o, dir, hits, AlcanceApuntables, ~0, QueryTriggerInteraction.Collide);
+        int n = Physics.RaycastNonAlloc(o, dir, hits, AlcanceApuntables, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Collide);
         OrdenarPorDistancia(n);
         for (int i = 0; i < n; i++)
         {

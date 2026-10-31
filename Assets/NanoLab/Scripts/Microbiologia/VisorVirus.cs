@@ -13,6 +13,7 @@ public class VisorVirus : MonoBehaviour
     Transform pivote;
     GameObject modelo;
     Transform particulas;
+    readonly System.Collections.Generic.List<(Transform t, Vector3 basePos, float fase)> motas = new System.Collections.Generic.List<(Transform, Vector3, float)>();
     float manualHasta;   // mientras el usuario lo gira con el joystick no gira solo
     const float DistanciaBase = 3.6f;
 
@@ -79,6 +80,13 @@ public class VisorVirus : MonoBehaviour
     {
         if (pivote != null && Time.time > manualHasta) pivote.Rotate(8f * Time.deltaTime, 22f * Time.deltaTime, 0f, Space.World);
         if (particulas != null) particulas.Rotate(0f, 0f, 2.5f * Time.deltaTime, Space.Self);
+        // Movimiento browniano: el virión flota y se balancea en el medio, y cada mota deriva por su cuenta.
+        float t = Time.time;
+        if (pivote != null)
+            pivote.localPosition = new Vector3(Mathf.PerlinNoise(t * 0.35f, 1.3f) - 0.5f, Mathf.PerlinNoise(4.2f, t * 0.35f) - 0.5f, 0f) * 0.35f;
+        foreach (var (mt, b, f) in motas)
+            if (mt != null)
+                mt.localPosition = b + new Vector3(Mathf.PerlinNoise(f, t * 0.5f) - 0.5f, Mathf.PerlinNoise(t * 0.5f, f) - 0.5f, 0f) * 0.4f;
     }
 
     // Resplandor azul detrás del virus y motas de partículas (material aditivo de Resources).
@@ -102,6 +110,7 @@ public class VisorVirus : MonoBehaviour
             var dir = new Vector2(R(-1f, 1f), R(-1f, 1f)).normalized * R(1.15f, 2.2f);
             q.localPosition = new Vector3(dir.x, dir.y, R(-0.6f, 1.6f));
             q.localScale = Vector3.one * R(0.025f, 0.09f);
+            motas.Add((q, q.localPosition, R(0f, 50f)));
         }
     }
 

@@ -104,7 +104,7 @@ public class Encajable : MonoBehaviour
 
     ZonaEncaje ZonaCercana()
     {
-        int n = Physics.OverlapSphereNonAlloc(transform.position, radioEncaje, buffer, ~0, QueryTriggerInteraction.Collide);
+        int n = Physics.OverlapSphereNonAlloc(transform.position, radioEncaje, buffer, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Collide);
         ZonaEncaje mejor = null;
         float d = float.MaxValue;
         for (int i = 0; i < n; i++)

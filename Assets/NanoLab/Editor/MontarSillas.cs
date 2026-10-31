@@ -31,6 +31,7 @@ public static class MontarSillas
     [MenuItem("NanoLab/Reemplazar sillas (las dos salas)", false, 27)]
     public static void AmbasSalas()
     {
+        AsegurarColisiones.CapaYMatriz();
         foreach (var ruta in new[] { Quimica, Microbiologia })
         {
             if (!File.Exists(ruta)) continue;
@@ -42,6 +43,7 @@ public static class MontarSillas
                 EnPuestos(s, MontarLaboratorio.AlturaSuelo(MontarLaboratorio.BoundsEscena()));
             }
             else Aplicar(s);
+            AsegurarColisiones.Aplicar(s);
             AgruparLab.Agrupar(s);
             EditorSceneManager.SaveScene(s);
         }
@@ -54,6 +56,7 @@ public static class MontarSillas
         var s = EditorSceneManager.OpenScene(Quimica, OpenSceneMode.Single);
         Aplicar(s);
         ConfigurarMetaISDK.Configurar(s);
+        AsegurarColisiones.Aplicar(s);
         AgruparLab.Agrupar(s);
         EditorSceneManager.SaveScene(s);
     }
@@ -213,12 +216,13 @@ public static class MontarSillas
         silla.salida.SetParent(raiz.transform, false);
         silla.salida.localPosition = new Vector3(0f, 0f, -0.6f);
 
-        // Solo un collider trigger, para el rayo: la silla no bloquea al jugador, que así puede usar el
-        // microscopio de pie aunque la silla esté delante (o sentarse en ella).
+        // Collider trigger para el rayo (sentarse) y bloqueo sólido para que el jugador no la atraviese
+        // (Silla.Colisiones lo desactiva mientras está sentado en ella).
         var t = raiz.AddComponent<BoxCollider>();
         t.isTrigger = true;
         t.center = new Vector3(0f, 0.55f, 0f);
         t.size = new Vector3(0.46f, 1.1f, 0.44f);
+        AsegurarColisiones.BloqueoSilla(raiz);
 
         p = PrefabUtility.SaveAsPrefabAsset(raiz, PrefabTaburete);
         Object.DestroyImmediate(raiz);

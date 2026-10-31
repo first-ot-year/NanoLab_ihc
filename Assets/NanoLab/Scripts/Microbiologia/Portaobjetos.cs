@@ -135,7 +135,7 @@ public class Portaobjetos : MonoBehaviour
 
     Platina PlatinaCercana()
     {
-        int n = Physics.OverlapSphereNonAlloc(transform.position, radioPlatina, buffer, ~0, QueryTriggerInteraction.Collide);
+        int n = Physics.OverlapSphereNonAlloc(transform.position, radioPlatina, buffer, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Collide);
         Platina mejor = null;
         float d = float.MaxValue;
         for (int i = 0; i < n; i++)
@@ -150,7 +150,7 @@ public class Portaobjetos : MonoBehaviour
 
     static T Buscar<T>(Vector3 pos, float radio) where T : Component
     {
-        int n = Physics.OverlapSphereNonAlloc(pos, radio, buffer, ~0, QueryTriggerInteraction.Collide);
+        int n = Physics.OverlapSphereNonAlloc(pos, radio, buffer, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Collide);
         for (int i = 0; i < n; i++)
         {
             var c = buffer[i].GetComponentInParent<T>();

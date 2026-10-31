@@ -5,7 +5,7 @@ using UnityEngine.Rendering;
 
 // Silla de laboratorio modelada en Blender (taburete con respaldo lumbar, aro reposapiés y base de 5
 // radios) con la misma interacción que Silla.prefab: componente Silla (Apuntable, lo encuentra el rayo
-// de PunteroMuestras), anclas SitPoint/ExitPoint y un único collider trigger para el rayo.
+// de PunteroMuestras), anclas SitPoint/ExitPoint, un collider trigger para el rayo y un bloqueo sólido.
 // Modelo de Blender hecho por un compañero (fuente en Fuentes_Blender/Silla_Laboratorio_NanoLabVR).
 // MontarSillas la pone en todos los puestos de Microbiología y en Química.
 public static class MontarSillaLaboratorio
@@ -68,12 +68,13 @@ public static class MontarSillaLaboratorio
         silla.salida.localPosition = new Vector3(0f, 0f, -0.6f);   // detrás, en el pasillo
         // Asiento a la misma altura que el taburete anterior (0.65 m): los ojos quedan igual, a la altura del ocular.
 
-        // Solo un trigger, como Silla.prefab: el rayo la encuentra y no bloquea al jugador, que puede usar
-        // el microscopio de pie aunque la silla esté delante.
+        // Trigger en la raíz para el rayo (sentarse) y una caja sólida en la capa BloqueoJugador para que
+        // el jugador no la atraviese; Silla.Colisiones la desactiva mientras está sentado en ella.
         var t = raiz.AddComponent<BoxCollider>();
         t.isTrigger = true;
         t.center = b.center;
         t.size = b.size;
+        AsegurarColisiones.BloqueoSilla(raiz);
 
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(PrefabRuta));
         var p = PrefabUtility.SaveAsPrefabAsset(raiz, PrefabRuta);

@@ -25,6 +25,7 @@ public class HUDMicroscopio : MonoBehaviour
         public string guia;
         public string aviso;
         public Color colorAviso;
+        public bool inmoviles;          // células muertas (tratamiento eficaz): no nadan, solo browniano
     }
 
     static readonly Color Cian = new Color(0.35f, 0.85f, 1f, 1f);
@@ -35,6 +36,7 @@ public class HUDMicroscopio : MonoBehaviour
 
     CanvasGroup grupo;
     RawImage vista, micro;
+    CampoMicroscopio campo;   // microorganismos en movimiento sobre la vista
     TMP_Text subtitulo, zoomTxt, escalaTxt, tabTitulo, tabTexto, obsTxt, creditoTxt, riesgoTxt, microTitulo, obsTit, avisoTxt, guiaTxt;
     GameObject pestanas;
     TMP_Text riesgoEtq;
@@ -97,11 +99,13 @@ public class HUDMicroscopio : MonoBehaviour
             visor.Mostrar(m, holo);
             visor.Activo(true);
             vista.texture = visor.RT;
+            campo.Ocultar();
         }
         else
         {
             visor.Activo(false);
             vista.texture = m.micrografia;
+            campo.Mostrar(m, m.micrografia);
         }
         Refrescar();
         alphaObjetivo = 1f;
@@ -163,6 +167,7 @@ public class HUDMicroscopio : MonoBehaviour
         if (alphaObjetivo == 0f && grupo.alpha == 0f)
         {
             VisorVirus.Obtener().Activo(false);
+            campo.Ocultar();
             gameObject.SetActive(false);
         }
     }
@@ -239,6 +244,7 @@ public class HUDMicroscopio : MonoBehaviour
         foreach (var t in leyendaTxt) t.gameObject.SetActive(false);
         subtitulo.text = d.subtitulo;
         if (d.vista != null) vista.texture = d.vista;
+        if (actual != null && actual.tipo == TipoMuestra.Bacteria) campo.Mostrar(actual, vista.texture as Texture, d.inmoviles);
         for (int i = 0; i < claves.Length; i++)
         {
             bool hay = d.claves != null && i < d.claves.Length;
@@ -326,6 +332,8 @@ public class HUDMicroscopio : MonoBehaviour
         // Vista circular
         vista = Rect(raiz, "Vista", 0, 25, 440, 440).gameObject.AddComponent<RawImage>();
         vista.raycastTarget = false;
+        // Campo vivo: bacterias que nadan y tiemblan encima de la micrografía (debajo del recorte circular).
+        campo = CampoMicroscopio.Crear(Rect(raiz, "CampoVivo", 0, 25, 440, 440), vista);
         // Recorte circular con una imagen opaca fuera del círculo (no con Mask: el stencil
         // de la máscara pierde el "dibujar siempre encima" y el microscopio tapaba la vista).
         Img(raiz, "RecorteCircular", 0, 25, 446, 446, new Color(0.01f, 0.025f, 0.05f, 1f), CirculoInverso());

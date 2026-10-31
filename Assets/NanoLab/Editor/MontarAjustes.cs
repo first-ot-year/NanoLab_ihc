@@ -78,7 +78,7 @@ public static class MontarAjustes
         return t;
     }
 
-    static BotonMenu Boton(Transform p, string id, string texto, string accion, float x, float y, float ancho)
+    internal static BotonMenu Boton(Transform p, string id, string texto, string accion, float x, float y, float ancho)
     {
         var go = new GameObject("Boton_" + id);
         go.transform.SetParent(p, false);

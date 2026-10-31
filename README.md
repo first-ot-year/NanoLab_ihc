@@ -47,7 +47,7 @@ El reto MVP (10–15 minutos) sigue el ciclo:
 EXPLORAR → OBSERVAR → INVESTIGAR → HIPÓTESIS → PREPARAR → EXPERIMENTAR → ANALIZAR → APRENDER
 ```
 
-1. **Introducción narrativa:** al aparecer, el tótem "ERES BAYMAX" explica que perdiste tus recuerdos, te invita a mirarte en el espejo y te orienta hasta el banco de muestras.
+1. **Introducción narrativa:** al aparecer, una ventana pequeña paso a paso (SIGUIENTE / ATRÁS / SALTAR) explica quién es Baymax, que perdiste tus recuerdos, el objetivo de NanoLab VR, el ciclo de investigación y los controles; te invita a mirarte en el espejo y te orienta hasta el banco de muestras. Al cerrarla queda una insignia con los recuerdos recuperados y un botón para volver a verla.
 2. **Exploración y elección:** el estudiante reconoce los recursos y elige un caso en el banco de muestras.
 3. **Primera observación:** coloca la muestra en el microscopio y registra el estado inicial.
 4. **Investigación e hipótesis:** consulta una ficha digital y elige una hipótesis predefinida.
@@ -181,12 +181,14 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 |---|---|
 | `NanoLab/Montar TODO (Química + Microbiología)` | Convierte modelos, crea fichas de muestras y regenera ambas salas (sobrescribe cambios manuales y vuelve a hornear la luz) |
 | `NanoLab/Reconstruir solo el centro de experimentación` | Regenera únicamente el Centro de Experimentación |
+| `NanoLab/Montar cámara de descontaminación (BSL-3)` | Cambia la cabina de la puerta del BSL-3 por una esclusa con dos puertas correderas y ciclo de descontaminación (niebla, luz UV-C, extracción), sin volver a hornear la luz |
 | `NanoLab/Probar reto completo (play mode)` | Ejecuta el Caso 01 de extremo a extremo sin visor |
 | `NanoLab/Configurar interacción Meta (…)` | Configura los componentes del Meta Interaction SDK en las salas |
 | `NanoLab/Avatar Baymax/…` | Convierte e instala el modelo de Baymax |
-| `NanoLab/Montar introducción Baymax` | Coloca el tótem "ERES BAYMAX" frente al punto de aparición y ordena las escenas de build |
+| `NanoLab/Montar introducción Baymax` | Monta la ventana de introducción paso a paso (`VentanaIntro`), la insignia de recuerdos y las balizas, y ordena las escenas de build |
 | `NanoLab/Probar locomoción (play mode)` · `NanoLab/Probar recorrido del jugador` | Pruebas de confort (velocidad constante, giro por pasos) y de rutas transitables |
 | `NanoLab/Reemplazar sillas (las dos salas)` | Cambia las sillas decorativas del paquete por sillas en las que sentarse (sin volver a hornear) |
+| `NanoLab/Asegurar colisiones (las dos salas)` | Sillas, armarios, mesas, estanterías y objetos sin collider bloquean al jugador (capa `BloqueoJugador`, que no choca con los objetos agarrables ni tapa el rayo) |
 | `NanoLab/Capturas del E3 (sillas, ajustes, fichas)` | Capturas de la vista sentado, el panel de ajustes y la ficha del virus |
 
 ### Probar sin visor
