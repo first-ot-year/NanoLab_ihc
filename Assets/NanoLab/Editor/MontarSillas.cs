@@ -7,20 +7,22 @@ using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using MM = MontarMicrobiologia;
 
-// Sillas en las que el jugador se puede sentar (RNF-07), con el prefab propio
-// Assets/NanoLab/Prefabs/Silla.prefab. Las sillas del paquete de Animatics (chair.prefab) eran solo
-// decorativas: en Microbiología se quitan y se pone una frente a cada microscopio de puesto; en
-// Química se cambian por la propia en el mismo sitio, mirando hacia la mesa más cercana.
-// El prefab se crea con primitivas solo si no existe: para cambiar su aspecto, reemplaza los hijos de
-// "Modelo" (p. ej. por un modelo de Blender) y conserva los anclas "Asiento" y "Salida".
+// Sillas en las que el jugador se puede sentar (RNF-07). Se usa la silla de laboratorio modelada en
+// Blender (MontarSillaLaboratorio, prefab en Assets/NanoLab/Silla_Laboratorio_Interactuable/Prefabs);
+// si faltara su FBX, el taburete de primitivas Assets/NanoLab/Prefabs/Silla.prefab. Las sillas del
+// paquete de Animatics (chair.prefab) eran solo decorativas: en Microbiología se quitan y se pone una
+// frente a cada microscopio de puesto; en Química se cambian por la propia en el mismo sitio, mirando
+// hacia la mesa más cercana. Las sillas del prefab que no se usa también se cambian.
 public static class MontarSillas
 {
-    public const string PrefabRuta = "Assets/NanoLab/Prefabs/Silla.prefab";
+    public static string PrefabRuta => File.Exists(MontarSillaLaboratorio.Fbx) ? MontarSillaLaboratorio.PrefabRuta : PrefabTaburete;
+    const string PrefabTaburete = "Assets/NanoLab/Prefabs/Silla.prefab";
     static readonly string[] Originales =
     {
         "Assets/3D Laboratory Environment with Appratus/Prefabs/chair.prefab",
         "Assets/3D Laboratory Environment with Appratus/Models/chair.fbx",
     };
+    static string[] Reemplazables => Originales.Concat(new[] { PrefabTaburete, MontarSillaLaboratorio.PrefabRuta }.Where(r => r != PrefabRuta)).ToArray();
     const string MatDir = "Assets/NanoLab/Materiales/Micro";
     const string Quimica = "Assets/NanoLab/Scenes/Laboratorio.unity";
     const string Microbiologia = "Assets/NanoLab/Scenes/Microbiologia.unity";
@@ -151,7 +153,7 @@ public static class MontarSillas
         var src = PrefabUtility.GetCorrespondingObjectFromOriginalSource(go);
         if (src == null) return false;
         var ruta = AssetDatabase.GetAssetPath(src);
-        return Originales.Contains(ruta);
+        return Reemplazables.Contains(ruta);
     }
 
     // La silla mira hacia el obstáculo más cercano a la altura de una mesa (la mesa en la que está).
@@ -179,7 +181,8 @@ public static class MontarSillas
     {
         var p = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabRuta);
         if (p != null) return p;
-        Directory.CreateDirectory(Path.GetDirectoryName(PrefabRuta));
+        if (PrefabRuta == MontarSillaLaboratorio.PrefabRuta && (p = MontarSillaLaboratorio.CrearPrefab()) != null) return p;
+        Directory.CreateDirectory(Path.GetDirectoryName(PrefabTaburete));
         var tela = Material("SillaAsiento", new Color(0.18f, 0.32f, 0.45f), 0f, 0.35f);
         var metal = Material("SillaMetal", new Color(0.62f, 0.65f, 0.7f), 0.85f, 0.6f);
 
@@ -217,9 +220,9 @@ public static class MontarSillas
         t.center = new Vector3(0f, 0.55f, 0f);
         t.size = new Vector3(0.46f, 1.1f, 0.44f);
 
-        p = PrefabUtility.SaveAsPrefabAsset(raiz, PrefabRuta);
+        p = PrefabUtility.SaveAsPrefabAsset(raiz, PrefabTaburete);
         Object.DestroyImmediate(raiz);
-        Debug.Log("[Sillas] Prefab creado en " + PrefabRuta);
+        Debug.Log("[Sillas] Prefab creado en " + PrefabTaburete);
         return p;
     }
 

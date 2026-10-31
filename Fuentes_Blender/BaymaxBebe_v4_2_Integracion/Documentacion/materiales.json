@@ -1,0 +1,26 @@
+{
+ "Baymax_Marfil_Satinado": {
+  "base_color": [
+   0.86,
+   0.84,
+   0.8
+  ],
+  "roughness": 0.42,
+  "metallic": 0.0,
+  "coat_weight": 0.12,
+  "subsurface_weight": 0.08,
+  "image_textures": []
+ },
+ "Baymax_Ojos_Negro": {
+  "base_color": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "roughness": 1.0,
+  "metallic": 0.0,
+  "coat_weight": 0.0,
+  "subsurface_weight": 0.0,
+  "image_textures": []
+ }
+}

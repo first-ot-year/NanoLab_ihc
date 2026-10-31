@@ -328,13 +328,17 @@ public static class ConvertirBaymax
     // Avatar en el rig del jugador + espejo en el recibidor (y en la recepción del anexo, si existe).
     public static void InstalarEn(Scene s)
     {
-        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+        // El Baymax Bebé v4.2 (malla con esqueleto) si está; si no, el de piezas rígidas.
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ConvertirBaymaxBebe.PrefabPath);
+        if (prefab == null && ConvertirBaymaxBebe.Disponible) prefab = ConvertirBaymaxBebe.Convertir();
+        if (prefab == null) prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
         if (prefab == null) { Debug.LogWarning("[Baymax] Falta el prefab del avatar: ejecuta 'Convertir modelo'."); return; }
         var rig = Object.FindObjectsOfType<OVRCameraRig>(true).FirstOrDefault();
         if (rig == null) { Debug.LogWarning($"[Baymax] {s.name}: no hay rig del jugador."); return; }
         var rigRoot = PrefabUtility.GetOutermostPrefabInstanceRoot(rig.gameObject) ?? rig.gameObject;
 
-        foreach (var viejo in Object.FindObjectsOfType<AvatarBaymax>(true)) Object.DestroyImmediate(PrefabUtility.GetOutermostPrefabInstanceRoot(viejo.gameObject) ?? viejo.gameObject);
+        foreach (var viejo in Object.FindObjectsOfType<MonoBehaviour>(true).Where(m => m is IAvatarJugador).ToArray())
+            if (viejo != null) Object.DestroyImmediate(PrefabUtility.GetOutermostPrefabInstanceRoot(viejo.gameObject) ?? viejo.gameObject);
         foreach (var viejo in Object.FindObjectsOfType<EspejoAvatar>(true)) Object.DestroyImmediate(viejo.gameObject);
 
         var av = (GameObject)PrefabUtility.InstantiatePrefab(prefab, rigRoot.transform);
@@ -388,7 +392,7 @@ public static class ConvertirBaymax
     public static void Capturas()
     {
         var s = EditorSceneManager.OpenScene(Escenas[0], OpenSceneMode.Single);
-        var av = Object.FindObjectOfType<AvatarBaymax>(true);
+        var av = Object.FindObjectsOfType<MonoBehaviour>(true).OfType<IAvatarJugador>().FirstOrDefault();
         if (av == null) { Debug.LogError("[Baymax] No hay avatar en la escena."); return; }
         string dir = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "Capturas");
         float suelo = MontarLaboratorio.AlturaSuelo(MontarLaboratorio.BoundsEscena());
@@ -410,6 +414,7 @@ public static class ConvertirBaymax
         foreach (var (nombre, izq, der) in poses)
         {
             for (int i = 0; i < 3; i++) av.Posar(cabeza, mira, izq, der, suelo);
+            var deshacer = Congelar((Component)av);
             // Vista en tercera persona (desde un lado).
             var lado = cabeza + derecha * 1.8f + frente * 0.6f - Vector3.up * 0.5f;
             MontarLaboratorio.Capturar(dir, "avatar_" + nombre, lado, (cabeza - Vector3.up * 0.6f) - lado);
@@ -419,8 +424,9 @@ public static class ConvertirBaymax
             {
                 espejo.Preparar();
                 espejo.RenderizarDesde(cabeza);
-                MontarLaboratorio.Capturar(dir, "avatar_" + nombre + "_espejo", cabeza + frente * 0.2f, -frente);
+                CapturarPrimeraPersona(dir, "avatar_" + nombre + "_espejo", cabeza, Quaternion.LookRotation(-frente));   // como lo ve el jugador
             }
+            deshacer();
         }
         // En un puesto: primera persona mirando el microscopio con las manos sobre la mesa.
         foreach (var micro in Object.FindObjectsOfType<MicroscopioOptico>(true).Where(m => m.platina != null).OrderBy(m => m.modoReto).Take(1).Concat(Object.FindObjectsOfType<MicroscopioOptico>(true).Where(m => m.modoReto).Take(1)))
@@ -434,11 +440,37 @@ public static class ConvertirBaymax
             for (int i = 0; i < 3; i++)
                 av.Posar(ojo, rotOjo, new Pose(p + haciaUsuario * 0.22f + lado * 0.2f + Vector3.up * 0.08f, rotMano),
                          new Pose(p + haciaUsuario * 0.22f - lado * 0.2f + Vector3.up * 0.08f, rotMano), suelo);
+            var deshacer = Congelar((Component)av);
             CapturarPrimeraPersona(dir, micro.modoReto ? "avatar_puesto_centro_1p" : "avatar_puesto_sala_1p", ojo, rotOjo);
             var vistaLado = ojo + lado * 1.4f + Vector3.down * 0.3f;
             MontarLaboratorio.Capturar(dir, micro.modoReto ? "avatar_puesto_centro_lado" : "avatar_puesto_sala_lado", vistaLado, (p + haciaUsuario * 0.3f) - vistaLado);
+            deshacer();
         }
         Debug.Log("[Baymax] Capturas del avatar guardadas.");
+    }
+
+    // Fuera del modo juego, Camera.Render no vuelve a calcular las mallas con esqueleto entre captura y
+    // captura: se cambian por copias horneadas en la pose actual mientras se captura.
+    static System.Action Congelar(Component av)
+    {
+        var copias = new List<GameObject>();
+        var smrs = av.GetComponentsInChildren<SkinnedMeshRenderer>(true).Where(r => r.enabled).ToArray();
+        foreach (var smr in smrs)
+        {
+            var m = new Mesh();
+            smr.BakeMesh(m);   // con la escala ya aplicada: la copia lleva solo la posición y el giro
+            var go = new GameObject(smr.name + "_Congelado") { layer = smr.gameObject.layer };
+            go.transform.SetPositionAndRotation(smr.transform.position, smr.transform.rotation);
+            go.AddComponent<MeshFilter>().sharedMesh = m;
+            go.AddComponent<MeshRenderer>().sharedMaterials = smr.sharedMaterials;
+            smr.enabled = false;
+            copias.Add(go);
+        }
+        return () =>
+        {
+            foreach (var go in copias) { Object.DestroyImmediate(go.GetComponent<MeshFilter>().sharedMesh); Object.DestroyImmediate(go); }
+            foreach (var smr in smrs) smr.enabled = true;
+        };
     }
 
     static void CapturarPrimeraPersona(string dir, string nombre, Vector3 pos, Quaternion rot)

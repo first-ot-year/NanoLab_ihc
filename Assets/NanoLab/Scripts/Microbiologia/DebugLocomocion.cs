@@ -144,9 +144,16 @@ public class DebugLocomocion : MonoBehaviour
         // Sentarse en la silla más cercana a un microscopio de puesto y levantarse.
         var sillas = FindObjectsOfType<Silla>();
         var micros = FindObjectsOfType<MicroscopioOptico>().Where(m => !m.modoReto).ToArray();
-        var silla = sillas.OrderBy(s => micros.Length == 0 ? 0f : micros.Min(m => Vector3.Distance(m.transform.position, s.transform.position))).FirstOrDefault();
+        // La silla de laboratorio nueva (MontarSillaLaboratorio) se prueba primero si está en la escena.
+        var silla = sillas.OrderBy(s => s.name.StartsWith("Silla_Laboratorio") ? 0 : 1)
+            .ThenBy(s => micros.Length == 0 ? 0f : micros.Min(m => Vector3.Distance(m.transform.position, s.transform.position))).FirstOrDefault();
         Comprobar(silla != null && silla.asiento != null && silla.salida != null, $"Hay {sillas.Length} sillas en las que sentarse");
         if (silla == null) yield break;
+
+        // El rayo de la mano vacía (el mismo código que en el visor) encuentra la silla desde detrás, a la altura de la mano.
+        Apuntable Rayo(Silla s) { var mano = s.PuntoSalida + Vector3.up * 1.1f; return PunteroMuestras.ApuntableEn(mano, s.PuntoAsiento - mano, jugador.transform, out _); }
+        int vistas = sillas.Count(s => Rayo(s) == s);
+        Comprobar(Rayo(silla) == silla && silla.Accion == "sentarte", $"El rayo encuentra '{silla.name}' y ofrece \"sentarte\" ({vistas}/{sillas.Length} sillas visibles desde su salida)");
         float distMicro = micros.Length == 0 ? -1f : micros.Min(m => Vector3.Distance(m.transform.position, silla.transform.position));
         // En batchmode no corre el fin de frame en el que el rig sigue a la cápsula: se emula, porque si no
         // el Locomotor devuelve la cápsula hacia la cabeza (que no se movió) en el siguiente Update.
@@ -162,6 +169,15 @@ public class DebugLocomocion : MonoBehaviour
         bool solidosApagados = silla.GetComponentsInChildren<Collider>().Where(c => !c.isTrigger).All(c => !c.enabled);
         Comprobar(JugadorNanoLab.Sentado(out var s1) && s1 == silla && jugador.LocomocionPausada && Mathf.Abs(fpl.HeightOffset - esperado) < 0.01f && dx < 0.2f && solidosApagados,
                   $"Sentado en '{silla.name}' (a {distMicro:F2} m del microscopio): cuerpo a {dx:F2} m del asiento, ojos a {asiento.y + silla.ojosSobreAsiento - silla.transform.position.y:F2} m, locomoción pausada");
+        var ojo = FindObjectOfType<OVRCameraRig>().centerEyeAnchor;
+        float yaw = Vector3.Angle(Vector3.ProjectOnPlane(ojo.forward, Vector3.up), Vector3.ProjectOnPlane(silla.transform.forward, Vector3.up));
+        Comprobar(yaw < 5f, $"Sentado mira hacia donde mira la silla, al microscopio (desvío {yaw:F1}°)");
+        float offset = fpl.HeightOffset;
+        jugador.Sentarse(silla);
+        yield return null;
+        var otras = sillas.Where(s => s != silla).ToArray();
+        Comprobar(JugadorNanoLab.Sentado(out var s2) && s2 == silla && Mathf.Abs(fpl.HeightOffset - offset) < 0.001f && otras.All(s => !s.Disponible) && silla.Accion == "levantarte",
+                  $"Sentado: volver a sentarse no cambia nada, las otras {otras.Length} sillas no se pueden usar y la propia ofrece \"levantarte\"");
         yield return null;
         jugador.Levantarse();
         yield return new WaitForSeconds(0.4f);

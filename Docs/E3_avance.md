@@ -55,3 +55,54 @@ Entregable 3 del cronograma del informe del hito 1 (Cuadro 6, semana 12):
 2. Sentado en una silla real, activar el modo sentado: la vista queda a la altura de alguien de pie y se alcanzan las mesas.
 3. Apuntar una silla de un puesto y sentarse: la vista queda frente a la mesa y el microscopio se puede usar sentado. El joystick izquierdo levanta al jugador.
 4. En la biblioteca, abrir una ficha tocándola y otra con el rayo. Comprobar que el texto se lee a 1–1.5 m: con 5 fichas en el mostrador están al 82 % del tamaño anterior; si no se leen bien, se pueden repartir en dos filas.
+
+## Modelos de Blender integrados (30-oct-2026)
+
+Dos paquetes hechos en Blender por un compañero. Sus fuentes (`.blend`, scripts de Python, informes y vistas previas) están en `Fuentes_Blender/`, fuera de `Assets/`, para que Unity no los importe. En el proyecto solo entran los FBX y el editor de la silla.
+
+**Silla de laboratorio** (`Assets/NanoLab/Silla_Laboratorio_Interactuable/`)
+- Taburete de microbiología:
+  - asiento redondo a 0.65 m (igual que el anterior);
+  - respaldo lumbar;
+  - aro reposapiés a 0.27 m;
+  - base de 5 radios con tacos, sin ruedas;
+  - 2 212 triángulos;
+  - reutiliza los materiales `SillaAsiento` y `SillaMetal`.
+- `MontarSillaLaboratorio.CrearPrefab` crea el prefab con `Silla`, las anclas `SitPoint` y `ExitPoint` y un solo collider trigger. `MontarSillas` lo usa en los 10 puestos de Microbiología y en las 12 sillas de Química. El taburete de primitivas queda como respaldo si falta el FBX.
+- Se aplicó el parche del compañero:
+  - estando sentado, el rayo solo encuentra la propia silla (no se salta de una silla a otra);
+  - `PunteroMuestras.ApuntableEn` pasa a ser estático y lo usa también la prueba;
+  - la prueba comprueba el rayo, la orientación y el bloqueo de las otras sillas.
+- Sentado: ojos a 1.37 m, ocular a 0.34–0.35 m en horizontal y a la altura de los ojos.
+
+**Baymax Bebé v4.2** (`Assets/NanoLab/Modelos/BaymaxBebe/`)
+- FBX con esqueleto (36 huesos) y 6 clips. Se usa el LOD1 (12 500 triángulos) por el rendimiento en Quest (RNF-08).
+- `ConvertirBaymaxBebe` (menú *NanoLab/Avatar Baymax/Baymax Bebé v4.2: convertir e instalar*):
+  - configura el importador (Generic, clips en bucle) y crea los materiales Standard marfil y negro;
+  - crea el Animator Idle↔Walk y saca la pose de puño del clip `Gestos_Manos`.
+- La malla se parte en dos, con el mismo esqueleto:
+  - **Manos**: recortadas con un plano en la muñeca y con el corte tapado. Capa 0, se ven en primera persona.
+  - **Cuerpo** y **Cara**: capa 29, solo los espejos.
+- `AvatarBaymaxBebe` (en tiempo de ejecución):
+  - **Escala:** uniforme, para que los ojos del modelo coincidan con los del jugador. De pie mide ~2 m en el espejo.
+  - **Cabeza:** sigue al visor, y el cuerpo gira con ella.
+  - **Brazos:** IK de dos huesos hacia el mando, con el codo limitado a 65°. Si el mando queda lejos, el brazo se estira separando los huesos. El antebrazo gira con la mano para que la muñeca no se retuerza.
+  - **Manos y dedos:** las manos tienen el tamaño de una mano real; los dedos se cierran con el grip y el gatillo.
+  - **Piernas:** Idle o Walk según la velocidad, y dobladas al sentarse en una silla.
+- `ConvertirBaymax.InstalarEn` instala el avatar nuevo en las dos salas. El `AvatarBaymax` de piezas rígidas queda como respaldo.
+
+**Verificación (batchmode):**
+
+| Prueba | Resultado |
+|---|---|
+| `PruebaLocomocion` | CORRECTO, 25 OK |
+| `PruebaReto` | CORRECTO, 39 OK |
+| `ProbarRecorrido` | Todas las rutas transitables |
+| `ProbarFisica` | 0 objetos movidos (Química 107, Microbiología 49) |
+
+Capturas: `avatar_*`, `silla_prefab`, `silla_sentado_puesto`.
+
+**Pendiente en Quest:**
+- que la mano coincida con el mando en posición y giro;
+- el FPS con el espejo activo;
+- sentarse en la silla nueva frente al microscopio.

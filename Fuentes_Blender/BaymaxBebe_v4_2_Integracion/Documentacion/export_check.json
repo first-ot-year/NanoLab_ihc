@@ -1,0 +1,276 @@
+{
+ "source": "C:\\ihc\\baymax\\Prototipo_BaymaxBebe\\rig_unity\\v4_2_rig_corregido/final\\baymax_rig_v4_2.blend",
+ "bones": {
+  "count": 36,
+  "deform": 35,
+  "names": [
+   "Raiz",
+   "Pelvis",
+   "Columna",
+   "Pecho",
+   "Cuello",
+   "Cabeza",
+   "Hombro.L",
+   "Brazo.L",
+   "Antebrazo.L",
+   "Mano.L",
+   "Pulgar_01.L",
+   "Pulgar_02.L",
+   "Indice_01.L",
+   "Indice_02.L",
+   "Medio_01.L",
+   "Medio_02.L",
+   "Menique_01.L",
+   "Menique_02.L",
+   "Hombro.R",
+   "Brazo.R",
+   "Antebrazo.R",
+   "Mano.R",
+   "Pulgar_01.R",
+   "Pulgar_02.R",
+   "Indice_01.R",
+   "Indice_02.R",
+   "Medio_01.R",
+   "Medio_02.R",
+   "Menique_01.R",
+   "Menique_02.R",
+   "Muslo.L",
+   "Pierna.L",
+   "Pie.L",
+   "Muslo.R",
+   "Pierna.R",
+   "Pie.R"
+  ]
+ },
+ "actions": {
+  "Cabeza": [
+   1.0,
+   60.0
+  ],
+  "Gestos_Manos": [
+   1.0,
+   60.0
+  ],
+  "Idle": [
+   1.0,
+   61.0
+  ],
+  "Walk": [
+   1.0,
+   25.0
+  ],
+  "Walk_Giro": [
+   1.0,
+   25.0
+  ],
+  "Wave": [
+   1.0,
+   50.0
+  ]
+ },
+ "unit_scale": 1.0,
+ "objects": {
+  "Baymax_Rig": {
+   "identity_transform": true,
+   "parent": null
+  },
+  "Cuerpo_LOD0": {
+   "identity_transform": true,
+   "parent": "Baymax_Rig",
+   "verts": 25002,
+   "tris": 50000,
+   "max_influences": 4,
+   "weights_sum_min": 1.0,
+   "weights_sum_max": 1.0,
+   "groups_not_bones": [],
+   "armature_modifier": [
+    "Baymax_Rig"
+   ],
+   "other_modifiers": [],
+   "materials": [
+    "Baymax_Marfil_Satinado"
+   ],
+   "min_z": -0.0001,
+   "height": 1.1998,
+   "uv_layers": 0
+  },
+  "Cuerpo_LOD1": {
+   "identity_transform": true,
+   "parent": "Baymax_Rig",
+   "verts": 6252,
+   "tris": 12500,
+   "max_influences": 4,
+   "weights_sum_min": 1.0,
+   "weights_sum_max": 1.0,
+   "groups_not_bones": [],
+   "armature_modifier": [
+    "Baymax_Rig"
+   ],
+   "other_modifiers": [],
+   "materials": [
+    "Baymax_Marfil_Satinado"
+   ],
+   "min_z": -0.0003,
+   "height": 1.1998,
+   "uv_layers": 0
+  },
+  "Cara_LOD0": {
+   "identity_transform": true,
+   "parent": "Baymax_Rig",
+   "verts": 2404,
+   "tris": 4796,
+   "max_influences": 1,
+   "weights_sum_min": 1.0,
+   "weights_sum_max": 1.0,
+   "groups_not_bones": [],
+   "armature_modifier": [
+    "Baymax_Rig"
+   ],
+   "other_modifiers": [],
+   "materials": [
+    "Baymax_Ojos_Negro"
+   ],
+   "min_z": 0.916,
+   "height": 0.0519,
+   "uv_layers": 1
+  },
+  "Cara_LOD1": {
+   "identity_transform": true,
+   "parent": "Baymax_Rig",
+   "verts": 2404,
+   "tris": 4796,
+   "max_influences": 1,
+   "weights_sum_min": 1.0,
+   "weights_sum_max": 1.0,
+   "groups_not_bones": [],
+   "armature_modifier": [
+    "Baymax_Rig"
+   ],
+   "other_modifiers": [],
+   "materials": [
+    "Baymax_Ojos_Negro"
+   ],
+   "min_z": 0.916,
+   "height": 0.0519,
+   "uv_layers": 1
+  }
+ },
+ "materials": {
+  "Baymax_Marfil_Satinado": {
+   "base_color": [
+    0.86,
+    0.84,
+    0.8
+   ],
+   "roughness": 0.42,
+   "metallic": 0.0,
+   "coat_weight": 0.12,
+   "subsurface_weight": 0.08,
+   "image_textures": []
+  },
+  "Baymax_Ojos_Negro": {
+   "base_color": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "roughness": 1.0,
+   "metallic": 0.0,
+   "coat_weight": 0.0,
+   "subsurface_weight": 0.0,
+   "image_textures": []
+  }
+ },
+ "fbx": {
+  "path": "C:\\ihc\\baymax\\Prototipo_BaymaxBebe\\rig_unity\\v4_2_rig_corregido/final\\export\\BaymaxBebe_v4_2.fbx",
+  "size_mb": 3.63,
+  "settings": {
+   "axis_forward": "-Z",
+   "axis_up": "Y",
+   "apply_scale_options": "FBX_SCALE_ALL",
+   "apply_unit_scale": true,
+   "add_leaf_bones": false,
+   "bake_space_transform": false,
+   "all_actions": true,
+   "simplify": 0.0
+  }
+ },
+ "round_trip": {
+  "importer_connected_bones": [
+   "Pelvis",
+   "Pecho",
+   "Cabeza",
+   "Antebrazo.L",
+   "Mano.L",
+   "Pulgar_02.L",
+   "Indice_02.L",
+   "Medio_02.L",
+   "Menique_02.L",
+   "Antebrazo.R",
+   "Mano.R",
+   "Pulgar_02.R",
+   "Indice_02.R",
+   "Medio_02.R",
+   "Menique_02.R",
+   "Pierna.L",
+   "Pierna.R",
+   "Pie.R"
+  ],
+  "objects": {
+   "Baymax_Rig": "ARMATURE",
+   "Cara_LOD0": "MESH",
+   "Cara_LOD1": "MESH",
+   "Cuerpo_LOD0": "MESH",
+   "Cuerpo_LOD1": "MESH"
+  },
+  "armature": "Baymax_Rig",
+  "bones_match": true,
+  "actions": {
+   "Baymax_Rig|Baymax_Rig|Cabeza": [
+    1.0,
+    60.0
+   ],
+   "Baymax_Rig|Baymax_Rig|Gestos_Manos": [
+    1.0,
+    60.0
+   ],
+   "Baymax_Rig|Baymax_Rig|Idle": [
+    1.0,
+    61.0
+   ],
+   "Baymax_Rig|Baymax_Rig|Walk": [
+    1.0,
+    25.0
+   ],
+   "Baymax_Rig|Baymax_Rig|Walk_Giro": [
+    1.0,
+    25.0
+   ],
+   "Baymax_Rig|Baymax_Rig|Wave": [
+    1.0,
+    50.0
+   ]
+  },
+  "lod0_verts": 25002,
+  "height_m": 1.1998,
+  "min_z_m": -0.0001,
+  "faces_minus_y": true,
+  "groups": 35,
+  "meshes": {
+   "Cuerpo_LOD0": 25002,
+   "Cuerpo_LOD1": 6252,
+   "Cara_LOD0": 2404,
+   "Cara_LOD1": 2404
+  },
+  "max_vertex_deviation_mm": {
+   "Walk@1": 0.001,
+   "Walk@7": 0.001,
+   "Walk@13": 0.001,
+   "Walk_Giro@5": 0.0,
+   "Wave@22": 0.014,
+   "Gestos_Manos@10": 0.014,
+   "Cabeza@12": 0.014,
+   "Idle@16": 0.014
+  }
+ }
+}

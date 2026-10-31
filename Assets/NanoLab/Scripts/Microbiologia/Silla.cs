@@ -3,7 +3,7 @@ using UnityEngine;
 // Taburete en el que el jugador se sienta apuntándolo con el rayo (gatillo o A/X): mira hacia donde
 // mira el taburete (la mesa) y los ojos quedan a la altura del ocular. Se levanta moviendo el joystick
 // izquierdo (sentado, la mano queda dentro de su collider y el rayo ya no lo encuentra). El aspecto está
-// en el hijo "Modelo" del prefab Assets/NanoLab/Prefabs/Silla.prefab y se puede reemplazar sin tocar los anclas.
+// en el hijo "Modelo" del prefab (silla de Blender, MontarSillaLaboratorio) y se puede reemplazar sin tocar los anclas.
 public class Silla : Apuntable
 {
     [Tooltip("Ancla a la altura del asiento, en su centro.")]
@@ -18,6 +18,9 @@ public class Silla : Apuntable
     public bool Ocupada => JugadorNanoLab.Sentado(out var s) && s == this;
 
     public override string Accion => Ocupada ? "levantarte" : "sentarte";
+
+    // Sentado, el rayo solo encuentra la propia silla (para levantarse): no se salta de una silla a otra.
+    public override bool Disponible => base.Disponible && (!JugadorNanoLab.Sentado(out var s) || s == this);
 
     public override void Activar()
     {

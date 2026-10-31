@@ -154,21 +154,7 @@ public class PunteroMuestras : MonoBehaviour
         m.apuntable = null;
         Vector3 fin = Vector3.zero;
         if (!MicroscopioOptico.AlgunoActivo)   // A/X cambian el aumento
-        {
-            var o = m.ancla.position;
-            var dir = m.ancla.forward;
-            int n = Physics.RaycastNonAlloc(o, dir, hits, AlcanceApuntables, ~0, QueryTriggerInteraction.Collide);
-            OrdenarPorDistancia(n);
-            for (int i = 0; i < n; i++)
-            {
-                var c = hits[i].collider;
-                if (c == null) continue;
-                var a = c.GetComponentInParent<Apuntable>();   // incluye los botones del panel ☰, que van en el rig
-                if (a != null && a.Disponible && hits[i].distance <= a.alcanceRayo) { m.apuntable = a; fin = hits[i].point; break; }
-                if (c.isTrigger || c.transform.IsChildOf(transform)) continue;
-                break;   // lo primero sólido tapa lo que hay detrás
-            }
-        }
+            m.apuntable = ApuntableEn(m.ancla.position, m.ancla.forward, transform, out fin);
         if (m.apuntable == null) { m.linea.enabled = false; m.apuntableAvisado = null; return; }
         m.linea.enabled = true;
         m.linea.SetPosition(0, m.ancla.position);
@@ -184,6 +170,25 @@ public class PunteroMuestras : MonoBehaviour
     }
 
     const float AlcanceApuntables = 2.5f;
+
+    // Lo que encuentra el rayo de la mano vacía: el primer Apuntable disponible a su alcance, o null si
+    // antes hay algo sólido. 'rig' se ignora (sus colliders no tapan). Público para DebugLocomocion.
+    public static Apuntable ApuntableEn(Vector3 o, Vector3 dir, Transform rig, out Vector3 punto)
+    {
+        punto = Vector3.zero;
+        int n = Physics.RaycastNonAlloc(o, dir, hits, AlcanceApuntables, ~0, QueryTriggerInteraction.Collide);
+        OrdenarPorDistancia(n);
+        for (int i = 0; i < n; i++)
+        {
+            var c = hits[i].collider;
+            if (c == null) continue;
+            var a = c.GetComponentInParent<Apuntable>();   // incluye los botones del panel ☰, que van en el rig
+            if (a != null && a.Disponible && hits[i].distance <= a.alcanceRayo) { punto = hits[i].point; return a; }
+            if (c.isTrigger || c.transform.IsChildOf(rig)) continue;
+            break;   // lo primero sólido tapa lo que hay detrás
+        }
+        return null;
+    }
 
     // Platina libre apuntada: su zona, o cualquier parte del microscopio / estación 3D que la tenga.
     static Platina PlatinaDe(Collider c)

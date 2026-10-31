@@ -219,7 +219,8 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `PanelResumen` | Informe final, conocimiento recuperado y repetición del caso |
 | `Encajable` / `ZonaEncaje` | Objetos agarrables con encaje y retorno automático (RNF-04) |
 | `MetricsLogger` | Registro JSON de la sesión para HEART (RF-10) |
-| `AvatarBaymax` / `EspejoAvatar` | Baymax como avatar del jugador (sus manos en primera persona) y espejos donde se ve completo |
+| `AvatarBaymaxBebe` / `ConvertirBaymaxBebe` (Editor) | Baymax Bebé v4.2 (modelo con esqueleto hecho en Blender por un compañero) como avatar del jugador: escala a la altura del jugador, cabeza al visor, brazos al mando con IK (codo ≤ 65°), dedos con grip y gatillo, Idle/Walk y piernas dobladas al sentarse. En primera persona solo se ven las manos (malla recortada en la muñeca) |
+| `AvatarBaymax` / `EspejoAvatar` | Avatar anterior de piezas rígidas (respaldo si falta el FBX nuevo) y espejos donde Baymax se ve completo |
 | `IndicadorRecuerdos` / `RecuerdosBaymax` | Recuerdos científicos recuperados (0/3) |
 | `MontarIntroduccion` (Editor) | Tótem de introducción "ERES BAYMAX", balizas de las áreas y orden de escenas de build |
 | `BalizaArea` / `PanelRedondeado` | Balizas numeradas sobre cada área del laboratorio (orientación, RF-01) |
@@ -227,7 +228,7 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `MontarSalaAltoRiesgo` / `EstacionAnalisis3D` / `VisorVirus` | Sala de vidrio BSL-3 con los criotubos de virus y la estación holográfica 3D |
 | `Utileria` / `MontarMusica` / `Realismo` (Editor) | Utilería realista (portaobjetos, bandejas, criotubos, frasco lavador), música ambiental y ajustes de realismo |
 | `AjustesNanoLab` / `MenuAjustes` / `BotonMenu` / `MontarAjustes` (Editor) | Panel ☰ (botón menú del mando izquierdo): volumen de música y efectos, modo sentado y recalibrar la altura (RNF-07) |
-| `Silla` / `MontarSillas` (Editor) | Sillas frente a cada microscopio de puesto: se sienta con el rayo y se levanta con el joystick; no bloquean al jugador. Prefab propio en `Assets/NanoLab/Prefabs/Silla.prefab` (cambia el hijo `Modelo` por tu modelo) |
+| `Silla` / `MontarSillas` / `MontarSillaLaboratorio` (Editor) | Taburete de laboratorio de Blender (asiento a 0.65 m, aro reposapiés, base de 5 radios) frente a cada microscopio de puesto y en Química: se sienta con el rayo y se levanta con el joystick; no bloquean al jugador. Prefab en `Assets/NanoLab/Silla_Laboratorio_Interactuable/Prefabs/` |
 | `Apuntable` | Base de lo que se usa con el rayo de la mano vacía (fichas, botones del panel, sillas) |
 
 Las métricas de sesión se guardan como JSON en `Application.persistentDataPath/NanoLab/`.

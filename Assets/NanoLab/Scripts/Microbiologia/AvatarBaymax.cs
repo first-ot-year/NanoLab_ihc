@@ -8,7 +8,7 @@ using UnityEngine;
 // la mesa); con 'manosMetaEnPrimeraPersona' se ven en su lugar las manos/mandos de Meta, en una
 // capa propia. Los espejos ven a Baymax completo, con sus manos, y nunca las de Meta.
 [DefaultExecutionOrder(100)]
-public class AvatarBaymax : MonoBehaviour
+public class AvatarBaymax : MonoBehaviour, IAvatarJugador
 {
     // Capa que la cámara del jugador no renderiza y los espejos sí.
     public const int CapaCabeza = 29;
