@@ -186,9 +186,12 @@ public class Portaobjetos : MonoBehaviour
 
     public void Cargar(MuestraData m, string etiquetaCaso = null)
     {
-        if (m == null || m == muestra) return;
+        string etiqueta = string.IsNullOrEmpty(etiquetaCaso) ? null : etiquetaCaso;
+        // La misma muestra con otra etiqueta (p. ej. del cepario y luego la del CASO) sí se recarga:
+        // antes se ignoraba y el frotis del caso no contaba como "del caso" (se quedaba en Tinción).
+        if (m == null || (m == muestra && etiqueta == etiquetaTexto)) return;
         muestra = m;
-        etiquetaTexto = string.IsNullOrEmpty(etiquetaCaso) ? null : etiquetaCaso;
+        etiquetaTexto = etiqueta;
         PasosTincion = 0; TincionErronea = false; Despues = false;
         Refrescar();
         ManosRig.Vibrar(transform.position, 0.5f, 0.1f);

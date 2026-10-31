@@ -11,8 +11,7 @@ using MM = MontarMicrobiologia;
 // Blender (MontarSillaLaboratorio, prefab en Assets/NanoLab/Silla_Laboratorio_Interactuable/Prefabs);
 // si faltara su FBX, el taburete de primitivas Assets/NanoLab/Prefabs/Silla.prefab. Las sillas del
 // paquete de Animatics (chair.prefab) eran solo decorativas: en Microbiología se quitan y se pone una
-// frente a cada microscopio de puesto; en Química se cambian por la propia en el mismo sitio, mirando
-// hacia la mesa más cercana. Las sillas del prefab que no se usa también se cambian.
+// frente a cada microscopio de puesto. Las sillas del prefab que no se usa también se cambian.
 public static class MontarSillas
 {
     public static string PrefabRuta => File.Exists(MontarSillaLaboratorio.Fbx) ? MontarSillaLaboratorio.PrefabRuta : PrefabTaburete;
@@ -24,7 +23,6 @@ public static class MontarSillas
     };
     static string[] Reemplazables => Originales.Concat(new[] { PrefabTaburete, MontarSillaLaboratorio.PrefabRuta }.Where(r => r != PrefabRuta)).ToArray();
     const string MatDir = "Assets/NanoLab/Materiales/Micro";
-    const string Quimica = "Assets/NanoLab/Scenes/Laboratorio.unity";
     const string Microbiologia = "Assets/NanoLab/Scenes/Microbiologia.unity";
 
     // Sin volver a hornear: las sillas nuevas se iluminan con las sondas de luz.
@@ -32,7 +30,7 @@ public static class MontarSillas
     public static void AmbasSalas()
     {
         AsegurarColisiones.CapaYMatriz();
-        foreach (var ruta in new[] { Quimica, Microbiologia })
+        foreach (var ruta in new[] { Microbiologia })
         {
             if (!File.Exists(ruta)) continue;
             var s = EditorSceneManager.OpenScene(ruta, OpenSceneMode.Single);
@@ -47,18 +45,6 @@ public static class MontarSillas
             AgruparLab.Agrupar(s);
             EditorSceneManager.SaveScene(s);
         }
-    }
-
-    // Química sin rehacerla: sillas nuevas y el panel ☰ del rig.
-    public static void ActualizarQuimica()
-    {
-        if (!File.Exists(Quimica)) return;
-        var s = EditorSceneManager.OpenScene(Quimica, OpenSceneMode.Single);
-        Aplicar(s);
-        ConfigurarMetaISDK.Configurar(s);
-        AsegurarColisiones.Aplicar(s);
-        AgruparLab.Agrupar(s);
-        EditorSceneManager.SaveScene(s);
     }
 
     // Microbiología: las sillas del paquete estaban repartidas por el suelo (algunas en el pasillo de la
@@ -111,7 +97,7 @@ public static class MontarSillas
         return n;
     }
 
-    // Química: cada silla del paquete se cambia por una propia en el mismo sitio, mirando a la mesa.
+    // Cambia cada silla del paquete por una propia en el mismo sitio, mirando a la mesa (la usaba la sala de Química).
     public static int Aplicar(Scene s)
     {
         var prefab = Prefab();

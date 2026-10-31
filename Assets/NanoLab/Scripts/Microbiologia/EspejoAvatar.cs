@@ -76,6 +76,8 @@ public class EspejoAvatar : MonoBehaviour
         cam.transform.SetPositionAndRotation(pe, Quaternion.LookRotation(-vn, vu));
         cam.nearClipPlane = cerca; cam.farClipPlane = lejos;
         cam.projectionMatrix = Matrix4x4.Frustum(l, r, b, tp, cerca, lejos);
-        cam.Render();
+        AvatarBaymaxBebe.Espejo(true);    // el cuerpo de Baymax solo se dibuja para el espejo
+        try { cam.Render(); }
+        finally { AvatarBaymaxBebe.Espejo(false); }
     }
 }

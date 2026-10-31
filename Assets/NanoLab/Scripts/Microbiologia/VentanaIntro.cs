@@ -3,7 +3,8 @@ using UnityEngine;
 
 // Introducción narrativa (RF-01) como ventana pequeña paso a paso: quién es Baymax, el objetivo de
 // NanoLab VR, cómo se investiga, los controles, el espejo y dónde empezar. Aparece delante de la cara
-// al entrar en la sala; se avanza con SIGUIENTE / ATRÁS (tocando los botones o apuntándolos con el
+// al entrar en la sala, como un cristal transparente (se sigue viendo el laboratorio detrás); se avanza
+// con el botón X del mando izquierdo o con SIGUIENTE / ATRÁS (tocando los botones o apuntándolos con el
 // rayo y pulsando el gatillo) y se puede SALTAR. Al cerrarla queda una insignia pequeña con los
 // recuerdos recuperados y un botón para volver a verla. La monta MontarIntroduccion.
 public class VentanaIntro : MonoBehaviour
@@ -32,14 +33,25 @@ public class VentanaIntro : MonoBehaviour
     public float bajoOjos = 0.12f;
     [Tooltip("Si la cabeza se aleja más que esto (m), la ventana vuelve a ponerse delante.")]
     public float distanciaRecolocar = 2.2f;
+    [Tooltip("Tutorial pegado a la cámara: la ventana acompaña a la vista (con un pequeño retardo suave).")]
+    public bool pegadaACamara = true;
+    [Tooltip("Rapidez con la que la ventana alcanza la vista al girar la cabeza.")]
+    public float suavidad = 5f;
+
+    [Header("Cristal")]
+    [Tooltip("Color del fondo de la ventana: transparente para ver el laboratorio detrás.")]
+    public Color colorCristal = new Color(0.55f, 0.82f, 1f, 0.16f);
+    [Tooltip("Contorno oscuro del texto para que se lea sobre cualquier fondo (RNF-03).")]
+    public Color contornoTexto = new Color(0f, 0.06f, 0.12f, 0.85f);
 
     public Paso[] pasos = PasosPorDefecto();
 
-    // Solo se abre sola la primera vez en la sesión (al volver de Química no se repite).
+    // Solo se abre sola la primera vez en la sesión (si se recarga la escena no se repite).
     static bool vista;
 
     int actual;
     bool colocada;
+    float ultimoAvance = -1f;
 
     static readonly Color Activo = new Color(0.37f, 0.83f, 1f), Inactivo = new Color(0.2f, 0.26f, 0.33f);
 
@@ -47,15 +59,60 @@ public class VentanaIntro : MonoBehaviour
 
     void Awake()
     {
+        // Los textos del tutorial salen siempre del código (la escena guardada puede llevar una versión antigua).
+        pasos = PasosPorDefecto();
         if (atras) atras.Pulsado += _ => Ir(actual - 1);
-        if (siguiente) siguiente.Pulsado += _ => { if (actual >= pasos.Length - 1) Cerrar(); else Ir(actual + 1); };
+        if (siguiente) siguiente.Pulsado += _ => Continuar();
         if (saltar) saltar.Pulsado += _ => Cerrar();
         if (reabrir) reabrir.Pulsado += _ => Abrir();
+        Cristal();
+    }
+
+    // SIGUIENTE (o ¡EMPEZAR! en el último paso): también con el botón X.
+    void Continuar()
+    {
+        // X y el rayo del mando izquierdo pueden pulsar SIGUIENTE en el mismo instante: cuenta una vez.
+        if (Time.unscaledTime - ultimoAvance < 0.3f) return;
+        ultimoAvance = Time.unscaledTime;
+        if (actual >= pasos.Length - 1) Cerrar(); else Ir(actual + 1);
+    }
+
+    // Fondo de cristal transparente (no negro: es un laboratorio y se ve detrás) con el texto contorneado,
+    // y una indicación del botón X junto a los puntos de progreso.
+    void Cristal()
+    {
+        if (ventana == null) return;
+        var fondo = ventana.transform.Find("Fondo");
+        var panel = fondo != null ? fondo.GetComponent<PanelRedondeado>() : null;
+        if (panel != null)
+        {
+            panel.color = colorCristal;
+            panel.colorBorde = new Color(0.55f, 0.9f, 1f, 0.9f);
+            panel.Aplicar();
+        }
+        foreach (var t in new[] { titulo, texto, contador })
+        {
+            if (t == null) continue;
+            t.outlineWidth = 0.18f;   // crea una instancia del material de la fuente solo para estos textos
+            t.outlineColor = contornoTexto;
+        }
+        if (contador != null && ventana.transform.Find("PistaX") == null)
+        {
+            var x = Instantiate(contador.gameObject, contador.transform.parent);
+            x.name = "PistaX";
+            var tx = x.GetComponent<TMP_Text>();
+            tx.alignment = TextAlignmentOptions.Right;
+            tx.rectTransform.sizeDelta = new Vector2(0.2f, tx.rectTransform.sizeDelta.y);
+            var p = contador.transform.localPosition;
+            x.transform.localPosition = new Vector3(0.21f, -0.145f, p.z);
+            tx.text = "<color=#FFD25A><b>X</b></color>: continuar";
+        }
     }
 
     void Start()
     {
-        if (vista) { Mostrar(false); return; }
+        // La ventana grande se sustituyó por el aviso cuadrado (AvisoInicio): aquí solo queda la insignia.
+        if (vista || AvisoInicio.Instancia != null) { Mostrar(false); return; }
         actual = 0;
         Mostrar(true);
         Refrescar();
@@ -65,6 +122,7 @@ public class VentanaIntro : MonoBehaviour
 
     public void Abrir()
     {
+        if (AvisoInicio.Instancia != null) { AvisoInicio.Instancia.MostrarTutorial(); return; }   // reabrir: el tutorial corto
         actual = 0;
         Mostrar(true);
         Refrescar();
@@ -130,14 +188,36 @@ public class VentanaIntro : MonoBehaviour
     void Update()
     {
         if (!Abierta) return;
+        // Botón X (mando izquierdo): pasa al siguiente paso; en el último, empieza.
+        if (OVRInput.GetDown(OVRInput.Button.Three) || XEnTeclado())
+        {
+            Continuar();
+            Sonidos.Clic(ventana.transform.position);
+        }
         var cab = ManosRig.Cabeza;
         if (cab == null) return;
+        if (pegadaACamara) { Seguir(cab); return; }
         // Si el usuario se aleja caminando, la ventana vuelve delante de él.
         if (!colocada || Vector3.Distance(cab.position, ventana.transform.position) > distanciaRecolocar) Colocar();
         // Siempre de cara al usuario (solo gira en horizontal, sin balanceos).
         var d = Vector3.ProjectOnPlane(ventana.transform.position - cab.position, Vector3.up);
         if (d.sqrMagnitude > 1e-4f)
             ventana.transform.rotation = Quaternion.Slerp(ventana.transform.rotation, Quaternion.LookRotation(d.normalized, Vector3.up), Time.deltaTime * 4f);
+    }
+
+    // Pancarta ajustada a la cámara: siempre delante de la vista, un poco por debajo de los ojos y de cara
+    // al usuario; al girar la cabeza la alcanza con suavidad (sin temblores ni mareo).
+    void Seguir(Transform cab)
+    {
+        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up);
+        if (f.sqrMagnitude < 1e-4f) f = ventana.transform.forward;
+        f.Normalize();
+        var destino = cab.position + f * distancia - Vector3.up * bajoOjos;
+        var rot = Quaternion.LookRotation(f, Vector3.up);
+        float k = colocada ? 1f - Mathf.Exp(-suavidad * Time.deltaTime) : 1f;
+        ventana.transform.position = Vector3.Lerp(ventana.transform.position, destino, k);
+        ventana.transform.rotation = Quaternion.Slerp(ventana.transform.rotation, rot, k);
+        colocada = true;
     }
 
     public static Paso[] PasosPorDefecto() => new[]
@@ -174,20 +254,36 @@ public class VentanaIntro : MonoBehaviour
             texto = "<b>Joystick izquierdo:</b> caminar  ·  <b>derecho:</b> girar\n" +
                     "<b>Grip o gatillo:</b> agarrar objetos (también con el rayo)\n" +
                     "<b>Botones:</b> tócalos con la mano o apúntalos con el rayo y pulsa el gatillo\n" +
-                    "<b>Botón menú (mando izq.):</b> volumen y modo sentado",
+                    "<b>X:</b> continuar en esta ventana  ·  <b>Botón menú (mando izq.):</b> volumen, modo sentado y checkpoint",
         },
         new Paso
         {
             titulo = "MÍRATE EN EL ESPEJO",
-            texto = "Gira hacia el <color=#FFD25A><b>ESPEJO de tu derecha</b></color>: verás a Baymax repetir tus movimientos. " +
-                    "Mueve las manos y la cabeza para comprobarlo.\nCuando quieras, vuelve a esta ventana y pulsa SIGUIENTE.",
+            texto = "Gira hacia el <color=#FFD25A><b>ESPEJO de tu derecha</b></color>: verás a Baymax repetir tus movimientos " +
+                    "(esta ventana te acompaña, es de cristal y se ve a través). Mueve las manos y la cabeza para comprobarlo.\n" +
+                    "Cuando quieras, pulsa <b>X</b> para seguir.",
         },
         new Paso
         {
             titulo = "¿DÓNDE EMPIEZO?",
-            texto = "Sigue las <b>balizas numeradas</b>:  <b>1</b> Microscopios · <b>2</b> Cepario · <b>3</b> Alto riesgo (virus en 3D) · <b>5</b> Química\n" +
+            texto = "Sigue las <b>balizas numeradas</b>:  <b>1</b> Microscopios · <b>2</b> Cepario · <b>3</b> Alto riesgo (virus en 3D)\n" +
                     "Para tu primer recuerdo ve al <color=#FFD25A><b>4 · CENTRO DE EXPERIMENTACIÓN</b></color> y elige el " +
-                    "<b>CASO 01</b> en el banco de muestras. ¡Suerte, Baymax!",
+                    "<b>CASO 01</b> en el banco de muestras. Al terminar cada reto se guarda un <b>checkpoint</b>.\n" +
+                    "Para la sala de alto riesgo pasa antes por la <b>cabina de descontaminación</b> (11 s, quédate quieto). ¡Suerte, Baymax!",
         },
     };
+
+    static bool XEnTeclado()
+    {
+#if UNITY_EDITOR
+#if ENABLE_INPUT_SYSTEM
+        var kb = UnityEngine.InputSystem.Keyboard.current;
+        return kb != null && kb.xKey.wasPressedThisFrame && !OVRManager.isHmdPresent;
+#else
+        return Input.GetKeyDown(KeyCode.X) && !OVRManager.isHmdPresent;
+#endif
+#else
+        return false;
+#endif
+    }
 }

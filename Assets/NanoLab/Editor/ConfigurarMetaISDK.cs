@@ -21,7 +21,7 @@ public static class ConfigurarMetaISDK
 {
     const string RigPrefab = "Packages/com.meta.xr.sdk.interaction.ovr/Runtime/Prefabs/Legacy/OVRCameraRigInteraction.prefab";
     const string SlidePrefab = "Assets/NanoLab/Prefabs/Portaobjetos.prefab";
-    static readonly string[] Escenas = { "Assets/NanoLab/Scenes/Laboratorio.unity", "Assets/NanoLab/Scenes/Microbiologia.unity" };
+    static readonly string[] Escenas = { "Assets/NanoLab/Scenes/Microbiologia.unity" };
     static readonly Vector3 Spawn = new Vector3(-3.3f, 0f, 2.24f);
     const float Yaw = 24f;
     const float TamanoMaxAgarrable = 0.35f;

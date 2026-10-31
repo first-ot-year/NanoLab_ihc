@@ -26,7 +26,7 @@ public static class MontarAjustes
         var p = new GameObject(Nombre).transform;
         p.SetParent(rigRoot.transform, false);
 
-        MI.Panel(p, "Fondo", 0f, -0.06f, 0f, 0.62f, 0.68f, 0.03f, Fondo, Cian, 0.003f, 0);
+        MI.Panel(p, "Fondo", 0f, -0.105f, 0f, 0.62f, 0.77f, 0.03f, Fondo, Cian, 0.003f, 0);
         Izq(p, "AJUSTES", -0.27f, 0.225f, 0.3f, 0.4f, Cian, true);
         MI.Texto(p, "Botón menú del mando izq. para cerrar", 0.145f, 0.225f, 0.29f, 0.2f, Tenue, false, TextAlignmentOptions.Right);
 
@@ -45,9 +45,11 @@ public static class MontarAjustes
         // Partida guardada en el visor (se guarda sola; aquí se fuerza o se empieza de cero).
         botones.Add(Boton(p, "guardar", "GUARDAR PARTIDA", "guardar la partida", -0.13f, -0.255f, 0.3f));
         botones.Add(Boton(p, "nueva", "NUEVA PARTIDA", "empezar una partida nueva", 0.17f, -0.255f, 0.24f));
-        menu.partida = MI.Texto(p, "", 0f, -0.31f, 0.58f, 0.2f, Tenue, false, TextAlignmentOptions.Center);
+        // Checkpoint: se crea al terminar cada reto; vuelve a ese avance y a ese sitio.
+        botones.Add(Boton(p, "checkpoint", "VOLVER AL CHECKPOINT", "volver al último checkpoint", 0f, -0.345f, 0.4f));
+        menu.partida = MI.Texto(p, "", 0f, -0.4f, 0.58f, 0.2f, Tenue, false, TextAlignmentOptions.Center);
         MI.Texto(p, "Sentado en una silla real: activa el modo sentado y la vista sube a la de alguien de pie.\nToca los botones o apúntalos con el rayo.",
-            0f, -0.36f, 0.58f, 0.18f, Tenue, false, TextAlignmentOptions.Center);
+            0f, -0.45f, 0.58f, 0.18f, Tenue, false, TextAlignmentOptions.Center);
 
         // Los paneles son transparentes (no escriben profundidad): con un orden de dibujo mayor que el de
         // los rótulos y balizas, nada de lo que hay detrás se cuela por encima del panel.

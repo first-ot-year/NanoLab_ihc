@@ -32,7 +32,7 @@ Con el Meta XR Simulator se prueba el laboratorio en la laptop, sin el Meta Ques
 1. Abre el proyecto en Unity.
 2. Menú **Meta → Meta XR Simulator → Activate**.
 3. En la consola debe aparecer: `Meta XR Simulator is activated`.
-4. Abre la escena de **Microbiología** (o la de Química) y dale **Play**. Se abre la ventana del simulador junto al Game view.
+4. Abre la escena de **Microbiología** y dale **Play**. Se abre la ventana del simulador junto al Game view.
 
 La activación solo afecta a esa sesión del editor. No modifica archivos del proyecto, así que no aparece nada en `git status`.
 

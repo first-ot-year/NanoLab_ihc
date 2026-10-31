@@ -5,14 +5,13 @@ using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 // Compila el APK para Meta Quest (Builds/NanoLab.apk) con las escenas en el orden correcto:
-// Microbiología primero (la introducción de E2 empieza ahí) y Química después (portal).
+// Una sola escena: Microbiología (con el Centro de Experimentación).
 // No cambia la lista de escenas del proyecto.
 public static class CompilarAPK
 {
     static readonly string[] Escenas =
     {
         "Assets/NanoLab/Scenes/Microbiologia.unity",
-        "Assets/NanoLab/Scenes/Laboratorio.unity",
     };
     const string Salida = "Builds/NanoLab.apk";
 

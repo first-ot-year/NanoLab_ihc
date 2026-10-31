@@ -20,7 +20,6 @@ using ML = MontarLaboratorio;
 // Se puede repetir: quita los bloqueos anteriores antes de crear los nuevos.
 public static class AsegurarColisiones
 {
-    const string Quimica = "Assets/NanoLab/Scenes/Laboratorio.unity";
     const string Microbiologia = "Assets/NanoLab/Scenes/Microbiologia.unity";
     const string Pack = "Assets/3D Laboratory Environment with Appratus/";
     static string Nombre => CapasNanoLab.NombreBloqueo;
@@ -46,7 +45,7 @@ public static class AsegurarColisiones
     {
         CapaYMatriz();
         SillasPrefab();
-        foreach (var ruta in new[] { Microbiologia, Quimica })
+        foreach (var ruta in new[] { Microbiologia })
         {
             if (!File.Exists(ruta)) continue;
             var s = EditorSceneManager.OpenScene(ruta, OpenSceneMode.Single);

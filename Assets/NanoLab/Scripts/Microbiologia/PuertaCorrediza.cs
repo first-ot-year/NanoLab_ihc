@@ -12,6 +12,8 @@ public class PuertaCorrediza : MonoBehaviour
     [Tooltip("Segundos que tarda en abrirse o cerrarse.")]
     public float duracion = 1.1f;
     public GameObject[] luzRoja, luzVerde;
+    [Tooltip("Suena al abrirse o cerrarse (en una puerta de dos hojas basta con que suene una).")]
+    public bool sonido = true;
 
     float t, objetivo;
     Rigidbody rb;
@@ -34,7 +36,7 @@ public class PuertaCorrediza : MonoBehaviour
         if (Mathf.Approximately(nuevo, objetivo)) return;
         objetivo = nuevo;
         Semaforo(abrir);
-        if (hoja != null) Sonidos.Puerta(hoja.position + Vector3.up * 1.2f);
+        if (sonido && hoja != null) Sonidos.Puerta(hoja.position + Vector3.up * 1.2f);
     }
 
     public void Semaforo(bool verde)

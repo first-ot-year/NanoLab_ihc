@@ -10,12 +10,11 @@ using ML = MontarLaboratorio;
 
 // Monta Assets/NanoLab/Scenes/Microbiologia.unity a partir de la sala de Animatics:
 // microscopios en las islas, cepario, sala de vidrio de alto riesgo con la estación 3D,
-// cabina de desinfección, tutorial, progreso y portal a Química.
+// cabina de desinfección, tutorial, progreso y Centro de Experimentación (puerta corredera automática).
 public static class MontarMicrobiologia
 {
     const string SourceScene = "Assets/3D Laboratory Environment with Appratus/Scenes/Laboratory Scene.unity";
     const string ScenePath = "Assets/NanoLab/Scenes/Microbiologia.unity";
-    const string QuimicaPath = "Assets/NanoLab/Scenes/Laboratorio.unity";
     const string MatDir = "Assets/NanoLab/Materiales/Micro";
     const string ResDir = "Assets/NanoLab/Resources/NanoLab";
     const string PrefabDir = "Assets/NanoLab/Prefabs";
@@ -84,7 +83,6 @@ public static class MontarMicrobiologia
         MontarSalaAltoRiesgo.Construir(raiz, virus, slidePrefab);
         CrearTutorialYProgreso(Grupo(raiz, "Bienvenida"), muestras);
         MontarIntroduccion.Aplicar(scene);   // RF-01: "Eres Baymax" frente al punto de aparición
-        CrearPortal(Grupo(raiz, "Portal"), "Laboratorio", "LABORATORIO\nDE QUÍMICA");
         // Sala anexa con el Caso 01 (detrás de la pared este).
         MontarCentroExperimentacion.Construir(raiz, slidePrefab);
         Physics.SyncTransforms();
@@ -111,7 +109,6 @@ public static class MontarMicrobiologia
 
         MontarIntroduccion.OrdenarEscenas();   // la app arranca en Microbiología
 
-        AgregarPortalEnQuimica();
         Capturas();
         MontarCentroExperimentacion.Capturas();
     }
@@ -734,45 +731,6 @@ public static class MontarMicrobiologia
         Caja(panel, "Fondo", new Vector3(0f, 0f, 0.01f), new Vector3(ancho, altoPanel, 0.03f), mats["PanelHUD"], true);
         Caja(panel, "Borde", new Vector3(0f, 0f, 0.012f), new Vector3(ancho + 0.03f, altoPanel + 0.03f, 0.028f), mats["EmisivoCian"], false);
         return panel;
-    }
-
-    // ------------------------------------------------------------------ portal
-
-    internal static void CrearPortal(Transform padre, string escena, string texto)
-    {
-        // Pared izquierda del recibidor (x ≈ -6.5), mirando hacia +x.
-        var p = new GameObject("Portal_" + escena).transform;
-        p.SetParent(padre, false);
-        p.position = new Vector3(-6.42f, suelo, 1.9f);
-        p.rotation = Quaternion.Euler(0f, -90f, 0f);    // local -z apunta a +x (hacia el recibidor)
-        Caja(p, "Hoja", new Vector3(0f, 1.1f, 0.02f), new Vector3(1.1f, 2.2f, 0.03f), mats["PanelHUD"], false);
-        Caja(p, "MarcoI", new Vector3(-0.6f, 1.12f, 0f), new Vector3(0.06f, 2.24f, 0.06f), mats["EmisivoCian"], false);
-        Caja(p, "MarcoD", new Vector3(0.6f, 1.12f, 0f), new Vector3(0.06f, 2.24f, 0.06f), mats["EmisivoCian"], false);
-        Caja(p, "MarcoS", new Vector3(0f, 2.24f, 0f), new Vector3(1.26f, 0.06f, 0.06f), mats["EmisivoCian"], false);
-        var t = Texto3D(p, texto + "\n<size=60%>Camina hacia la puerta</size>", new Vector3(0f, 1.35f, -0.01f), Quaternion.identity, 0.5f, Color.white, 1.0f);
-        t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
-        var trig = new GameObject("Trigger");
-        trig.transform.SetParent(p, false);
-        trig.transform.localPosition = new Vector3(0f, 1f, -0.35f);
-        var bc = trig.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(1.1f, 2f, 0.5f);
-        trig.AddComponent<PuertaEscena>().escena = escena;
-    }
-
-    [MenuItem("NanoLab/Añadir portal en Química")]
-    public static void AgregarPortalEnQuimica()
-    {
-        if (!File.Exists(QuimicaPath)) return;
-        CrearMateriales();
-        var scene = EditorSceneManager.OpenScene(QuimicaPath, OpenSceneMode.Single);
-        var viejo = GameObject.Find("Portal");
-        if (viejo != null) Object.DestroyImmediate(viejo);
-        var rs = Object.FindObjectsOfType<MeshRenderer>();
-        var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
-        suelo = ML.AlturaSuelo(b);
-        CrearPortal(new GameObject("Portal").transform, "Microbiologia", "LABORATORIO DE\nMICROBIOLOGÍA");
-        AgruparLab.Agrupar(scene);
-        EditorSceneManager.SaveScene(scene);
-        Debug.Log("[Micro] Portal a Microbiología añadido en Laboratorio.unity");
     }
 
     // ------------------------------------------------------------------ portaobjetos

@@ -33,14 +33,16 @@ public class RetoManager : MonoBehaviour
     public int Intentos => metricas.Datos.intentos.Count;
     public MetricsLogger Metricas => metricas;
     public string ObjetivoActual => Objetivo(Actual);
+    public bool JugadorDentro => dentro;
 
     MetricsLogger metricas;
-    ObjetivoMuneca muneca;
+    GuiaReto guia;                               // tarjeta de objetivo + ruta de flechas hasta la estación
     readonly Dictionary<EtapaReto, int> nivelPista = new Dictionary<EtapaReto, int>();
     bool dentro, sesionGuardada, cronometro;
     int ultimoAgente = -1;
     float ultimaEficacia;
     string pistaFallo, pistaPendiente;
+    bool checkpointPendiente;
 
     static readonly int[] EstacionDeEtapa = { 0, 1, 2, 3, 4, 5, 6, 2, 7 };
     static readonly int[] CicloDeEtapa = { 0, 1, 1, 2, 3, 4, 5, 6, 7 };
@@ -71,7 +73,10 @@ public class RetoManager : MonoBehaviour
 
     void Start()
     {
-        muneca = ObjetivoMuneca.Crear(materialPanel);
+        // Antes: panel pegado al mando izquierdo y columna de luz con un rombo. Ahora una tarjeta que aparece
+        // al entrar y en cada paso (Y para verla) y flechas en el suelo hasta la estación.
+        guia = GuiaReto.Crear();
+        if (baliza != null) baliza.gameObject.SetActive(false);
         if (resumen != null) resumen.Pendiente(reto);
         metricas.Etapa(Actual.ToString());
         Refrescar(false);
@@ -90,13 +95,21 @@ public class RetoManager : MonoBehaviour
             Sonidos.Etapa(cab.position);
         }
         dentro = ahora;
-        if (muneca != null) muneca.Visible(dentro && !MicroscopioOptico.AlgunoActivo);
         if (pistaPendiente != null && !MicroscopioOptico.AlgunoActivo && cab != null)
         {
             var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
             Aviso.Mostrar(pistaPendiente, cab.position + frente * 0.9f + Vector3.down * 0.2f, Aviso.Tipo.Pista, 10f);
             Sonidos.Pista(cab.position);
             pistaPendiente = null;
+        }
+        if (checkpointPendiente && !MicroscopioOptico.AlgunoActivo && cab != null)
+        {
+            // Se avisa al apartar la cara del ocular (con el HUD delante no se vería).
+            var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
+            Aviso.Mostrar($"CHECKPOINT GUARDADO · {reto.codigo} completado\nPara volver aquí: botón de menú del mando izq. > CHECKPOINT.",
+                cab.position + frente * 0.9f + Vector3.down * 0.1f, Aviso.Tipo.Ok, 6f);
+            Sonidos.Etapa(cab.position);
+            checkpointPendiente = false;
         }
     }
 
@@ -142,8 +155,7 @@ public class RetoManager : MonoBehaviour
         string titulo = $"{reto.codigo} · {reto.titulo.ToUpper()}";
         string estado = $"Intentos: {Intentos}   ·   Pistas: {Pistas}" + (pistaFallo != null && Actual == EtapaReto.Hipotesis ? $"\n<color=#FFD25A>PISTA: {pistaFallo}</color>" : "");
         foreach (var p in paneles) if (p != null) p.Mostrar(CicloDeEtapa[(int)Actual], titulo, obj, estado);
-        if (baliza != null && est < estaciones.Length && estaciones[est] != null) baliza.MoverA(estaciones[est].puntoBaliza);
-        if (muneca != null) muneca.Poner(obj);
+        if (guia != null) guia.Etapa(Actual, titulo, obj, est < estaciones.Length ? estaciones[est] : null, true);
         if (terminal != null) terminal.Refrescar();
         if (conSonido && ManosRig.Cabeza != null) Sonidos.Etapa(ManosRig.Cabeza.position);
         Cambio?.Invoke();
@@ -186,7 +198,8 @@ public class RetoManager : MonoBehaviour
 
     void AlUsarFuente(FuenteMuestra f, Portaobjetos p)
     {
-        if (f.muestra == reto.muestra && f.etiqueta == reto.codigo && f.reactivo == 0 && !f.esDesinfectante) Avanzar(EtapaReto.Tincion);
+        if (f.muestra == reto.muestra && f.etiqueta == reto.codigo && f.reactivo == 0 && !f.esDesinfectante && p != null && p.DeCaso)
+            Avanzar(EtapaReto.Tincion);
     }
 
     void AlTenir(Portaobjetos p)
@@ -321,6 +334,8 @@ public class RetoManager : MonoBehaviour
             MostrarResumen();
             if (!sesionGuardada) { metricas.Guardar(true); sesionGuardada = true; }
             if (ManosRig.Cabeza != null) Sonidos.Logro(ManosRig.Cabeza.position);
+            // Checkpoint: cada reto terminado deja un punto de guardado al que se puede volver.
+            checkpointPendiente = Partida.GuardarCheckpoint(reto.codigo);
         }
         else
         {
@@ -365,7 +380,7 @@ public class RetoManager : MonoBehaviour
         Hipotesis = null;
         Evidencias = new bool[reto.evidencias.Length];
         nivelPista.Clear();
-        ultimoAgente = -1; ultimaEficacia = 0f; pistaFallo = null; pistaPendiente = null;
+        ultimoAgente = -1; ultimaEficacia = 0f; pistaFallo = null; pistaPendiente = null; checkpointPendiente = false;
         if (camara != null) camara.Reiniciar();
         if (placa != null)
         {
@@ -474,7 +489,7 @@ public class RetoManager : MonoBehaviour
                 ? $"Las células perdieron su forma y se rompieron. El agente {a.sigla} {a.accion.ToLower()} Tu muestra tiene una pared gruesa de peptidoglucano: por eso quedó VIOLETA en la tinción de Gram."
                 : a.pistaSiFalla,
             obsTitulo = "SIGUIENTE PASO",
-            obs = exito ? "¡Recuerdo recuperado! Ve al ARCHIVO (8): el informe del caso y tu recuerdo científico te esperan."
+            obs = exito ? "¡Recuerdo recuperado y CHECKPOINT guardado! Ve al ARCHIVO (8): el informe del caso y tu recuerdo científico te esperan."
                         : "Vuelve a la TERMINAL (5): revisa tu hipótesis y prueba otro agente. La cámara ya tiene una placa nueva del cultivo.",
             aviso = exito ? "RESULTADO: EFICAZ · La intervención detuvo a la bacteria" : "RESULTADO: SIN EFECTO · Compara con el ANTES y piensa por qué",
             colorAviso = exito ? new Color(0.35f, 1f, 0.55f) : new Color(1f, 0.45f, 0.4f),

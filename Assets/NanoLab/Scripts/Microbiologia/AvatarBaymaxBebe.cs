@@ -46,6 +46,8 @@ public class AvatarBaymaxBebe : MonoBehaviour, IAvatarJugador
     [Tooltip("Grados que puede girar la cabeza antes de que el cuerpo la siga.")]
     public float giroLibre = 35f;
     public float escalaMin = 0.6f, escalaMax = 2.2f;
+    [Tooltip("La cámara queda esta distancia (m) por delante de la cara de Baymax: el cuerpo se coloca detrás de la vista y nunca se ve su interior.")]
+    public float separacionCara = 0.15f;
 
     class Brazo
     {
@@ -63,6 +65,25 @@ public class AvatarBaymaxBebe : MonoBehaviour, IAvatarJugador
     Quaternion cuelloOffset, cabezaOffset;
     float yawCuerpo, alturaRef, escala = 1f, velSuave;
     bool iniciado;
+    Renderer manosRenderer;
+    bool manosOcultas;
+    readonly System.Collections.Generic.List<Renderer> cuerpo = new System.Collections.Generic.List<Renderer>();
+    static readonly System.Collections.Generic.List<AvatarBaymaxBebe> todos = new System.Collections.Generic.List<AvatarBaymaxBebe>();
+
+    void OnEnable() { if (!todos.Contains(this)) todos.Add(this); }
+    void OnDisable() => todos.Remove(this);
+
+    // Lo llama el espejo justo antes y después de renderizar: el cuerpo y la cara de Baymax solo existen
+    // para él. Así la vista del jugador nunca los dibuja, sea cual sea su cámara o su máscara de capas
+    // (con la cámara dentro de la cabeza se veía "por el ojo de Baymax").
+    public static void Espejo(bool renderizando)
+    {
+        foreach (var a in todos)
+        {
+            foreach (var r in a.cuerpo) if (r != null) r.forceRenderingOff = !renderizando;
+            if (a.manosRenderer != null && a.manosOcultas) a.manosRenderer.forceRenderingOff = !renderizando;
+        }
+    }
 
     void Awake()
     {
@@ -111,8 +132,10 @@ public class AvatarBaymaxBebe : MonoBehaviour, IAvatarJugador
         {
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             bool esMano = r.name == "Manos";
+            if (esMano) manosRenderer = r;
             bool visible = esMano ? !manosMetaEnPrimeraPersona : cuerpoEnPrimeraPersona && !r.name.StartsWith("Cara");
             r.gameObject.layer = visible ? 0 : AvatarBaymax.CapaCabeza;
+            if (!visible) { cuerpo.Add(r); r.forceRenderingOff = true; }
         }
         if (rig != null)
             foreach (var c in rig.GetComponentsInChildren<Camera>(true)) c.cullingMask &= ~(1 << AvatarBaymax.CapaCabeza);
@@ -145,13 +168,60 @@ public class AvatarBaymaxBebe : MonoBehaviour, IAvatarJugador
         return false;
     }
 
+    static Camera[] camaras = new Camera[8];
+
+    // La vista del jugador nunca dibuja el cuerpo ni la cara de Baymax (solo los espejos, que pintan en
+    // una textura). Se comprueba cada frame porque el simulador de Meta o el SDK pueden crear o rehacer
+    // las cámaras de los ojos después de Start.
+    static void OcultarCuerpoEnVista()
+    {
+        if (camaras.Length < Camera.allCamerasCount) camaras = new Camera[Camera.allCamerasCount * 2];
+        int n = Camera.GetAllCameras(camaras);
+        int bit = 1 << AvatarBaymax.CapaCabeza;
+        for (int i = 0; i < n; i++)
+        {
+            var c = camaras[i];
+            if (c != null && c.targetTexture == null && (c.cullingMask & bit) != 0) c.cullingMask &= ~bit;
+        }
+    }
+
     void LateUpdate()
     {
+        OcultarCuerpoEnVista();
         if (rig == null || rig.centerEyeAnchor == null) return;
         var cab = rig.centerEyeAnchor;
         float suelo = rig.trackingSpace != null ? rig.trackingSpace.position.y : rig.transform.position.y;
         Posar(cab.position, cab.rotation, Mano(rig.leftHandAnchor, OVRInput.Controller.LTouch, OVRInput.Controller.LHand),
               Mano(rig.rightHandAnchor, OVRInput.Controller.RTouch, OVRInput.Controller.RHand), suelo);
+        ManosLejosDeLaCara(cab.position);
+    }
+
+    // Las manos y antebrazos de Baymax son la única parte que se ve en primera persona. Si un mando queda
+    // pegado a la cara (al asomarse a algo, al estirar el brazo hacia la vista o en el simulador), la
+    // cámara quedaba dentro de esa malla y se veía Baymax por dentro: en ese caso las manos se ocultan
+    // (los espejos siguen mostrando el cuerpo entero).
+    void ManosLejosDeLaCara(Vector3 ojo)
+    {
+        if (manosRenderer == null || manosMetaEnPrimeraPersona) return;
+        float minimo = float.MaxValue;
+        if (brazos != null)
+            foreach (var b in brazos)
+            {
+                if (b == null) continue;
+                minimo = Mathf.Min(minimo, DistanciaSegmento(ojo, b.codo.position, b.mano.position));
+                if (b.medio != null) minimo = Mathf.Min(minimo, DistanciaSegmento(ojo, b.mano.position, b.medio.position));
+            }
+        // Grosor del antebrazo y la mano escalados (el bebé es redondo) + margen del plano cercano.
+        float radio = 0.07f * escala * escalaManos + 0.06f;
+        manosOcultas = minimo < radio;
+        manosRenderer.forceRenderingOff = manosOcultas;
+    }
+
+    static float DistanciaSegmento(Vector3 p, Vector3 a, Vector3 b)
+    {
+        var ab = b - a;
+        float t = ab.sqrMagnitude > 1e-8f ? Mathf.Clamp01(Vector3.Dot(p - a, ab) / ab.sqrMagnitude) : 0f;
+        return Vector3.Distance(p, a + ab * t);
     }
 
     static Pose? Mano(Transform ancla, OVRInput.Controller mando, OVRInput.Controller mano)
@@ -183,7 +253,9 @@ public class AvatarBaymaxBebe : MonoBehaviour, IAvatarJugador
         yawCuerpo = Mathf.MoveTowardsAngle(yawCuerpo, yawCabeza, Time.deltaTime * 40f);
         var rot = Quaternion.Euler(0f, yawCuerpo, 0f);
 
-        var ojosMundo = rot * (ojos * escala);
+        // Los ojos del modelo quedan 'separacionCara' por detrás de la cámara (la barriga y la cabeza de
+        // Baymax son anchas: con los ojos justo en la cámara, la vista quedaba dentro de la cabeza).
+        var ojosMundo = rot * (ojos * escala) + rot * Vector3.forward * separacionCara;
         float y = Mathf.Min(suelo, cabezaPos.y - ojosMundo.y);
         var antes = transform.position;
         transform.SetPositionAndRotation(new Vector3(cabezaPos.x - ojosMundo.x, y, cabezaPos.z - ojosMundo.z), rot);

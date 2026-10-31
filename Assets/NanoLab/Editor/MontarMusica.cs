@@ -8,7 +8,7 @@ using UnityEngine;
 public static class MontarMusica
 {
     const string Ruta = "Assets/NanoLab/Audio/AmbienteLaboratorio.wav";
-    static readonly string[] Escenas = { "Assets/NanoLab/Scenes/Microbiologia.unity", "Assets/NanoLab/Scenes/Laboratorio.unity" };
+    static readonly string[] Escenas = { "Assets/NanoLab/Scenes/Microbiologia.unity" };
 
     [MenuItem("NanoLab/Añadir música ambiental", false, 9)]
     public static void Anadir()

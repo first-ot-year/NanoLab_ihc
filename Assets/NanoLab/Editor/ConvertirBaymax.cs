@@ -20,7 +20,7 @@ public static class ConvertirBaymax
     const string Dir = "Assets/NanoLab/Modelos/Baymax";
     public const string PrefabPath = Dir + "/AvatarBaymax.prefab";
     const float Altura = 1.7f;
-    static readonly string[] Escenas = { "Assets/NanoLab/Scenes/Microbiologia.unity", "Assets/NanoLab/Scenes/Laboratorio.unity" };
+    static readonly string[] Escenas = { "Assets/NanoLab/Scenes/Microbiologia.unity" };
 
     // Piezas del glb (nombres de los MeshRenderer) y triángulos objetivo.
     static readonly (string parte, string[] piezas, int tris)[] Partes =

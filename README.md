@@ -130,8 +130,7 @@ NanoLab_ihc/
 ├── Assets/
 │   ├── NanoLab/                     # Código y contenido propio del proyecto
 │   │   ├── Scenes/
-│   │   │   ├── Laboratorio.unity    # Sala de Química (laboratorio base)
-│   │   │   └── Microbiologia.unity  # Sala de Microbiología + Centro de Experimentación
+│   │   │   └── Microbiologia.unity  # Sala de Microbiología + Centro de Experimentación (única escena)
 │   │   ├── Scripts/
 │   │   │   ├── Centro/              # Lógica del reto (RetoManager, cámara, prensa, fichas…)
 │   │   │   └── Microbiologia/       # Microscopio, portaobjetos, HUD, avatar Baymax, jugador…
@@ -171,7 +170,7 @@ git lfs pull
 
 1. En Unity Hub: **Add → Add project from disk** y seleccionar la carpeta clonada.
 2. Esperar la importación inicial (puede tardar varios minutos).
-3. Abrir `Assets/NanoLab/Scenes/Microbiologia.unity` o `Assets/NanoLab/Scenes/Laboratorio.unity`.
+3. Abrir `Assets/NanoLab/Scenes/Microbiologia.unity` (la sala de Química y su portal se quitaron).
 
 ### Herramientas del menú `NanoLab`
 
@@ -179,7 +178,8 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 
 | Menú | Acción |
 |---|---|
-| `NanoLab/Montar TODO (Química + Microbiología)` | Convierte modelos, crea fichas de muestras y regenera ambas salas (sobrescribe cambios manuales y vuelve a hornear la luz) |
+| `NanoLab/Montar TODO (Microbiología)` | Convierte modelos, crea fichas de muestras y regenera la sala (sobrescribe cambios manuales y vuelve a hornear la luz) |
+| `NanoLab/Aplicar: sin Química + puertas del centro + checkpoint` | Sobre la escena guardada y sin hornear: quita el portal a Química y su baliza, pone la puerta corredera automática del Centro y la compuerta de la cámara experimental, deja la ventana «Eres Baymax» como cristal transparente (se avanza con X) y rehace el panel ☰ con el botón del checkpoint |
 | `NanoLab/Reconstruir solo el centro de experimentación` | Regenera únicamente el Centro de Experimentación |
 | `NanoLab/Montar cámara de descontaminación (BSL-3)` | Cambia la cabina de la puerta del BSL-3 por una esclusa con dos puertas correderas y ciclo de descontaminación (niebla, luz UV-C, extracción), sin volver a hornear la luz |
 | `NanoLab/Probar reto completo (play mode)` | Ejecuta el Caso 01 de extremo a extremo sin visor |
@@ -201,7 +201,7 @@ En Play Mode, el componente `DebugReto` permite recorrer el Caso 01 desde el tec
 ### Compilar para Meta Quest
 
 1. **File → Build Settings → Android → Switch Platform.**
-2. Verificar que `Microbiologia.unity` sea la **primera** escena de la lista (la experiencia empieza ahí) y `Laboratorio.unity` la segunda. `NanoLab/Montar introducción Baymax` las deja en ese orden.
+2. Verificar que `Microbiologia.unity` sea la **única** escena de la lista. `NanoLab/Montar introducción Baymax` la deja así.
 3. Conectar el visor por USB y usar **Build And Run**.
 
 ## Arquitectura del código
@@ -217,8 +217,14 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `EstacionFicha` | Fichas de investigación consultables (RF-04): 3 bacterias, el virus (micrografía electrónica) y la pared celular; se abren con el botón, el rayo o tocándolas |
 | `TerminalHipotesis` | Registro de la hipótesis (RF-05) |
 | `VialAgente` / `PrensaCapsulas` / `Capsula` | Preparación de la intervención (RF-06) |
-| `CamaraExperimental` | Activación de la prueba con feedback multicanal (RF-07) |
+| `CamaraExperimental` | Activación de la prueba con feedback multicanal (RF-07); compuerta de guillotina que se abre para que pase la bandeja y sella la cámara durante la incubación |
 | `PanelResumen` | Informe final, conocimiento recuperado y repetición del caso |
+| `Partida` / `GestorPartida` | Partida guardada en el visor (autoguardado) y **checkpoint** al terminar cada reto: el botón VOLVER AL CHECKPOINT del panel ☰ restaura ese avance y lleva al jugador a ese punto |
+| `GuiaReto` | Guía del reto en el Centro: tarjeta de objetivo (caso, paso n de 9, qué hacer y a qué estación ir) que aparece al entrar, en cada paso y al llegar, y con **Y**; flechas en el suelo que fluyen hasta la estación y un anillo con su número y nombre. Sustituye al panel de la mano (`ObjetivoMuneca`) y a la baliza |
+| `Compartimento` | Cajones, vitrinas y tapas: se abren con el rayo (gatillo o A/X) y los cajones también se **jalan con la mano** (grip junto al frente): siguen a la mano y se quedan donde se sueltan || `PuertaAutomatica` / `PuertaCorrediza` | Puerta corredera de dos hojas en la entrada del Centro de Experimentación: se abre al acercarse (o al llegar con un objeto en la mano) y se esconde en el muro; franja verde encima cuando está abierta |
+| `AdaptadorEscena` | Al empezar (lo añade `JugadorNanoLab`): quita la cristalería de química y el portal (pone placas de Petri en los huecos), monta la puerta del Centro y la compuerta de la cámara si la escena guardada no las tiene, y deja los tableros en cristal claro con el texto contorneado; convierte en interactivos los cajones de todas las mesas que el montaje no convirtió |
+| `CabinaDescontaminacion` | Esclusa con dos puertas de vidrio (la exterior se crea al empezar si falta): nunca abiertas a la vez; al quedarte dentro se cierran las dos y hay una desinfección completa de 11 s en 4 fases (ducha de aire, nebulización, UV-C, extracción) con una pantalla fija en cada pared lateral (fase, explicación, barra, % y segundos); al terminar se abre la otra puerta. Igual al salir de la BSL-3 |
+| `AvisoInicio` | Aviso cuadrado delante de la vista: al iniciar la partida (aviso de casco + tutorial corto de 6 tarjetas) y cada vez que se pone el visor; se avanza con X. Sustituye a la ventana grande de introducción y al tótem del tutorial (`VentanaIntro` queda solo como insignia que reabre el tutorial) |
 | `Encajable` / `ZonaEncaje` | Objetos agarrables con encaje y retorno automático (RNF-04) |
 | `MetricsLogger` | Registro JSON de la sesión para HEART (RF-10) |
 | `AvatarBaymaxBebe` / `ConvertirBaymaxBebe` (Editor) | Baymax Bebé v4.2 (modelo con esqueleto hecho en Blender por un compañero) como avatar del jugador: escala a la altura del jugador, cabeza al visor, brazos al mando con IK (codo ≤ 65°), dedos con grip y gatillo, Idle/Walk y piernas dobladas al sentarse. En primera persona solo se ven las manos (malla recortada en la muñeca) |
@@ -229,8 +235,8 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `JugadorNanoLab` / `PunteroMuestras` / `ManosRig` | Locomoción de Meta, agarre con gatillo o grip y rayo corto para tomar muestras y soltar en platinas o mesas |
 | `MontarSalaAltoRiesgo` / `EstacionAnalisis3D` / `VisorVirus` | Sala de vidrio BSL-3 con los criotubos de virus y la estación holográfica 3D |
 | `Utileria` / `MontarMusica` / `Realismo` (Editor) | Utilería realista (portaobjetos, bandejas, criotubos, frasco lavador), música ambiental y ajustes de realismo |
-| `AjustesNanoLab` / `MenuAjustes` / `BotonMenu` / `MontarAjustes` (Editor) | Panel ☰ (botón menú del mando izquierdo): volumen de música y efectos, modo sentado y recalibrar la altura (RNF-07) |
-| `Silla` / `MontarSillas` / `MontarSillaLaboratorio` (Editor) | Taburete de laboratorio de Blender (asiento a 0.65 m, aro reposapiés, base de 5 radios) frente a cada microscopio de puesto y en Química: se sienta con el rayo y se levanta con el joystick; no bloquean al jugador. Prefab en `Assets/NanoLab/Silla_Laboratorio_Interactuable/Prefabs/` |
+| `AjustesNanoLab` / `MenuAjustes` / `BotonMenu` / `MontarAjustes` (Editor) | Panel ☰ (botón menú del mando izquierdo): volumen de música y efectos, modo sentado y recalibrar la altura (RNF-07); guardar, nueva partida y volver al checkpoint |
+| `Silla` / `MontarSillas` / `MontarSillaLaboratorio` (Editor) | Taburete de laboratorio de Blender (asiento a 0.65 m, aro reposapiés, base de 5 radios) frente a cada microscopio de puesto: se sienta con el rayo y se levanta con el joystick; no bloquean al jugador. Prefab en `Assets/NanoLab/Silla_Laboratorio_Interactuable/Prefabs/` |
 | `Apuntable` | Base de lo que se usa con el rayo de la mano vacía (fichas, botones del panel, sillas) |
 
 Las métricas de sesión se guardan como JSON en `Application.persistentDataPath/NanoLab/`.
