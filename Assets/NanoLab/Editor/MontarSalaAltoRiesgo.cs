@@ -61,6 +61,7 @@ public static class MontarSalaAltoRiesgo
         var padre = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "Microbiologia" && t.parent != null && t.parent.name.StartsWith("LAB_"));
         if (padre == null) padre = new GameObject("Microbiologia").transform;
         Construir(padre, muestras.Where(m => m.tipo == TipoMuestra.Virus).ToArray(), slidePrefab);
+        MontarAlmacenamiento.Muebles();   // cajones, vitrinas y armarios de la sala principal
         ConfigurarMetaISDK.ActualizarPrefabPortaobjetos();
         ConfigurarMetaISDK.Configurar(scene);
         ML.ConfigurarLuces("Microbiologia_Lighting");
@@ -237,6 +238,8 @@ public static class MontarSalaAltoRiesgo
         var cont = new GameObject("MesaCriotubos").transform;
         cont.SetParent(padre, false);
         var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, cont);
+        // Girada 180°: los cajones y la vitrina de vidrio (+z del modelo) dan a la sala, no al vidrio norte.
+        inst.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         var b = ML.BoundsDe(inst);
         if (b.size.z > b.size.x) inst.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         b = ML.BoundsDe(inst);
@@ -266,6 +269,9 @@ public static class MontarSalaAltoRiesgo
             tubo.gameObject.AddComponent<Resaltado>().brillos = new[] { brillo };
             MM.Etiqueta(tubo, v.nombre, v.riesgo, V(0f, 0.22f, 0f), v.color);
         }
+        // Cajones y vitrina de la mesa: material (cristalería, portaobjetos, placas estériles, tubos).
+        var mesa = MontarAlmacenamiento.ConvertirMesa(inst.transform);
+        if (mesa != null) MontarAlmacenamiento.Llenar(mesa, slidePrefab);
         Utileria.Bandeja(rack, V(0.45f, 0f, 0f), new[] { -0.035f, 0f, 0.035f });
         for (int i = 0; i < 3; i++)
         {
@@ -282,12 +288,13 @@ public static class MontarSalaAltoRiesgo
         t.outlineWidth = 0.2f; t.outlineColor = new Color32(0, 0, 0, 200);
     }
 
-    // Equipos de un laboratorio BSL-3 (ambientación, no interactivos), pegados al vidrio.
+    // Equipos de un laboratorio BSL-3 pegados al vidrio (el ultracongelador y el criotanque se abren).
     static void Equipamiento(Transform g)
     {
         MC.Equipo(g, "Autoclave", V(X0 + 0.42f, 0f, paredZ1 + 4.6f), 90f, V(0.8f, 1.05f, 0.7f), "AUTOCLAVE", "121 °C · LISTO", true);
         MC.Equipo(g, "Incubadora", V(X0 + 0.42f, 0f, paredZ1 + 5.7f), 90f, V(0.8f, 1.6f, 0.7f), "INCUBADORA", "37.0 °C", false);
-        MC.Equipo(g, "Ultracongelador", V(X1 - 0.42f, 0f, paredZ1 + 2.0f), -90f, V(0.8f, 1.9f, 0.7f), "ULTRACONGELADOR", "-80 °C", false);
+        // Zona de criopreservación: ultracongelador (virus) y criotanque de N2 líquido (cepas bacterianas).
+        MontarAlmacenamiento.ZonaCriopreservacion(g, V(X1 - 0.42f, 0f, paredZ1 + 2.0f), -90f);
         MC.CabinaBioseguridad(g, V(X1 - 0.45f, 0f, paredZ1 + 6.2f), -90f);
     }
 
@@ -313,6 +320,21 @@ public static class MontarSalaAltoRiesgo
         luz.type = LightType.Point; luz.color = new Color(0.35f, 0.65f, 1f); luz.range = 2.6f; luz.intensity = 1.8f;
         luz.lightmapBakeType = LightmapBakeType.Baked;
 
+        // Puerta de vidrio corredera (dos hojas) y niebla de las boquillas: la sala solo se abre
+        // tras la descontaminación (CabinaDescontaminacion).
+        var cab = padre.gameObject.AddComponent<CabinaDescontaminacion>();
+        cab.puerta = V(cx, suelo, ZV);
+        cab.zona = new Bounds(V(cx, suelo + 1f, zc), V(ancho - 0.1f, 2f, z1 - z0));
+        cab.haciaDentro = Vector3.forward;
+        cab.apertura = ancho / 2f - 0.04f;
+        cab.hojaIzq = HojaPuerta(padre, "HojaIzq", V(cx - ancho / 4f, suelo, ZV - 0.05f), ancho / 2f);
+        cab.hojaDer = HojaPuerta(padre, "HojaDer", V(cx + ancho / 4f, suelo, ZV - 0.05f), ancho / 2f);
+        cab.humo = new[]
+        {
+            Niebla(padre, V(PuertaX0 + 0.04f, suelo, zc), 90f, z1 - z0 - 0.2f),
+            Niebla(padre, V(PuertaX1 - 0.04f, suelo, zc), -90f, z1 - z0 - 0.2f),
+        };
+
         // Fuera, encima de la cabina; dentro, sobre la puerta (delante del dintel).
         foreach (var (z, y, rotY, texto, fondo) in new[]
                  {
@@ -328,6 +350,63 @@ public static class MontarSalaAltoRiesgo
             var t = MM.Texto3D(cartel, texto, V(0f, 0f, -0.002f), Quaternion.identity, 0.85f, Color.black, ancho + 0.15f);
             t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
         }
+    }
+
+    // Hoja de la puerta corredera: vidrio con marco y franja rosa (el collider del vidrio bloquea el paso).
+    static Transform HojaPuerta(Transform padre, string nombre, Vector3 pos, float ancho)
+    {
+        var h = new GameObject(nombre).transform;
+        h.SetParent(padre, false);
+        h.position = pos;
+        MM.Caja(h, "Vidrio", V(0f, AltoPuerta / 2f, 0f), V(ancho - 0.04f, AltoPuerta - 0.06f, 0.02f), M["Vidrio"], true);
+        MM.Caja(h, "MarcoI", V(-ancho / 2f + 0.02f, AltoPuerta / 2f, 0f), V(0.04f, AltoPuerta, 0.04f), M["Marco"], true);
+        MM.Caja(h, "MarcoD", V(ancho / 2f - 0.02f, AltoPuerta / 2f, 0f), V(0.04f, AltoPuerta, 0.04f), M["Marco"], true);
+        MM.Caja(h, "MarcoS", V(0f, AltoPuerta - 0.03f, 0f), V(ancho, 0.06f, 0.04f), M["Marco"], false);
+        MM.Caja(h, "MarcoInf", V(0f, 0.04f, 0f), V(ancho, 0.08f, 0.04f), M["Marco"], false);
+        MM.Caja(h, "Franja", V(0f, 1.15f, -0.015f), V(ancho - 0.08f, 0.04f, 0.01f), M["EmisivoRosa"], false);
+        return h;
+    }
+
+    // Niebla que sale de una fila de boquillas hacia el centro de la cabina ('yaw' apunta hacia dentro).
+    static ParticleSystem Niebla(Transform padre, Vector3 pos, float yaw, float largo)
+    {
+        var go = new GameObject("Niebla");
+        go.transform.SetParent(padre, false);
+        go.transform.SetPositionAndRotation(pos + Vector3.up * 1.15f, Quaternion.Euler(0f, yaw, 0f));
+        var ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = ps.main;
+        main.playOnAwake = false;
+        main.loop = true;
+        main.duration = 1f;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(1.4f, 2.0f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.7f, 1.1f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.6f);
+        main.startColor = new Color(0.92f, 0.96f, 1f, 0.45f);
+        main.gravityModifier = -0.02f;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.maxParticles = 250;
+        var em = ps.emission;
+        em.rateOverTime = 55f;
+        var sh = ps.shape;
+        sh.shapeType = ParticleSystemShapeType.Box;
+        sh.scale = V(largo, 1.3f, 0.02f);   // a lo largo de la cabina, a la altura de las boquillas
+        var lim = ps.limitVelocityOverLifetime;   // frena: se queda flotando como una nube
+        lim.enabled = true; lim.limit = 0.15f; lim.dampen = 0.12f;
+        var col = ps.colorOverLifetime;
+        col.enabled = true;
+        var g = new Gradient();
+        g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                  new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.55f, 0.2f), new GradientAlphaKey(0f, 1f) });
+        col.color = g;
+        var size = ps.sizeOverLifetime;
+        size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.8f));
+        var r = go.GetComponent<ParticleSystemRenderer>();
+        r.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        r.receiveShadows = false;
+        return ps;
     }
 
     // Carteles de riesgo en la cara del vidrio que da a la sala principal.

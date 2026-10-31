@@ -25,10 +25,16 @@ public class BotonMenu : Apuntable
         Pulsado?.Invoke(id);
         ManosRig.Vibrar(transform.position, 0.4f, 0.05f);
         Sonidos.Clic(transform.position);
-        if (fondo != null) StartCoroutine(Destello());
+        if (fondo != null && isActiveAndEnabled) { StopAllCoroutines(); StartCoroutine(Destello()); }
     }
 
-    void OnDisable() { tocando = false; }
+    void OnDisable()
+    {
+        tocando = false;
+        // Si se cierra el panel a mitad del destello, el botón vuelve a su color y tamaño.
+        if (fondo != null && colorOriginal.HasValue) { fondo.color = colorOriginal.Value; fondo.Aplicar(); }
+        if (etiqueta != null && escalaOriginal.HasValue) etiqueta.transform.localScale = escalaOriginal.Value;
+    }
 
     void Update()
     {
@@ -37,13 +43,26 @@ public class BotonMenu : Apuntable
         tocando = ahora;
     }
 
+    Color? colorOriginal;
+    Vector3? escalaOriginal;
+
+    // El botón se pone verde y vuelve poco a poco a su color; la etiqueta da un pequeño salto.
     System.Collections.IEnumerator Destello()
     {
-        var c = fondo.color;
-        fondo.color = Color.Lerp(c, Color.white, 0.35f);
-        fondo.Aplicar();
-        yield return new WaitForSecondsRealtime(0.12f);
+        if (colorOriginal == null) colorOriginal = fondo.color;
+        var c = colorOriginal.Value;
+        var verde = new Color(0.25f, 0.85f, 0.45f, c.a);
+        if (escalaOriginal == null) escalaOriginal = etiqueta != null ? etiqueta.transform.localScale : Vector3.one;
+        var escala = escalaOriginal.Value;
+        for (float t = 0f; t < 1f; t += Time.unscaledDeltaTime / 0.7f)
+        {
+            fondo.color = Color.Lerp(verde, c, t * t);
+            fondo.Aplicar();
+            if (etiqueta != null) etiqueta.transform.localScale = escala * (1f + 0.15f * (1f - t));
+            yield return null;
+        }
         fondo.color = c;
         fondo.Aplicar();
+        if (etiqueta != null) etiqueta.transform.localScale = escala;
     }
 }

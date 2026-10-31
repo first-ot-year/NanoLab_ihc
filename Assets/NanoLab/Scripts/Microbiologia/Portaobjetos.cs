@@ -41,6 +41,8 @@ public class Portaobjetos : MonoBehaviour
     bool estabaAgarrado;
     int hovers;
     FuenteMuestra ultimaFuente;
+    Hueco casaHueco;                     // si empieza guardado en una vitrina, cajón o ultracongelador
+    float sueloCasa;
     Vector3 casaPos;
     Quaternion casaRot;
     float tiempoFuera, ultimoGolpe;
@@ -54,8 +56,14 @@ public class Portaobjetos : MonoBehaviour
         mpb = new MaterialPropertyBlock();
         casaPos = transform.position;
         casaRot = transform.rotation;
+        casaHueco = transform.parent != null ? transform.parent.GetComponent<Hueco>() : null;
         if (brillo != null) brillo.enabled = false;
         Refrescar();
+    }
+
+    void Start()
+    {
+        if (casaHueco != null) sueloCasa = Hueco.SueloBajo(casaPos, transform);
     }
 
     void OnEnable()
@@ -87,7 +95,9 @@ public class Portaobjetos : MonoBehaviour
         if (!agarrado)
         {
             // Suelto en el suelo o muy lejos: vuelve a su sitio con la muestra intacta (tolerancia al error, RNF-04).
-            bool perdido = Encajada == null && (transform.position.y < casaPos.y - 0.4f || (transform.position - casaPos).sqrMagnitude > distanciaMaxima * distanciaMaxima);
+            // Los que empiezan guardados (a veces en baldas altas) solo se dan por perdidos en el suelo.
+            float limite = casaHueco != null ? sueloCasa + 0.2f : casaPos.y - 0.4f;
+            bool perdido = Encajada == null && Hueco.De(transform) == null && (transform.position.y < limite || (transform.position - casaPos).sqrMagnitude > distanciaMaxima * distanciaMaxima);
             tiempoFuera = perdido ? tiempoFuera + Time.deltaTime : 0f;
             if (tiempoFuera > 1.5f) VolverACasa();
             return;
@@ -112,6 +122,7 @@ public class Portaobjetos : MonoBehaviour
     {
         if (brillo != null) brillo.enabled = false;
         if (Encajada != null) { Encajada.Liberar(this); Encajada = null; }
+        Hueco.Sacar(transform);
         ManosRig.Vibrar(transform.position, 0.3f, 0.05f);
         Sonidos.Clic(transform.position);
     }
@@ -124,6 +135,7 @@ public class Portaobjetos : MonoBehaviour
         if (Agarrado) yield break;
         var p = PlatinaCercana();
         if (p != null) Encajar(p);
+        else if (Hueco.Guardar(transform)) { }   // en una vitrina, cajón o ultracongelador abierto
         else if (PunteroMuestras.Destino(this, out var apuntada, out var punto, out var rot))
         {
             // Soltado apuntando con el rayo: a esa platina, o plano sobre la mesa.
@@ -161,6 +173,7 @@ public class Portaobjetos : MonoBehaviour
 
     public void Encajar(Platina p)
     {
+        Hueco.Sacar(transform);
         Encajada = p;
         rb.isKinematic = true;
         rb.velocity = Vector3.zero;
@@ -199,11 +212,13 @@ public class Portaobjetos : MonoBehaviour
     // Lo deja quieto en un punto (p. ej. la bandeja de salida de la cámara), soltándolo de la platina.
     public void ColocarEn(Vector3 pos, Quaternion rot)
     {
+        Hueco.Sacar(transform);
         if (Encajada != null) { Encajada.Liberar(this); Encajada = null; }
         if (rb == null) rb = GetComponent<Rigidbody>();
         rb.isKinematic = true;
         transform.SetPositionAndRotation(pos, rot);
         casaPos = pos; casaRot = rot;   // si luego se cae, vuelve aquí
+        casaHueco = null;
     }
 
     public void VolverACasa()
@@ -213,8 +228,12 @@ public class Portaobjetos : MonoBehaviour
         if (rb == null) rb = GetComponent<Rigidbody>();
         rb.velocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
-        rb.isKinematic = true;
-        transform.SetPositionAndRotation(casaPos, casaRot);
+        if (casaHueco != null && casaHueco.Libre) casaHueco.Recibir(transform, false);
+        else
+        {
+            rb.isKinematic = true;
+            transform.SetPositionAndRotation(casaPos, casaRot);
+        }
         Sonidos.Clic(transform.position);
         Aviso.Mostrar("Ha vuelto a su sitio.", transform.position + Vector3.up * 0.15f, Aviso.Tipo.Info, 2.5f);
     }

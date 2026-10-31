@@ -44,7 +44,10 @@ public class MicroscopioOptico : MonoBehaviour
     {
         activo = this;
         var hud = HUDMicroscopio.Obtener(ojo, holoAzul);
-        hud.Mostrar(m);
+        // Sin teñir = examen en fresco: las bacterias se ven vivas y moviéndose.
+        var pa = platina.Actual;
+        bool fresco = pa != null && pa.PasosTincion == 0 && !pa.TincionErronea && !pa.Despues && !pa.DeCaso;
+        hud.Mostrar(m, fresco);
         Bloquear(true);
         // Una muestra de caso no se revela en ningún microscopio, aunque se traiga a la sala principal.
         bool reto = modoReto || (platina.Actual != null && platina.Actual.DeCaso);
@@ -81,14 +84,33 @@ public class MicroscopioOptico : MonoBehaviour
     {
         var hud = HUDMicroscopio.Instancia;
         if (hud == null) return;
-        if (OVRInput.GetDown(OVRInput.Button.One) || OVRInput.GetDown(OVRInput.Button.Three)) { hud.CambiarAumento(+1); Sonidos.Clic(ocular.position); }
+        if (OVRInput.GetDown(OVRInput.Button.One)) { hud.CambiarAumento(+1); Sonidos.Clic(ocular.position); }
         if (OVRInput.GetDown(OVRInput.Button.Two) || OVRInput.GetDown(OVRInput.Button.Four)) { hud.CambiarAumento(-1); Sonidos.Clic(ocular.position); }
-        // Joystick izquierdo: mover la muestra (o girar el virus). Joystick derecho: pestañas.
-        hud.Mover(OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch));
+        // X: el joystick izquierdo pasa de mover la muestra a mover la vista (para ver los paneles laterales).
+        if (OVRInput.GetDown(OVRInput.Button.Three))
+        {
+            hud.AlternarModo();
+            Sonidos.Modo(ocular.position, hud.ModoVista);
+            Vibrar(OVRInput.Controller.LTouch, hud.ModoVista ? 0.6f : 0.35f);
+        }
+        // Joystick izquierdo: mover la muestra (o girar el virus) o la vista. Joystick derecho: pestañas.
+        var eje = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch);
+        if (hud.ModoVista) hud.MoverVista(eje);
+        else hud.Mover(eje);
         float x = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch).x;
         if (Mathf.Abs(x) > 0.7f && Mathf.Abs(ejeAnterior) <= 0.7f) { hud.CambiarPestana(x > 0 ? 1 : -1); Sonidos.Clic(ocular.position); }
         ejeAnterior = x;
     }
+
+    // Pulso corto en el mando que pulsó X (con la cara en el ocular, las manos pueden quedar lejos).
+    void Vibrar(OVRInput.Controller mando, float fuerza)
+    {
+        OVRInput.SetControllerVibration(1f, fuerza, mando);
+        CancelInvoke(nameof(PararVibracion));
+        Invoke(nameof(PararVibracion), 0.1f);
+    }
+
+    void PararVibracion() => OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch);
 
     void OnDisable() { if (activo == this) Salir(); }
 }

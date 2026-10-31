@@ -69,6 +69,8 @@ public class JugadorNanoLab : MonoBehaviour
         var puntero = GetComponent<PunteroMuestras>();
         if (puntero == null) puntero = gameObject.AddComponent<PunteroMuestras>();
         puntero.alcance = alcanceRayo;
+        if (GetComponent<ProteccionCabeza>() == null) gameObject.AddComponent<ProteccionCabeza>();   // no ver dentro de los muebles
+        if (GetComponent<GestorPartida>() == null) gameObject.AddComponent<GestorPartida>();         // guardar y continuar la partida
         ConfigurarGrupos();
         ConfigurarLocomotor();
         ConfigurarAgarre();
@@ -155,6 +157,25 @@ public class JugadorNanoLab : MonoBehaviour
     {
         yield return new WaitForSeconds(0.25f);
         if (s != null && s != sentadoEn) s.Colisiones(true);
+    }
+
+    // Partida guardada: dónde están los pies (bajo la cabeza) y hacia dónde se mira.
+    public bool Pies(out Vector3 pies, out float yaw)
+    {
+        pies = Vector3.zero; yaw = 0f;
+        var cab = rig != null ? rig.centerEyeAnchor : null;
+        if (cab == null) return false;
+        pies = new Vector3(cab.position.x, transform.position.y, cab.position.z);
+        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up);
+        yaw = f.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(f).eulerAngles.y : transform.eulerAngles.y;
+        return true;
+    }
+
+    // Lleva al jugador a un punto (al continuar una partida). Si estaba sentado, se levanta antes.
+    public void Teletransportar(Vector3 pies, Vector3 adelante)
+    {
+        if (sentadoEn != null) { sentadoEn.Colisiones(true); sentadoEn = null; AplicarAltura(); ActualizarPausa(); }
+        Mover(pies, adelante);
     }
 
     // Lleva los pies a un punto del suelo y gira la vista hacia 'adelante'.

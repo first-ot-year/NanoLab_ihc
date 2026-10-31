@@ -7,7 +7,7 @@ using UnityEngine;
 public class MusicaAmbiente : MonoBehaviour
 {
     public AudioClip musica;
-    [Range(0f, 1f)] public float volumen = 0.22f;
+    [Range(0f, 1f)] public float volumen = 0.5f;   // antes 0.22: en el visor apenas se oía frente a los efectos
     [Tooltip("Fracción del volumen mientras se mira por el ocular.")]
     [Range(0f, 1f)] public float atenuacionMicroscopio = 0.45f;
     public float fundidoEntrada = 4f;
@@ -31,6 +31,7 @@ public class MusicaAmbiente : MonoBehaviour
         fuente.volume = 0f;
         inicio = Time.unscaledTime;
         if (musica != null) fuente.Play();
+        else Debug.LogWarning("[Musica] MusicaAmbiente no tiene clip: ejecuta 'NanoLab/Añadir música ambiental'.");
     }
 
     void Update()

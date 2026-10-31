@@ -343,7 +343,7 @@ public static class MontarCentroExperimentacion
         // Repisa con el botón PISTA, a la altura de la mano.
         MM.Caja(panel, "Repisa", V(0.36f, -0.43f, -0.07f), V(0.24f, 0.02f, 0.16f), M["Marco"], false);
         g.pista = MM.Boton(panel, "PISTA", V(0.36f, -0.42f, -0.08f));
-        g.pista.tapa.GetComponent<Renderer>().sharedMaterial = M["EmisivoAmarillo"];
+        MM.ColorBoton(g.pista, M["EmisivoAmarillo"]);
         var pistaTxt = Txt(panel, "<b>?</b> PISTA", -0.2f, -0.36f, 0.22f, Amarillo, 0.5f, TextAlignmentOptions.Right);
         pistaTxt.fontStyle = FontStyles.Bold;
         g.puntoBaliza = MM.Vacio(estacion, "PuntoBaliza", baliza);
@@ -608,7 +608,7 @@ public static class MontarCentroExperimentacion
             s.transform.localPosition = V(0f, 0.015f, -0.03f + i * 0.05f);
         }
         Tablero(e, "Comparar", V(0f, h + 0.55f, -1.32f), 3.4f, 0.95f, "OBSERVAR  ·  COMPARAR",
-            "Suelta el portaobjetos sobre la <color=#8FD8FF>silueta azul</color> y <b>acerca la cara al ocular</b>.   <color=#8FD8FF>A / X</color> más aumento · <color=#8FD8FF>B / Y</color> menos.\n" +
+            "Suelta el portaobjetos sobre la <color=#8FD8FF>silueta azul</color> y <b>acerca la cara al ocular</b>.   <color=#8FD8FF>A</color> más aumento · <color=#8FD8FF>B / Y</color> menos · <color=#8FD8FF>X</color> mover la vista.\n" +
             "<b>ANTES:</b> registra 3 evidencias en tu cuaderno: <b>forma</b>, <b>agrupación</b> y <b>color Gram</b>.\n" +
             "<b>DESPUÉS del experimento:</b> trae el portaobjetos DESPUÉS y compara: ¿hay menos células? ¿están rotas? ¿por qué?", 0.26f);
         guia = Cartel(e, V(-2.45f, 0f, 0.25f), 3, "MICROSCOPÍA",
@@ -754,7 +754,7 @@ public static class MontarCentroExperimentacion
             float x = 0.45f - i * 0.45f;   // A a la izquierda del usuario
             var b = MM.Boton(e, ((char)('A' + i)).ToString(), V(x, 0.92f, -0.2f));
             b.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            b.tapa.GetComponent<Renderer>().sharedMaterial = M["Zona5"];
+            MM.ColorBoton(b, M["Zona5"]);
             t.botones[i] = b;
             var marco = MM.Caja(e, "Elegida", V(x, 0.925f, -0.2f), V(0.11f, 0.03f, 0.11f), M["Brillo"], false);
             t.marcos[i] = marco.GetComponent<Renderer>();
@@ -810,7 +810,7 @@ public static class MontarCentroExperimentacion
         var pantalla = Txt(pantallaT, "", 0f, 0f, 0.17f, Color.white, 0.52f, TextAlignmentOptions.Center);
         var b = MM.Boton(p, "FORMULAR", V(0.62f, 0f, -0.08f));
         b.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-        b.tapa.GetComponent<Renderer>().sharedMaterial = M["Zona6"];
+        MM.ColorBoton(b, M["Zona6"]);
         var tr = MM.Texto3D(p, "VIAL AQUÍ", V(0.36f, 0.003f, -0.2f), Quaternion.Euler(90f, 180f, 0f), 0.13f, Color.white, 0.2f);
         tr.alignment = TextAlignmentOptions.Center;
         var ts = MM.Texto3D(p, "CÁPSULA", V(0.74f, 0.003f, -0.24f), Quaternion.Euler(90f, 180f, 0f), 0.13f, Color.white, 0.2f);
@@ -936,7 +936,7 @@ public static class MontarCentroExperimentacion
         act.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         act.transform.localScale = Vector3.one * 1.5f;
         act.radio = 0.08f;
-        act.tapa.GetComponent<Renderer>().sharedMaterial = M["EmisivoVerde"];
+        MM.ColorBoton(act, M["EmisivoVerde"]);
         cam.activar = act;
 
         // Bandeja de salida del portaobjetos DESPUÉS.

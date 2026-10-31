@@ -18,6 +18,14 @@ public class FuenteMuestra : MonoBehaviour
 
     public void Aplicar(Portaobjetos p)
     {
+        // Criotubo o placa guardado en un compartimento cerrado (ultracongelador, vitrina, cajón).
+        var hueco = Hueco.De(transform);
+        if (hueco != null && !hueco.Accesible)
+        {
+            Aviso.Mostrar($"Está cerrado: abre primero {hueco.compartimento.nombre}.", transform.position + Vector3.up * 0.15f, Aviso.Tipo.Error);
+            Sonidos.Error(transform.position);
+            return;
+        }
         if (!string.IsNullOrEmpty(bloqueo))
         {
             Aviso.Mostrar(bloqueo, transform.position + Vector3.up * 0.15f, Aviso.Tipo.Error);

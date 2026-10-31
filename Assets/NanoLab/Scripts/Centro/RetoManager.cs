@@ -11,6 +11,7 @@ public enum EtapaReto { Exploracion, Tincion, Observacion, Investigacion, Hipote
 public class RetoManager : MonoBehaviour
 {
     public static RetoManager Instancia { get; private set; }
+    public static event System.Action Cambio;   // cualquier avance del caso (lo escucha GestorPartida)
     public static readonly string[] Ciclo = { "EXPLORAR", "OBSERVAR", "INVESTIGAR", "HIPÓTESIS", "PREPARAR", "EXPERIMENTAR", "ANALIZAR", "APRENDER" };
 
     public RetoData reto;
@@ -107,7 +108,7 @@ public class RetoManager : MonoBehaviour
         {
             case EtapaReto.Exploracion: return "Lleva la placa del CASO 01 del BANCO (1) a la mesa de TINCIÓN (2) y tócala con un portaobjetos para hacer el frotis.";
             case EtapaReto.Tincion: return "Tiñe el frotis: toca los goteros en orden 1 > 2 > 3 > 4 (tinción de Gram).";
-            case EtapaReto.Observacion: return $"Pon el portaobjetos en un MICROSCOPIO (3) y mira por el ocular. Evidencias: {Evidencias.Count(x => x)}/{Evidencias.Length} (A/X: más aumento).";
+            case EtapaReto.Observacion: return $"Pon el portaobjetos en un MICROSCOPIO (3) y mira por el ocular. Evidencias: {Evidencias.Count(x => x)}/{Evidencias.Length} (A: más aumento · X: mover la vista).";
             case EtapaReto.Investigacion: return "Compara tus evidencias con las fichas de la BIBLIOTECA (4) y el panel de agentes.";
             case EtapaReto.Hipotesis: return Intentos > 0
                 ? $"Intento {Intentos + 1}: revisa tu hipótesis en la TERMINAL (5) y elige otro agente."
@@ -145,6 +146,40 @@ public class RetoManager : MonoBehaviour
         if (muneca != null) muneca.Poner(obj);
         if (terminal != null) terminal.Refrescar();
         if (conSonido && ManosRig.Cabeza != null) Sonidos.Etapa(ManosRig.Cabeza.position);
+        Cambio?.Invoke();
+    }
+
+    // Partida guardada. Lo que depende de objetos que no se guardan (el portaobjetos teñido en la mano,
+    // la cápsula formulada, el portaobjetos DESPUÉS) se retoma desde el último punto que no los necesita.
+    public void Restaurar(EtapaReto etapa, bool[] evidencias, string hipotesis)
+    {
+        for (int i = 0; i < Evidencias.Length && i < evidencias.Length; i++) Evidencias[i] = evidencias[i];
+        Hipotesis = null;
+        if (!string.IsNullOrEmpty(hipotesis) && reto.opciones != null)
+            foreach (var o in reto.opciones) if (o != null && o.name == hipotesis) Hipotesis = o;
+        bool todas = Evidencias.All(x => x);
+        EtapaReto e;
+        switch (etapa)
+        {
+            case EtapaReto.Cierre: e = EtapaReto.Cierre; break;
+            case EtapaReto.Preparacion:
+            case EtapaReto.Experimento:
+            case EtapaReto.Analisis: e = Hipotesis != null ? EtapaReto.Preparacion : EtapaReto.Hipotesis; break;
+            case EtapaReto.Investigacion:
+            case EtapaReto.Hipotesis: e = etapa; break;
+            default: e = todas ? EtapaReto.Investigacion : EtapaReto.Exploracion; break;
+        }
+        if (e >= EtapaReto.Investigacion && !todas) e = EtapaReto.Exploracion;
+        if (e == EtapaReto.Exploracion && Actual == EtapaReto.Exploracion && !Evidencias.Any(x => x)) return;
+        Actual = e;
+        metricas.Etapa(e.ToString());
+        if (e == EtapaReto.Cierre)
+        {
+            sesionGuardada = true;
+            RecuerdosBaymax.Recuperar(reto.codigo);
+            MostrarResumen();
+        }
+        Refrescar(false);
     }
 
     // ------------------------------------------------------------------ eventos de las estaciones
@@ -359,7 +394,7 @@ public class RetoManager : MonoBehaviour
             colorRiesgo = revelado ? (Color?)null : new Color(1f, 0.75f, 0.3f),
             cuadernoTitulo = "CUADERNO DE EVIDENCIAS",
             obsTitulo = "QUÉ ESTÁS VIENDO",
-            guia = "• ¿Qué forma tienen las células?\n• ¿Están sueltas, en cadenas o en racimos?\n• ¿De qué color quedaron tras la tinción de Gram?\n\n<color=#8FD8FF>A / X: más aumento   B / Y: menos   Joystick izq.: mover la muestra</color>",
+            guia = "• ¿Qué forma tienen las células?\n• ¿Están sueltas, en cadenas o en racimos?\n• ¿De qué color quedaron tras la tinción de Gram?\n\n<color=#8FD8FF>A: más aumento   B / Y: menos   Joystick izq.: mover la muestra   X: mover la vista</color>",
         };
         var claves = new List<string> { "Origen", "Tinción" };
         var valores = new List<string> { reto.origen, tincion };
