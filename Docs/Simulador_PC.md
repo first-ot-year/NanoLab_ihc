@@ -49,8 +49,13 @@ La activación solo afecta a esa sesión del editor. No modifica archivos del pr
 | Usar el rayo (fichas, botones, sillas) | Gatillo o A/X |
 | Abrir el panel de ajustes ☰ (volumen, modo sentado) | Botón menú del mando izquierdo |
 | Microscopio: mover la muestra | Joystick izquierdo |
-| Microscopio: cambiar el aumento | A/X y B/Y |
+| Microscopio: más aumento / menos aumento | A / B o Y |
+| Microscopio: mover la vista (el HUD) | X (otra vez X para volver a la muestra) |
+| Alto Riesgo: girar el virus 3D | Grip cerca del holograma (con las dos manos, separarlas para ampliarlo) |
 | Levantarse de una silla | Joystick izquierdo |
+| Abrir cajones, vitrinas y armarios | Empujarlos con la mano (poke) o con el rayo |
+
+La cámara de descontaminación del BSL-3 no necesita botones: se activa al acercarse a la puerta y al entrar en ella.
 
 ## 4. Antes de probar en el Quest
 
@@ -67,5 +72,6 @@ Para compilar el APK o usar Quest Link, desactiva el simulador desde **Meta → 
 
 ## Qué se puede validar en PC y qué no
 
-- **En PC:** el flujo del reto, las fichas, el microscopio, el panel de ajustes, sentarse en las sillas, el avatar en el espejo y los textos.
+- **En PC:** el flujo del reto, las fichas, el microscopio (bacterias en movimiento y examen en fresco), la ventana de introducción paso a paso, la cámara de descontaminación, los cajones y vitrinas, guardar la partida, el panel de ajustes, sentarse en las sillas, el avatar en el espejo y los textos.
+- **Sin simulador (solo el editor):** con la escena de Microbiología en Play, **F9** recorre el reto completo con acierto y **F10** fallando primero (DebugReto).
 - **Solo en el Quest:** el rendimiento, la sensación de las manos y el IK del avatar, la escala real, la legibilidad a distancia y el confort de la locomoción.
