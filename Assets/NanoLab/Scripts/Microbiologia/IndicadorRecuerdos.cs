@@ -9,7 +9,23 @@ public static class RecuerdosBaymax
     static readonly HashSet<string> recuperados = new HashSet<string>();
 
     public static int Cantidad => recuperados.Count;
+    public static IEnumerable<string> Lista => recuperados;
     public static event System.Action Cambiado;
+
+    // Partida guardada.
+    public static void Restaurar(IEnumerable<string> casos)
+    {
+        if (casos == null) return;
+        bool cambio = false;
+        foreach (var c in casos) if (!string.IsNullOrEmpty(c)) cambio |= recuperados.Add(c);
+        if (cambio) Cambiado?.Invoke();
+    }
+
+    public static void Reiniciar()
+    {
+        recuperados.Clear();
+        Cambiado?.Invoke();
+    }
 
     public static void Recuperar(string caso)
     {

@@ -7,7 +7,7 @@ using UnityEngine;
 public class MenuAjustes : MonoBehaviour
 {
     public GameObject panel;
-    public TMP_Text musica, efectos, sentado;
+    public TMP_Text musica, efectos, sentado, partida;
     public PanelRedondeado[] barraMusica, barraEfectos;
     public BotonMenu[] botones;
     [Tooltip("Distancia del panel a la cabeza al abrirlo (m).")]
@@ -74,14 +74,45 @@ public class MenuAjustes : MonoBehaviour
                 if (JugadorNanoLab.Instancia != null) JugadorNanoLab.Instancia.CalibrarSentado();
                 AjustesNanoLab.ModoSentado = true;
                 break;
+            case "guardar":
+                bool ok = Partida.Guardar();
+                if (partida != null) partida.text = ok ? "<color=#7CF29A><b>Partida guardada</b></color>" : "<color=#FF7A7A><b>No se pudo guardar</b></color>";
+                if (ok) Sonidos.Logro(panel.transform.position); else Sonidos.Error(panel.transform.position);
+                return;
+            case "nueva":
+                // Doble confirmación: se pierde el avance guardado.
+                if (Time.unscaledTime - confirmarNueva > 4f)
+                {
+                    confirmarNueva = Time.unscaledTime;
+                    if (partida != null) partida.text = "<color=#FFD25A><b>¿Seguro? Pulsa NUEVA PARTIDA otra vez</b></color>";
+                    Sonidos.Pista(panel.transform.position);
+                    return;
+                }
+                Partida.Borrar();
+                Abrir(false);
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Microbiologia");
+                return;
             case "cerrar": Abrir(false); break;
         }
+    }
+
+    float confirmarNueva = -10f;
+
+    string EstadoPartida()
+    {
+        if (Partida.UltimoGuardado.HasValue)
+        {
+            int min = (int)(System.DateTime.Now - Partida.UltimoGuardado.Value).TotalMinutes;
+            return $"Autoguardado: {(min < 1 ? "hace un momento" : $"hace {min} min")}";
+        }
+        return Partida.Existe ? "Hay una partida guardada" : "Se guarda sola al avanzar";
     }
 
     void Refrescar()
     {
         Nivel(musica, barraMusica, AjustesNanoLab.VolumenMusica);
         Nivel(efectos, barraEfectos, AjustesNanoLab.VolumenEfectos);
+        if (partida != null && Time.unscaledTime - confirmarNueva > 4f) partida.text = $"<color=#A9BED2>{EstadoPartida()}</color>";
         if (sentado != null) sentado.text = AjustesNanoLab.ModoSentado
             ? $"<color=#7CF29A><b>SÍ</b></color>  <size=70%><color=#A9BED2>vista +{AjustesNanoLab.AlturaSentado:F2} m</color></size>"
             : "<color=#A9BED2><b>NO</b></color>";

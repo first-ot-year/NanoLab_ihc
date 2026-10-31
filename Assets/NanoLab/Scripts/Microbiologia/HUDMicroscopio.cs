@@ -57,6 +57,31 @@ public class HUDMicroscopio : MonoBehaviour
     float alphaObjetivo;
     Material holo;
 
+    // Modo "mover la vista" (botón X): en el visor el HUD no cabe entero en la lente y los paneles
+    // laterales quedan cortados; el joystick izquierdo desplaza un poco el HUD para traerlos al centro.
+    const float Distancia = 0.6f;
+    static readonly Vector2 MaxDesplazamiento = new Vector2(0.4f, 0.12f);   // m: centra los paneles laterales
+    const float VelocidadVista = 0.45f;                                    // m/s con el joystick a fondo
+    bool modoVista;
+    Vector2 desplazamiento;
+    TMP_Text modoTxt;
+    Image modoFondo;
+    public bool ModoVista => modoVista;
+
+    // Examen en fresco (portaobjetos sin teñir): bacterias vivas que se mueven según su ficha.
+    // Las teñidas con Gram están fijadas y se ve la micrografía real, quieta.
+    const int MaxCelulas = 90;
+    const float Campo = 60f;             // lado de la muestra recorrible (µm)
+    const float Vista = 440f;            // diámetro de la vista circular (px del HUD)
+    struct Grupo { public Vector2 pos; public float ang, velocidad, tRun, tGiro, giro; public bool nada; }
+    struct Celula { public int grupo; public Vector2 offset; public float largo, ancho, angulo; }
+    RectTransform celulasRaiz;
+    readonly Image[] celulas = new Image[MaxCelulas];
+    readonly Celula[] celula = new Celula[MaxCelulas];
+    Grupo[] grupos = new Grupo[0];
+    int nCelulas;
+    bool enFresco;
+
     public static HUDMicroscopio Obtener(Transform ojo, Material holoAzul)
     {
         if (Instancia == null)
@@ -68,7 +93,7 @@ public class HUDMicroscopio : MonoBehaviour
         }
         var t = Instancia.transform;
         t.SetParent(ojo, false);
-        t.localPosition = new Vector3(0f, 0f, 0.6f);
+        t.localPosition = new Vector3(0f, 0f, Distancia);
         t.localRotation = Quaternion.identity;
         t.localScale = Vector3.one * 0.0008f;
         return Instancia;
@@ -78,20 +103,28 @@ public class HUDMicroscopio : MonoBehaviour
 
     public void MostrarReto(MuestraData m, System.Func<int, DatosReto> proveedor)
     {
-        Mostrar(m);
+        Mostrar(m, false);
         proveedorReto = proveedor;
         Refrescar();
     }
 
     public void RefrescarReto() { if (proveedorReto != null) Refrescar(); }
 
-    public void Mostrar(MuestraData m)
+    public void Mostrar(MuestraData m) => Mostrar(m, false);
+
+    // 'fresco': portaobjetos sin teñir de una bacteria -> células vivas en movimiento.
+    public void Mostrar(MuestraData m, bool fresco)
     {
         proveedorReto = null;
+        enFresco = fresco && m.tipo == TipoMuestra.Bacteria;
         actual = m;
         aumento = m.AumentoInicial;
         pestana = 0;
         pan = Vector2.zero;
+        modoVista = false;
+        desplazamiento = Vector2.zero;
+        transform.localPosition = new Vector3(0f, 0f, Distancia);
+        RefrescarModo();
         gameObject.SetActive(true);
         var visor = VisorVirus.Obtener();
         if (m.tipo == TipoMuestra.Virus)
@@ -104,9 +137,12 @@ public class HUDMicroscopio : MonoBehaviour
         else
         {
             visor.Activo(false);
-            vista.texture = m.micrografia;
-            campo.Mostrar(m, m.micrografia);
+            vista.texture = enFresco ? FondoFresco() : m.micrografia;
+            // En fresco se ven las células vivas del examen; en el resto, el campo vivo sobre la micrografía.
+            if (enFresco) campo.Ocultar(); else campo.Mostrar(m, m.micrografia);
         }
+        if (enFresco) IniciarCelulas(m);
+        celulasRaiz.gameObject.SetActive(enFresco);
         Refrescar();
         alphaObjetivo = 1f;
     }
@@ -155,6 +191,30 @@ public class HUDMicroscopio : MonoBehaviour
         vista.uvRect = new Rect(0.5f - s / 2f + pan.x, 0.5f - s / 2f + pan.y, s, s);
     }
 
+    // X: alterna entre mover la muestra y mover la vista. Al volver a la muestra, el HUD se recentra.
+    public void AlternarModo()
+    {
+        modoVista = !modoVista;
+        RefrescarModo();
+    }
+
+    // Joystick en modo vista: a la derecha se ve lo de la derecha (el HUD se desplaza al lado contrario).
+    public void MoverVista(Vector2 eje)
+    {
+        if (eje.sqrMagnitude < 0.04f) return;
+        desplazamiento += eje * (VelocidadVista * Time.deltaTime);
+        desplazamiento = new Vector2(Mathf.Clamp(desplazamiento.x, -MaxDesplazamiento.x, MaxDesplazamiento.x),
+                                     Mathf.Clamp(desplazamiento.y, -MaxDesplazamiento.y, MaxDesplazamiento.y));
+    }
+
+    void RefrescarModo()
+    {
+        if (modoTxt == null) return;
+        modoTxt.text = modoVista ? "MOVIENDO LA VISTA  ·  Joystick izq.  ·  X: volver a la muestra" : "X: mover la vista";
+        modoTxt.color = modoVista ? Color.black : TextoGris;
+        modoFondo.enabled = modoVista;
+    }
+
     public void CambiarPestana(int d)
     {
         pestana = (pestana + d + 4) % 4;
@@ -164,6 +224,11 @@ public class HUDMicroscopio : MonoBehaviour
     void Update()
     {
         grupo.alpha = Mathf.MoveTowards(grupo.alpha, alphaObjetivo, Time.deltaTime * 4f);
+        if (enFresco && proveedorReto == null && grupo.alpha > 0f) AnimarCelulas(Time.deltaTime);
+        else if (celulasRaiz != null && celulasRaiz.gameObject.activeSelf) celulasRaiz.gameObject.SetActive(false);
+        if (!modoVista) desplazamiento = Vector2.MoveTowards(desplazamiento, Vector2.zero, Time.deltaTime * 1.5f);
+        var objetivo = new Vector3(-desplazamiento.x, -desplazamiento.y, Distancia);
+        transform.localPosition = Vector3.Lerp(transform.localPosition, objetivo, 1f - Mathf.Exp(-12f * Time.deltaTime));
         if (alphaObjetivo == 0f && grupo.alpha == 0f)
         {
             VisorVirus.Obtener().Activo(false);
@@ -176,7 +241,7 @@ public class HUDMicroscopio : MonoBehaviour
     {
         var m = actual;
         if (m == null) return;
-        subtitulo.text = $"MUESTRA {m.codigo}  ·  {m.nombre.ToUpper()}";
+        subtitulo.text = $"MUESTRA {m.codigo}  ·  {m.nombre.ToUpper()}" + (enFresco && proveedorReto == null ? "  ·  <color=#7CF29A>EN FRESCO: vivas, sin teñir</color>" : "");
         zoomTxt.text = m.Aumentos[aumento];
         escalaTxt.text = m.Escalas[aumento];
         float f = m.FactoresZoom[aumento];
@@ -278,6 +343,160 @@ public class HUDMicroscopio : MonoBehaviour
         }
     }
 
+    // ---------------- Examen en fresco ----------------
+
+    static string Dato(MuestraData m, string clave)
+    {
+        if (m.caracteristicas != null)
+            foreach (var d in m.caracteristicas) if (d.clave == clave) return d.valor ?? "";
+        return "";
+    }
+
+    // Reparte grupos (células sueltas, cadenas o racimos) por la muestra según la forma y la movilidad de la ficha.
+    void IniciarCelulas(MuestraData m)
+    {
+        string forma = Dato(m, "Forma").ToLowerInvariant();
+        string movilidad = Dato(m, "Movilidad").ToLowerInvariant();
+        bool bacilo = forma.Contains("bacilo");
+        bool racimos = forma.Contains("racimo");
+        bool cadenas = forma.Contains("cadena");
+        bool movil = !(movilidad.Contains("inmóvil") || movilidad.Contains("inmovil") || movilidad.StartsWith("no"));
+        float largo = bacilo ? (Dato(m, "Tamaño").Contains("3") ? 2.8f : 2.0f) : 1.0f;
+        float ancho = bacilo ? 0.8f : 1.0f;
+        var sprite = bacilo ? Capsula() : CelulaRedonda();
+
+        var lista = new System.Collections.Generic.List<Grupo>();
+        nCelulas = 0;
+        var rnd = new System.Random(m.name.GetHashCode());
+        float R() => (float)rnd.NextDouble();
+        while (nCelulas < MaxCelulas - 8)
+        {
+            int g = lista.Count;
+            int n = racimos ? 4 + rnd.Next(5) : cadenas ? 1 + rnd.Next(3) : 1;
+            var gr = new Grupo { pos = new Vector2(R() * Campo, R() * Campo), ang = R() * 360f, nada = movil, tRun = R() * 1.5f };
+            // Velocidades didácticas (algo menores que las reales, ~20-30 µm/s) para poder seguirlas.
+            gr.velocidad = movil ? (n == 1 ? 9f + R() * 6f : 4f + R() * 2f) : 0f;
+            lista.Add(gr);
+            for (int k = 0; k < n && nCelulas < MaxCelulas; k++)
+            {
+                Vector2 off;
+                if (racimos) off = k == 0 ? Vector2.zero : new Vector2(R() - 0.5f, R() - 0.5f).normalized * (0.85f + R() * 0.6f) + new Vector2(R() - 0.5f, R() - 0.5f) * 0.3f;
+                else off = new Vector2((k - (n - 1) / 2f) * (largo + 0.15f), 0f);   // cadena alineada con el grupo
+                celula[nCelulas] = new Celula { grupo = g, offset = off, largo = largo * (0.9f + R() * 0.25f), ancho = ancho * (0.9f + R() * 0.2f), angulo = racimos ? R() * 360f : 0f };
+                celulas[nCelulas].sprite = sprite;
+                celulas[nCelulas].color = new Color(0.78f, 0.8f, 0.8f, 0.92f);
+                nCelulas++;
+            }
+        }
+        grupos = lista.ToArray();
+        for (int i = nCelulas; i < MaxCelulas; i++) celulas[i].gameObject.SetActive(false);
+    }
+
+    void AnimarCelulas(float dt)
+    {
+        if (!celulasRaiz.gameObject.activeSelf) celulasRaiz.gameObject.SetActive(true);
+        // Grupos: nadar en tramos rectos y cambiar de rumbo (run & tumble), más movimiento browniano.
+        for (int g = 0; g < grupos.Length; g++)
+        {
+            var gr = grupos[g];
+            if (gr.nada)
+            {
+                gr.tRun -= dt;
+                if (gr.tRun <= 0f)
+                {
+                    if (gr.tGiro <= 0f) { gr.tGiro = Random.Range(0.12f, 0.3f); gr.giro = Random.Range(-110f, 110f) / gr.tGiro; }
+                    gr.tGiro -= dt;
+                    gr.ang += gr.giro * dt;
+                    if (gr.tGiro <= 0f) gr.tRun = Random.Range(0.8f, 2f);
+                }
+                else
+                {
+                    gr.ang += Random.Range(-25f, 25f) * dt;
+                    float a = gr.ang * Mathf.Deg2Rad;
+                    gr.pos += new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * gr.velocidad * dt;
+                }
+            }
+            gr.pos += Random.insideUnitCircle * (0.9f * Mathf.Sqrt(dt));   // browniano (~1 µm)
+            if (!gr.nada) gr.ang += Random.Range(-8f, 8f) * dt;
+            gr.pos = new Vector2(Mathf.Repeat(gr.pos.x, Campo), Mathf.Repeat(gr.pos.y, Campo));
+            grupos[g] = gr;
+        }
+
+        // A píxeles de la vista, con el aumento y el desplazamiento actuales (uvRect).
+        var uv = vista.uvRect;
+        float pxPorUm = Vista / (Campo * Mathf.Max(0.01f, uv.width));
+        for (int i = 0; i < nCelulas; i++)
+        {
+            var c = celula[i];
+            var gr = grupos[c.grupo];
+            float a = gr.ang * Mathf.Deg2Rad;
+            var rot = new Vector2(c.offset.x * Mathf.Cos(a) - c.offset.y * Mathf.Sin(a), c.offset.x * Mathf.Sin(a) + c.offset.y * Mathf.Cos(a));
+            var s = (gr.pos + rot) / Campo;
+            float x = ((s.x - uv.x) / uv.width - 0.5f) * Vista;
+            float y = ((s.y - uv.y) / uv.height - 0.5f) * Vista;
+            var img = celulas[i];
+            bool visible = x * x + y * y < 235f * 235f;
+            if (img.gameObject.activeSelf != visible) img.gameObject.SetActive(visible);
+            if (!visible) continue;
+            var rt = img.rectTransform;
+            rt.anchoredPosition = new Vector2(x, y);
+            rt.sizeDelta = new Vector2(Mathf.Max(2f, c.largo * pxPorUm), Mathf.Max(2f, c.ancho * pxPorUm));
+            rt.localRotation = Quaternion.Euler(0f, 0f, gr.ang + c.angulo);
+        }
+    }
+
+    // Fondo claro del campo en fresco (luz transmitida, sin colorante) con algo de grano.
+    static Texture2D fondoFresco;
+    static Texture2D FondoFresco()
+    {
+        if (fondoFresco != null) return fondoFresco;
+        const int n = 256;
+        fondoFresco = new Texture2D(n, n, TextureFormat.RGB24, false) { wrapMode = TextureWrapMode.Repeat };
+        var rnd = new System.Random(3);
+        var px = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float g = (float)rnd.NextDouble() * 0.03f + Mathf.PerlinNoise(x * 0.03f, y * 0.03f) * 0.04f;
+                px[y * n + x] = new Color(0.84f + g, 0.85f + g, 0.81f + g);
+            }
+        fondoFresco.SetPixels32(px);
+        fondoFresco.Apply();
+        return fondoFresco;
+    }
+
+    // Célula sin teñir: centro claro y borde oscuro (como se ve con el diafragma cerrado).
+    static Sprite celulaRedonda, capsula;
+    static Sprite CelulaRedonda()
+    {
+        if (celulaRedonda == null) celulaRedonda = SpriteCelula(64, 64, (x, y) => Mathf.Sqrt(x * x + y * y));
+        return celulaRedonda;
+    }
+
+    static Sprite Capsula()
+    {
+        // Distancia a un segmento horizontal: bastón con extremos redondeados (proporción 3:1).
+        if (capsula == null) capsula = SpriteCelula(192, 64, (x, y) => { float dx = Mathf.Max(0f, Mathf.Abs(x) * 3f - 2f); return Mathf.Sqrt(dx * dx + y * y); });
+        return capsula;
+    }
+
+    // 'dist' recibe coordenadas normalizadas (-1..1) y devuelve 1 en el borde de la célula.
+    static Sprite SpriteCelula(int w, int h, System.Func<float, float, float> dist)
+    {
+        var t = new Texture2D(w, h, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float d = dist(((x + 0.5f) / w - 0.5f) * 2f, ((y + 0.5f) / h - 0.5f) * 2f);
+                float alfa = Mathf.Clamp01((1f - d) * 12f);
+                float borde = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 0.95f, d));
+                float v = Mathf.Lerp(0.95f, 0.22f, borde);
+                t.SetPixel(x, y, new Color(v, v, v * 1.02f, alfa));
+            }
+        t.Apply();
+        return Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
+    }
+
     void PonerRiesgo(string clave, Color? color)
     {
         riesgoEtq.text = clave + ":";
@@ -334,6 +553,14 @@ public class HUDMicroscopio : MonoBehaviour
         vista.raycastTarget = false;
         // Campo vivo: bacterias que nadan y tiemblan encima de la micrografía (debajo del recorte circular).
         campo = CampoMicroscopio.Crear(Rect(raiz, "CampoVivo", 0, 25, 440, 440), vista);
+        // Células del examen en fresco: encima de la muestra y debajo del recorte circular.
+        celulasRaiz = Rect(raiz, "Celulas", 0, 25, 440, 440);
+        for (int i = 0; i < MaxCelulas; i++)
+        {
+            celulas[i] = Img(celulasRaiz, "Celula" + i, 0, 0, 10, 10, Color.white);
+            celulas[i].gameObject.SetActive(false);
+        }
+        celulasRaiz.gameObject.SetActive(false);
         // Recorte circular con una imagen opaca fuera del círculo (no con Mask: el stencil
         // de la máscara pierde el "dibujar siempre encima" y el microscopio tapaba la vista).
         Img(raiz, "RecorteCircular", 0, 25, 446, 446, new Color(0.01f, 0.025f, 0.05f, 1f), CirculoInverso());
@@ -406,7 +633,11 @@ public class HUDMicroscopio : MonoBehaviour
 
         // Pie
         Txt(raiz, "Pie", -520, -305, 360, 20, "LAB. DE BIOCIENCIAS  |  NANOLAB", 13, TextoGris, TextAlignmentOptions.Left);
-        Txt(raiz, "Ayuda", 0, -305, 820, 20, "Joystick izq.: mover la muestra     Joystick der.: pestañas     A / X: más aumento     B / Y: menos     Aléjate del ocular para salir", 13, TextoGris, TextAlignmentOptions.Center);
+        Txt(raiz, "Ayuda", 0, -305, 820, 20, "Joystick izq.: mover la muestra     X: mover la vista     Joystick der.: pestañas     A: más aumento     B / Y: menos     Aléjate del ocular", 13, TextoGris, TextAlignmentOptions.Center);
+        // Indicador del modo (arriba, centrado): se resalta mientras se mueve la vista.
+        modoFondo = Img(raiz, "ModoFondo", 0, 302, 450, 26, Cian);
+        modoTxt = Txt(raiz, "Modo", 0, 302, 444, 24, "", 14, TextoGris, TextAlignmentOptions.Center, FontStyles.Bold);
+        RefrescarModo();
         Img(raiz, "Led", 468, -305, 12, 12, new Color(0.25f, 1f, 0.5f), Circulo());
         Txt(raiz, "Captura", 575, -305, 200, 20, "IMAGEN CAPTURADA", 13, new Color(0.25f, 1f, 0.5f), TextAlignmentOptions.Left);
 

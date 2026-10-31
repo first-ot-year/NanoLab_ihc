@@ -10,7 +10,7 @@ EditorBuildSettings:
     guid: 1ce624d626802f541a0506bba5224fc8
   - enabled: 1
     path: Assets/NanoLab/Scenes/Laboratorio.unity
-    guid: 6cb95633ada904844b5dee83e19bd1bf
+    guid: 660f9e182cea5b14896d31e68b8be1f0
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: 0f5931f0d96f3a24cbe96c3275e1e7a4, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 48d92612d495dc44a80f454b0379a67d, type: 2}

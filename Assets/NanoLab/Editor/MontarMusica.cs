@@ -30,7 +30,9 @@ public static class MontarMusica
         foreach (var vieja in Object.FindObjectsOfType<MusicaAmbiente>(true).ToArray()) Object.DestroyImmediate(vieja.gameObject);
         var go = new GameObject("MusicaAmbiente");
         go.AddComponent<AudioSource>().playOnAwake = false;
-        go.AddComponent<MusicaAmbiente>().musica = clip;
+        var m = go.AddComponent<MusicaAmbiente>();
+        m.musica = clip;
+        m.volumen = 0.5f;
     }
 
     static AudioClip Importar()

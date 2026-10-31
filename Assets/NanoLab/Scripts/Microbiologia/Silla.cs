@@ -15,6 +15,21 @@ public class Silla : Apuntable
 
     Collider[] colliders;
 
+    // El prefab solo trae el trigger del rayo: se añade un bloque sólido para no atravesar la silla
+    // caminando. Mientras el jugador está sentado se desactiva (Colisiones).
+    void Awake()
+    {
+        if (System.Array.Exists(GetComponentsInChildren<Collider>(true), c => !c.isTrigger)) return;
+        var trigger = GetComponent<BoxCollider>();
+        var b = new GameObject("Bloqueo");
+        b.transform.SetParent(transform, false);
+        var cap = b.AddComponent<CapsuleCollider>();
+        float alto = trigger != null ? trigger.size.y : 0.95f;
+        cap.center = trigger != null ? trigger.center : new Vector3(0f, alto / 2f, 0f);
+        cap.height = alto;
+        cap.radius = trigger != null ? Mathf.Min(trigger.size.x, trigger.size.z) * 0.42f : 0.18f;
+    }
+
     public bool Ocupada => JugadorNanoLab.Sentado(out var s) && s == this;
 
     public override string Accion => Ocupada ? "levantarte" : "sentarte";

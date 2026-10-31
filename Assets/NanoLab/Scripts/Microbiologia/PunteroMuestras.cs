@@ -122,7 +122,7 @@ public class PunteroMuestras : MonoBehaviour
             if (pl != null) { m.platina = pl; fin = hits[i].point; break; }
             if (c.isTrigger) continue;
             fin = hits[i].point;
-            if (hits[i].normal.y > 0.7f && c.attachedRigidbody == null) { m.superficie = true; m.punto = hits[i].point; }
+            if (hits[i].normal.y > 0.7f && c.attachedRigidbody == null && c.GetComponentInParent<Silla>() == null) { m.superficie = true; m.punto = hits[i].point; }
             break;
         }
 

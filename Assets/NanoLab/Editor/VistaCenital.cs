@@ -20,8 +20,10 @@ public static class VistaCenital
         var b = rs[0].bounds;
         foreach (var r in rs) b.Encapsulate(r.bounds);
 
-        // Oculta el techo (todo lo que esté por encima de 3 m) para ver el interior.
-        foreach (var r in rs) if (r.bounds.min.y > 2.6f) r.enabled = false;
+        // Oculta el techo (todo lo que esté por encima de 2,6 m) solo para la foto; al final se vuelve a
+        // encender (antes se quedaba apagado en la escena abierta y, al guardarla, se perdía el techo).
+        var ocultos = new System.Collections.Generic.List<MeshRenderer>();
+        foreach (var r in rs) if (r.enabled && r.bounds.min.y > 2.6f) { r.enabled = false; ocultos.Add(r); }
 
         float minX = Mathf.Floor(b.min.x), maxX = Mathf.Ceil(b.max.x);
         float minZ = Mathf.Floor(b.min.z), maxZ = Mathf.Ceil(b.max.z);
@@ -63,6 +65,10 @@ public static class VistaCenital
         string nombre = "cenital_" + Path.GetFileNameWithoutExtension(scenePath) + ".png";
         File.WriteAllBytes(Path.Combine(dir, nombre), tex.EncodeToPNG());
         RenderTexture.active = null;
+        cam.targetTexture = null;
+        Object.DestroyImmediate(rt);
+        Object.DestroyImmediate(go);
+        foreach (var r in ocultos) if (r != null) r.enabled = true;
         Debug.Log($"[Cenital] {nombre}: x {minX}..{maxX}, z {minZ}..{maxZ}, {w}x{h}px, {PixelesPorMetro} px/m");
     }
 }

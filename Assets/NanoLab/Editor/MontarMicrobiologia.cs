@@ -88,6 +88,7 @@ public static class MontarMicrobiologia
         // Sala anexa con el Caso 01 (detrás de la pared este).
         MontarCentroExperimentacion.Construir(raiz, slidePrefab);
         Physics.SyncTransforms();
+        MontarAlmacenamiento.Muebles();   // cajones, vitrinas y armarios que se abren, con objetos que se sacan y se guardan
         AcercarMicroscopios.Aplicar(scene);   // platinas a 15 cm del borde de la mesa
         Utileria.ReubicarPuestos(bacterias);   // bandeja, desinfectante y cultivos junto al microscopio
         MontarSillas.EnPuestos(scene, suelo);   // RNF-07: una silla frente a cada microscopio de puesto
@@ -434,8 +435,10 @@ public static class MontarMicrobiologia
         e.holograma = holo;
         e.haz = haz;
         haz.SetActive(false);
+        e.particulas = AuraHolograma(est, holo.localPosition);
+        e.escaneo = DiscoEscaneo(est);
 
-        string[] nombres = { "ROTAR <", "ROTAR >", "ZOOM +", "ZOOM -", "SUPERIOR", "LATERAL", "CORTE" };
+        string[] nombres = { "ROTAR <", "ROTAR >", "ZOOM +", "ZOOM -", "SUPERIOR", "LATERAL", "CORTE", "ETIQUETAS" };
         var botones = new BotonFisico[nombres.Length];
         for (int i = 0; i < nombres.Length; i++)
         {
@@ -443,7 +446,7 @@ public static class MontarMicrobiologia
             botones[i] = Boton(ranura, nombres[i], new Vector3(0.12f + col * 0.085f, 0f, 0.05f - fila * 0.09f));
         }
         e.rotarIzq = botones[0]; e.rotarDer = botones[1]; e.zoomMas = botones[2]; e.zoomMenos = botones[3];
-        e.vistaSuperior = botones[4]; e.vistaLateral = botones[5]; e.corte = botones[6];
+        e.vistaSuperior = botones[4]; e.vistaLateral = botones[5]; e.corte = botones[6]; e.etiquetas = botones[7];
 
         // Panel de información (mira hacia la puerta).
         var info = new GameObject("PanelInfo").transform;
@@ -472,6 +475,103 @@ public static class MontarMicrobiologia
         e.estado.alignment = TextAlignmentOptions.Center;
     }
 
+    // Destellos verdes y blancos que saltan del botón al pulsarlo (BotonFisico los emite).
+    internal static ParticleSystem Chispas(Transform boton)
+    {
+        var go = new GameObject("Chispas");
+        go.transform.SetParent(boton, false);
+        go.transform.localPosition = new Vector3(0f, 0.02f, 0f);
+        go.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);   // el hemisferio emite hacia arriba del botón
+        var ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = ps.main;
+        main.playOnAwake = true;
+        main.loop = true;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.6f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.12f, 0.35f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.004f, 0.009f);
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.4f, 1f, 0.6f), Color.white);
+        main.gravityModifier = 0.35f;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.maxParticles = 40;
+        var em = ps.emission;
+        em.rateOverTime = 0f;   // solo ráfagas por código
+        var sh = ps.shape;
+        sh.shapeType = ParticleSystemShapeType.Hemisphere;
+        sh.radius = 0.02f;
+        var col = ps.colorOverLifetime;
+        col.enabled = true;
+        var g = new Gradient();
+        g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                  new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.5f), new GradientAlphaKey(0f, 1f) });
+        col.color = g;
+        var size = ps.sizeOverLifetime;
+        size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.2f));
+        var r = go.GetComponent<ParticleSystemRenderer>();
+        r.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        r.shadowCastingMode = ShadowCastingMode.Off;
+        r.receiveShadows = false;
+        return ps;
+    }
+
+    // Motas de luz que flotan alrededor del virus (se encienden con el modelo).
+    internal static ParticleSystem AuraHolograma(Transform est, Vector3 centro)
+    {
+        var go = new GameObject("Aura");
+        go.transform.SetParent(est, false);
+        go.transform.localPosition = centro;
+        var ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = ps.main;
+        main.playOnAwake = false;
+        main.loop = true;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(2f, 3.5f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.01f, 0.05f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.02f);
+        main.startColor = new Color(0.45f, 0.9f, 1f, 0.8f);
+        main.simulationSpace = ParticleSystemSimulationSpace.Local;
+        main.maxParticles = 150;
+        var em = ps.emission;
+        em.rateOverTime = 30f;
+        var sh = ps.shape;
+        sh.shapeType = ParticleSystemShapeType.Sphere;
+        sh.radius = 0.4f;
+        sh.radiusThickness = 0.15f;   // solo en la superficie de la esfera
+        var vel = ps.velocityOverLifetime;   // giran despacio alrededor del virus
+        vel.enabled = true;
+        vel.space = ParticleSystemSimulationSpace.Local;
+        vel.orbitalY = new ParticleSystem.MinMaxCurve(0.35f);
+        vel.x = vel.y = vel.z = new ParticleSystem.MinMaxCurve(0f);
+        var col = ps.colorOverLifetime;
+        col.enabled = true;
+        var g = new Gradient();
+        g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                  new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.3f), new GradientAlphaKey(0f, 1f) });
+        col.color = g;
+        var r = go.GetComponent<ParticleSystemRenderer>();
+        r.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        r.shadowCastingMode = ShadowCastingMode.Off;
+        r.receiveShadows = false;
+        return ps;
+    }
+
+    // Disco luminoso de escaneo (lo mueve EstacionAnalisis3D a lo alto del virus).
+    internal static Transform DiscoEscaneo(Transform est)
+    {
+        var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        Object.DestroyImmediate(q.GetComponent<Collider>());
+        q.name = "Escaneo";
+        q.transform.SetParent(est, false);
+        q.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        var r = q.GetComponent<MeshRenderer>();
+        r.sharedMaterial = mats["PlataformaHolo"];
+        r.shadowCastingMode = ShadowCastingMode.Off;
+        r.receiveShadows = false;
+        q.SetActive(false);
+        return q.transform;
+    }
+
     // Plataforma holográfica sobre el pedestal: anillos con flechas de giro y rejilla luminosa.
     internal static Transform PlataformaHolo(Transform est)
     {
@@ -498,17 +598,77 @@ public static class MontarMicrobiologia
         return p;
     }
 
+    // Color propio de un botón (PISTA amarillo, botones de zona…): en la tapa del poke (reposo y
+    // encima) o, sin poke, en la tapa de respaldo. Los materiales emisivos guardan el color a la mitad.
+    internal static void ColorBoton(BotonFisico b, Material mat)
+    {
+        if (b == null || mat == null) return;
+        if (b.tapa != null) { b.tapa.GetComponent<Renderer>().sharedMaterial = mat; return; }
+        var c = mat.color * 2f; c.a = 1f;
+        c = new Color(Mathf.Clamp01(c.r), Mathf.Clamp01(c.g), Mathf.Clamp01(c.b), 1f);
+        b.colorReposo = Color.Lerp(c, Color.black, 0.25f);
+        EditorUtility.SetDirty(b);
+        var color = b.GetComponentInChildren<Oculus.Interaction.InteractableColorVisual>(true);
+        if (color == null) return;
+        var so = new SerializedObject(color);
+        so.FindProperty("_normalColorState.Color").colorValue = b.colorReposo;
+        so.FindProperty("_hoverColorState.Color").colorValue = Color.Lerp(c, Color.white, 0.3f);
+        so.ApplyModifiedPropertiesWithoutUndo();
+        PrefabUtility.RecordPrefabInstancePropertyModifications(color);
+    }
+
+    const string PokePrefab = "Packages/com.meta.xr.sdk.interaction/Runtime/Prefabs/Poke/PokeInteractable.prefab";
+
+    // Botón con "poke" del Interaction SDK de Meta (bloque oficial PokeInteractable): base, tapa
+    // redondeada que se hunde al pulsarla y cambia de color por estado, LED de estado y etiqueta.
     internal static BotonFisico Boton(Transform padre, string texto, Vector3 pos)
     {
         var b = new GameObject("Boton_" + texto).transform;
         b.SetParent(padre, false);
         b.localPosition = pos;
         Caja(b, "Base", new Vector3(0f, 0.004f, 0f), new Vector3(0.07f, 0.008f, 0.07f), mats["Marco"], false);
-        var tapa = Caja(b, "Tapa", new Vector3(0f, 0.014f, 0f), new Vector3(0.055f, 0.012f, 0.055f), mats["EmisivoCian"], false).transform;
+        Caja(b, "Bisel", new Vector3(0f, 0.0085f, 0f), new Vector3(0.064f, 0.001f, 0.064f), mats["Oscuro"], false);
+        Transform tapa = null;
+        var poke = AssetDatabase.LoadAssetAtPath<GameObject>(PokePrefab);
+        if (poke != null)
+        {
+            var p = (GameObject)PrefabUtility.InstantiatePrefab(poke, b);
+            p.name = "Poke";
+            // El prefab se pulsa hacia su +z: se gira para que se pulse hacia abajo (-y del botón).
+            p.transform.localPosition = new Vector3(0f, 0.009f, 0f);
+            p.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            p.transform.localScale = Vector3.one * 0.052f;
+            var color = p.GetComponentInChildren<Oculus.Interaction.InteractableColorVisual>(true);
+            if (color != null)
+            {
+                var so = new SerializedObject(color);
+                void Estado(string campo, Color c, float tiempo)
+                {
+                    so.FindProperty(campo + ".Color").colorValue = c;
+                    so.FindProperty(campo + ".ColorTime").floatValue = tiempo;
+                }
+                Estado("_normalColorState", new Color(0.12f, 0.45f, 0.62f, 1f), 0.15f);   // cian apagado
+                Estado("_hoverColorState", new Color(0.3f, 0.85f, 1f, 1f), 0.08f);       // se enciende al acercar el dedo
+                Estado("_selectColorState", new Color(0.45f, 1f, 0.65f, 1f), 0.03f);     // verde al pulsar
+                Estado("_disabledColorState", new Color(0.25f, 0.28f, 0.3f, 1f), 0.1f);
+                so.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.RecordPrefabInstancePropertyModifications(color);
+            }
+        }
+        else tapa = Caja(b, "Tapa", new Vector3(0f, 0.014f, 0f), new Vector3(0.055f, 0.012f, 0.055f), mats["EmisivoCian"], false).transform;
+        var led = Cilindro(b, "Led", new Vector3(0.027f, 0.0095f, 0.027f), new Vector3(0.007f, 0.001f, 0.007f), Quaternion.identity, mats["EmisivoCian"]);
+        // Halo verde alrededor de la tapa y chispas al pulsar.
+        var halo = Cilindro(b, "Halo", new Vector3(0f, 0.0092f, 0f), new Vector3(0.078f, 0.0005f, 0.078f), Quaternion.identity, mats["Brillo"]).GetComponent<Renderer>();
+        halo.enabled = false;
+        var chispas = Chispas(b);
+        // Trigger para el rayo de la mano vacía (el poke no usa colliders).
         var bc = b.gameObject.AddComponent<BoxCollider>();
         bc.isTrigger = true; bc.center = new Vector3(0f, 0.03f, 0f); bc.size = new Vector3(0.07f, 0.06f, 0.07f);
         var bf = b.gameObject.AddComponent<BotonFisico>();
         bf.tapa = tapa;
+        bf.led = led.GetComponent<Renderer>();
+        bf.halo = halo;
+        bf.chispas = chispas;
         bf.etiqueta = Texto3D(b, texto, new Vector3(0f, 0.001f, -0.05f), Quaternion.Euler(90f, 0f, 0f), 0.11f, Color.white, 0.09f);
         bf.etiqueta.alignment = TextAlignmentOptions.Center;
         bf.etiqueta.fontStyle = FontStyles.Bold;
@@ -883,7 +1043,9 @@ public static class MontarMicrobiologia
                     var p = Vector2.Lerp(a, b, k / (float)pasos);
                     var pies = new Vector3(p.x, y, p.y);
                     var hits = Physics.OverlapCapsule(pies + Vector3.up * (RadioJugador + 0.35f), pies + Vector3.up * 1.75f, RadioJugador, ~0, QueryTriggerInteraction.Ignore)
-                        .Where(h => h.GetComponentInParent<OVRPlayerController>() == null && h.transform.root.GetComponentInChildren<OVRCameraRig>(true) == null).ToArray();   // ni el propio jugador
+                        .Where(h => h.GetComponentInParent<OVRPlayerController>() == null && h.transform.root.GetComponentInChildren<OVRCameraRig>(true) == null)   // ni el propio jugador
+                        .Where(h => h.GetComponentInParent<PuertaCorrediza>() == null)   // las puertas de la cámara se abren solas
+                        .Where(h => h.GetComponentInParent<CabinaDescontaminacion>() == null || h.transform.parent == null || !h.transform.parent.name.StartsWith("Hoja")).ToArray();   // la puerta se abre al descontaminar
                     if (hits.Length > 0) { bloqueo = $"bloqueado en ({p.x:F2}, {p.y:F2}) por {string.Join(", ", hits.Select(h => h.name).Distinct())}"; break; }
                 }
             }

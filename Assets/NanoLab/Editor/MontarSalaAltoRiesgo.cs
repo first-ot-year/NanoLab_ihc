@@ -61,6 +61,7 @@ public static class MontarSalaAltoRiesgo
         var padre = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "Microbiologia" && t.parent != null && t.parent.name.StartsWith("LAB_"));
         if (padre == null) padre = new GameObject("Microbiologia").transform;
         Construir(padre, muestras.Where(m => m.tipo == TipoMuestra.Virus).ToArray(), slidePrefab);
+        MontarAlmacenamiento.Muebles();   // cajones, vitrinas y armarios de la sala principal
         ConfigurarMetaISDK.ActualizarPrefabPortaobjetos();
         ConfigurarMetaISDK.Configurar(scene);
         ML.ConfigurarLuces("Microbiologia_Lighting");
@@ -238,6 +239,8 @@ public static class MontarSalaAltoRiesgo
         var cont = new GameObject("MesaCriotubos").transform;
         cont.SetParent(padre, false);
         var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, cont);
+        // Girada 180°: los cajones y la vitrina de vidrio (+z del modelo) dan a la sala, no al vidrio norte.
+        inst.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         var b = ML.BoundsDe(inst);
         if (b.size.z > b.size.x) inst.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         b = ML.BoundsDe(inst);
@@ -267,6 +270,9 @@ public static class MontarSalaAltoRiesgo
             tubo.gameObject.AddComponent<Resaltado>().brillos = new[] { brillo };
             MM.Etiqueta(tubo, v.nombre, v.riesgo, V(0f, 0.22f, 0f), v.color);
         }
+        // Cajones y vitrina de la mesa: material (cristalería, portaobjetos, placas estériles, tubos).
+        var mesa = MontarAlmacenamiento.ConvertirMesa(inst.transform);
+        if (mesa != null) MontarAlmacenamiento.Llenar(mesa, slidePrefab);
         Utileria.Bandeja(rack, V(0.45f, 0f, 0f), new[] { -0.035f, 0f, 0.035f });
         for (int i = 0; i < 3; i++)
         {
@@ -283,12 +289,13 @@ public static class MontarSalaAltoRiesgo
         t.outlineWidth = 0.2f; t.outlineColor = new Color32(0, 0, 0, 200);
     }
 
-    // Equipos de un laboratorio BSL-3 (ambientación, no interactivos), pegados al vidrio.
+    // Equipos de un laboratorio BSL-3 pegados al vidrio (el ultracongelador y el criotanque se abren).
     static void Equipamiento(Transform g)
     {
         MC.Equipo(g, "Autoclave", V(X0 + 0.42f, 0f, paredZ1 + 4.6f), 90f, V(0.8f, 1.05f, 0.7f), "AUTOCLAVE", "121 °C · LISTO", true);
         MC.Equipo(g, "Incubadora", V(X0 + 0.42f, 0f, paredZ1 + 5.7f), 90f, V(0.8f, 1.6f, 0.7f), "INCUBADORA", "37.0 °C", false);
-        MC.Equipo(g, "Ultracongelador", V(X1 - 0.42f, 0f, paredZ1 + 2.0f), -90f, V(0.8f, 1.9f, 0.7f), "ULTRACONGELADOR", "-80 °C", false);
+        // Zona de criopreservación: ultracongelador (virus) y criotanque de N2 líquido (cepas bacterianas).
+        MontarAlmacenamiento.ZonaCriopreservacion(g, V(X1 - 0.42f, 0f, paredZ1 + 2.0f), -90f);
         MC.CabinaBioseguridad(g, V(X1 - 0.45f, 0f, paredZ1 + 6.2f), -90f);
     }
 

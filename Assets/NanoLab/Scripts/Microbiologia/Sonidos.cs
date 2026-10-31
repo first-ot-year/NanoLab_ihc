@@ -3,7 +3,7 @@ using UnityEngine;
 // Sonidos de interfaz sintetizados por código (no necesitan archivos de audio).
 public static class Sonidos
 {
-    static AudioClip clic, carga, encaje, scan, logro, error, gota, etapa, pista, camara, fallo, tintineo, puerta;
+    static AudioClip clic, carga, encaje, scan, logro, error, gota, etapa, pista, camara, fallo, tintineo, abrir, cerrar, modoVista, modoMuestra, puerta;
 
     public static void Clic(Vector3 p) => Reproducir(ref clic, "clic", p, 0.5f, 0.05f, 1800f);
     public static void Carga(Vector3 p) => Reproducir(ref carga, "carga", p, 0.6f, 0.22f, 520f, 780f, 1040f);
@@ -18,6 +18,64 @@ public static class Sonidos
     public static void Fallo(Vector3 p) => Reproducir(ref fallo, "fallo", p, 0.7f, 0.6f, 392f, 330f, 262f);
     // Puerta corredera neumática: zumbido grave que baja.
     public static void Puerta(Vector3 p) => Reproducir(ref puerta, "puerta", p, 0.5f, 0.7f, 150f, 135f, 120f, 105f);
+    // Puerta, tapa o cajón (Compartimento): sube al abrir, baja al cerrar.
+    public static void Puerta(Vector3 p, bool abre) { if (abre) Reproducir(ref abrir, "abrir", p, 0.45f, 0.18f, 330f, 440f); else Reproducir(ref cerrar, "cerrar", p, 0.5f, 0.16f, 300f, 200f); }
+    // Microscopio: X pasa a mover la vista (dos notas que suben) o vuelve a la muestra (bajan).
+    public static void Modo(Vector3 p, bool vista) { if (vista) Reproducir(ref modoVista, "modoVista", p, 0.55f, 0.2f, 660f, 880f); else Reproducir(ref modoMuestra, "modoMuestra", p, 0.5f, 0.2f, 880f, 660f); }
+    // Aire a presión de la cabina de descontaminación: ruido suave con subida y caída.
+    public static void Rocio(Vector3 p, float duracion)
+    {
+        float v = 0.4f * AjustesNanoLab.VolumenEfectos;
+        UltimoVolumen = v;
+        if (v <= 0f) return;
+        if (rocio == null || Mathf.Abs(rocio.length - duracion) > 0.05f) rocio = Ruido("rocio", duracion);
+        AudioSource.PlayClipAtPoint(rocio, p, v);
+    }
+    static AudioClip rocio;
+
+    static AudioClip Ruido(string nombre, float duracion)
+    {
+        const int sr = 44100;
+        int len = Mathf.Max(1, (int)(sr * duracion));
+        var data = new float[len];
+        var rnd = new System.Random(7);
+        float filtro = 0f;
+        for (int i = 0; i < len; i++)
+        {
+            float t = i / (float)sr;
+            float env = Mathf.Clamp01(t / 0.25f) * Mathf.Clamp01((duracion - t) / 0.6f);
+            float blanco = (float)(rnd.NextDouble() * 2.0 - 1.0);
+            filtro += (blanco - filtro) * 0.35f;   // paso bajo: siseo de aire, no estática
+            data[i] = filtro * env * 0.6f;
+        }
+        var c = AudioClip.Create(nombre, len, 1, sr, false);
+        c.SetData(data, 0);
+        return c;
+    }
+
+    // Botón que se suelta: más suave y grave que el clic de pulsar.
+    public static void Soltar(Vector3 p) => Reproducir(ref soltar, "soltar", p, 0.3f, 0.05f, 1200f);
+    static AudioClip soltar;
+
+    // Zumbido suave del proyector holográfico (bucle de 2 s sin cortes: frecuencias con ciclos enteros).
+    public static AudioClip Zumbido()
+    {
+        if (zumbido != null) return zumbido;
+        const int sr = 44100;
+        int len = sr * 2;
+        var data = new float[len];
+        for (int i = 0; i < len; i++)
+        {
+            float t = i / (float)sr;
+            float lento = 0.75f + 0.25f * Mathf.Sin(2f * Mathf.PI * 0.5f * t);   // respira cada 2 s
+            data[i] = (Mathf.Sin(2f * Mathf.PI * 110f * t) * 0.5f + Mathf.Sin(2f * Mathf.PI * 165f * t) * 0.3f + Mathf.Sin(2f * Mathf.PI * 330f * t) * 0.1f) * lento * 0.35f;
+        }
+        zumbido = AudioClip.Create("zumbido", len, 1, sr, false);
+        zumbido.SetData(data, 0);
+        return zumbido;
+    }
+    static AudioClip zumbido;
+
     // Vidrio que choca: agudo y muy corto; 'fuerza' (0..1) escala el volumen.
     public static void Tintineo(Vector3 p, float fuerza) => Reproducir(ref tintineo, "tintineo", p, Mathf.Lerp(0.08f, 0.45f, Mathf.Clamp01(fuerza)), 0.07f, 3400f, 4600f);
 
