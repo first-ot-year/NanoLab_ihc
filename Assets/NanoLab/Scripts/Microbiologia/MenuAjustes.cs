@@ -79,6 +79,12 @@ public class MenuAjustes : MonoBehaviour
                 if (partida != null) partida.text = ok ? "<color=#7CF29A><b>Partida guardada</b></color>" : "<color=#FF7A7A><b>No se pudo guardar</b></color>";
                 if (ok) Sonidos.Logro(panel.transform.position); else Sonidos.Error(panel.transform.position);
                 return;
+            case "checkpoint":
+                bool vuelto = GestorPartida.VolverAlCheckpoint(out var mensaje);
+                if (partida != null) partida.text = vuelto ? $"<color=#7CF29A><b>{mensaje}</b></color>" : $"<color=#FFD25A><b>{mensaje}</b></color>";
+                if (vuelto) { Sonidos.Logro(panel.transform.position); Abrir(false); }
+                else Sonidos.Error(panel.transform.position);
+                return;
             case "nueva":
                 // Doble confirmación: se pierde el avance guardado.
                 if (Time.unscaledTime - confirmarNueva > 4f)

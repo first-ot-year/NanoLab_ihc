@@ -1021,6 +1021,7 @@ public static class MontarMicrobiologia
             { "Entrada -> introducción -> espejo del recibidor", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-1.0f, 1.85f), new Vector2(1.2f, 1.85f), new Vector2(1.5f, 2.4f) } },
             { "Entrada -> sala de alto riesgo -> criotubos", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(-5.4f, 5.6f), new Vector2(-5.4f, 9.8f), new Vector2(-8.65f, 10.6f), new Vector2(-9.2f, 12.0f), new Vector2(-9.2f, 17.6f), new Vector2(-8.0f, 20.0f), new Vector2(-8.6f, 23.6f) } },
             { "Sala de alto riesgo -> frente a la consola", new[] { new Vector2(-9.2f, 17.6f), new Vector2(-6.6f, 19.95f) } },
+            { "Entrada -> portal a Química", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-5.95f, 1.9f) } },
             { "Entrada -> puesto 1", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 14.5f), new Vector2(-2.55f, 14.5f), new Vector2(-2.55f, 13.65f) } },
             { "Entrada -> cepario", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 9.4f), new Vector2(5.2f, 9.4f), new Vector2(5.2f, 10.1f) } },
             { "Entrada -> puerta del centro de experimentación", new[] { new Vector2(-3.3f, 2.24f), new Vector2(-3.3f, 4.8f), new Vector2(0.8f, 5.0f), new Vector2(0.8f, 8.1f), new Vector2(8.0f, 8.1f) } },
@@ -1042,7 +1043,8 @@ public static class MontarMicrobiologia
                     var pies = new Vector3(p.x, y, p.y);
                     var hits = Physics.OverlapCapsule(pies + Vector3.up * (RadioJugador + 0.35f), pies + Vector3.up * 1.75f, RadioJugador, ~0, QueryTriggerInteraction.Ignore)
                         .Where(h => h.GetComponentInParent<OVRPlayerController>() == null && h.transform.root.GetComponentInChildren<OVRCameraRig>(true) == null)   // ni el propio jugador
-                        .Where(h => h.GetComponentInParent<CabinaDescontaminacion>() == null || h.transform.parent == null || !h.transform.parent.name.StartsWith("Hoja")).ToArray();   // la puerta se abre al descontaminar
+                        .Where(h => h.GetComponentInParent<CabinaDescontaminacion>() == null || h.transform.parent == null || !h.transform.parent.name.StartsWith("Hoja"))
+                        .Where(h => h.GetComponentInParent<PuertaAutomatica>() == null).ToArray();   // la puerta se abre al descontaminar; la del centro, al acercarse
                     if (hits.Length > 0) { bloqueo = $"bloqueado en ({p.x:F2}, {p.y:F2}) por {string.Join(", ", hits.Select(h => h.name).Distinct())}"; break; }
                 }
             }

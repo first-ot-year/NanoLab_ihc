@@ -60,7 +60,7 @@ public class ProteccionCabeza : MonoBehaviour
 
     bool Dentro(float radio)
     {
-        int n = Physics.OverlapSphereNonAlloc(cabeza.position, radio, buffer, ~0, QueryTriggerInteraction.Ignore);
+        int n = Physics.OverlapSphereNonAlloc(cabeza.position, radio, buffer, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Ignore);   // los bloqueos del jugador son cajas holgadas: no cuentan
         for (int i = 0; i < n; i++)
         {
             var c = buffer[i];

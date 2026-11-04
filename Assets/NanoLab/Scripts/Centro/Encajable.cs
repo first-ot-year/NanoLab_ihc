@@ -104,7 +104,7 @@ public class Encajable : MonoBehaviour
 
     ZonaEncaje ZonaCercana()
     {
-        int n = Physics.OverlapSphereNonAlloc(transform.position, radioEncaje, buffer, ~0, QueryTriggerInteraction.Collide);
+        int n = Physics.OverlapSphereNonAlloc(transform.position, radioEncaje, buffer, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Collide);
         ZonaEncaje mejor = null;
         float d = float.MaxValue;
         for (int i = 0; i < n; i++)
@@ -121,9 +121,9 @@ public class Encajable : MonoBehaviour
     {
         if (Encajada != null && Encajada != z) Encajada.Liberar(this);
         Encajada = z;
+        // Primero se frena y luego pasa a cinemático (al revés Unity avisa en cada encaje).
+        if (!rb.isKinematic) { rb.velocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
         rb.isKinematic = true;
-        rb.velocity = Vector3.zero;
-        rb.angularVelocity = Vector3.zero;
         transform.SetPositionAndRotation(z.anclaje.position, z.anclaje.rotation);
         z.Recibir(this);
         if (!conEfecto) return;

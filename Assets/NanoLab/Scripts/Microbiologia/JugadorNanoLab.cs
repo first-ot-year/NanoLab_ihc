@@ -58,10 +58,62 @@ public class JugadorNanoLab : MonoBehaviour
         return silla != null;
     }
 
+    // ---------------------------------------------------------------- aparición segura (no caer al vacío)
+    Vector3 spawnPies, spawnAdelante, ultimoSeguro;
+    bool haySeguro;
+    float tRevision, ultimoRescate = -100f;
+
+    // ¿Hay suelo del laboratorio bajo estos pies? (un rayo hacia abajo que no cuenta los colliders del jugador)
+    public static bool PosicionValida(Vector3 pies)
+    {
+        if (float.IsNaN(pies.x) || float.IsNaN(pies.y) || float.IsNaN(pies.z)) return false;
+        var yo = Instancia != null ? Instancia.transform : null;
+        var golpes = Physics.RaycastAll(pies + Vector3.up * 1.2f, Vector3.down, 2.4f, ~0, QueryTriggerInteraction.Ignore);
+        foreach (var g in golpes)
+        {
+            if (yo != null && g.collider.transform.IsChildOf(yo)) continue;
+            if (g.point.y > pies.y - 0.6f && g.point.y < pies.y + 0.6f) return true;
+        }
+        return false;
+    }
+
+    // Punto de aparición de la escena (dentro del laboratorio), mirando hacia donde mira el rig.
+    public Vector3 PuntoAparicion(out Vector3 adelante) { adelante = spawnAdelante; return spawnPies; }
+
+    // Si el jugador cae (por debajo del suelo) o se queda sin suelo un rato, vuelve al último sitio seguro
+    // (o al punto de aparición si vuelve a caer enseguida).
+    void VigilarCaida()
+    {
+        if (sentadoEn != null || !Pies(out var pies, out _)) return;
+        var cab = rig.centerEyeAnchor;
+        float referencia = haySeguro ? ultimoSeguro.y : spawnPies.y;
+        bool cayendo = cab.position.y < referencia - 2f || transform.position.y < referencia - 1.5f;
+        tRevision -= Time.deltaTime;
+        if (tRevision <= 0f && !cayendo)
+        {
+            tRevision = 0.5f;
+            if (PosicionValida(pies)) { ultimoSeguro = pies; haySeguro = true; }
+        }
+        // Solo una caída real (por debajo del suelo): un trozo de suelo sin collider no debe teletransportar.
+        if (!cayendo) return;
+        bool repetido = Time.time - ultimoRescate < 10f;
+        ultimoRescate = Time.time;
+        var destino = haySeguro && !repetido ? ultimoSeguro : spawnPies;
+        Debug.LogWarning($"[Jugador] Sin suelo en {pies}: de vuelta a {destino}.");
+        // Se conserva hacia dónde se mira (antes, al volver a la entrada, quedaba de cara al espejo).
+        Teletransportar(destino, Vector3.ProjectOnPlane(cab.forward, Vector3.up));
+        tRevision = 1f;
+        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
+        Aviso.Mostrar("Has vuelto al laboratorio.", destino + Vector3.up * 1.4f + f * 0.9f, Aviso.Tipo.Info, 3f);
+    }
+
     void Awake()
     {
         Instancia = this;
         rig = GetComponentInChildren<OVRCameraRig>(true);
+        spawnPies = transform.position;
+        spawnAdelante = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+        if (spawnAdelante.sqrMagnitude < 1e-4f) spawnAdelante = Vector3.forward;
         ForzarSuelo();
         locomotor = GetComponentInChildren<FirstPersonLocomotor>(true);
         respaldo = locomotor == null;
@@ -71,6 +123,7 @@ public class JugadorNanoLab : MonoBehaviour
         puntero.alcance = alcanceRayo;
         if (GetComponent<ProteccionCabeza>() == null) gameObject.AddComponent<ProteccionCabeza>();   // no ver dentro de los muebles
         if (GetComponent<GestorPartida>() == null) gameObject.AddComponent<GestorPartida>();         // guardar y continuar la partida
+        if (GetComponent<AvisoInicio>() == null) gameObject.AddComponent<AvisoInicio>();             // aviso cuadrado + tutorial corto (X para continuar)
         ConfigurarGrupos();
         ConfigurarLocomotor();
         ConfigurarAgarre();
@@ -85,6 +138,17 @@ public class JugadorNanoLab : MonoBehaviour
         ForzarSuelo();
         Invoke(nameof(ForzarSuelo), 0.5f);
         AplicarAltura();
+        // La cabeza conserva su desplazamiento dentro del área de juego (en el simulador, lo que se movió con
+        // el teclado): al recargar la escena aparecía lejos del punto de aparición. Se coloca la cabeza en él
+        // en cuanto el seguimiento está listo (si hay partida guardada, GestorPartida la lleva después a su sitio).
+        Invoke(nameof(IrAlPuntoDeAparicion), 0.25f);
+    }
+
+    void IrAlPuntoDeAparicion()
+    {
+        if (sentadoEn != null) return;
+        Teletransportar(spawnPies, spawnAdelante);
+        ultimoSeguro = spawnPies; haySeguro = true;
     }
 
     // ---------------------------------------------------------------- altura, modo sentado y sillas
@@ -318,6 +382,7 @@ public class JugadorNanoLab : MonoBehaviour
     void Update()
     {
         ComprobarLevantarse();
+        if (rig != null && rig.centerEyeAnchor != null && Time.timeSinceLevelLoad > 1.5f) VigilarCaida();
         if (!respaldo || LocomocionPausada || rig == null || rig.centerEyeAnchor == null) return;
         var cabeza = rig.centerEyeAnchor;
 

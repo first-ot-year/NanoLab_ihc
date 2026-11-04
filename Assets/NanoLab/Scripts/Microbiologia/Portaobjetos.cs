@@ -147,7 +147,7 @@ public class Portaobjetos : MonoBehaviour
 
     Platina PlatinaCercana()
     {
-        int n = Physics.OverlapSphereNonAlloc(transform.position, radioPlatina, buffer, ~0, QueryTriggerInteraction.Collide);
+        int n = Physics.OverlapSphereNonAlloc(transform.position, radioPlatina, buffer, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Collide);
         Platina mejor = null;
         float d = float.MaxValue;
         for (int i = 0; i < n; i++)
@@ -162,7 +162,7 @@ public class Portaobjetos : MonoBehaviour
 
     static T Buscar<T>(Vector3 pos, float radio) where T : Component
     {
-        int n = Physics.OverlapSphereNonAlloc(pos, radio, buffer, ~0, QueryTriggerInteraction.Collide);
+        int n = Physics.OverlapSphereNonAlloc(pos, radio, buffer, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Collide);
         for (int i = 0; i < n; i++)
         {
             var c = buffer[i].GetComponentInParent<T>();
@@ -186,9 +186,12 @@ public class Portaobjetos : MonoBehaviour
 
     public void Cargar(MuestraData m, string etiquetaCaso = null)
     {
-        if (m == null || m == muestra) return;
+        string etiqueta = string.IsNullOrEmpty(etiquetaCaso) ? null : etiquetaCaso;
+        // La misma muestra con otra etiqueta (p. ej. del cepario y luego la del CASO) sí se recarga:
+        // antes se ignoraba y el frotis del caso no contaba como "del caso" (se quedaba en Tinción).
+        if (m == null || (m == muestra && etiqueta == etiquetaTexto)) return;
         muestra = m;
-        etiquetaTexto = string.IsNullOrEmpty(etiquetaCaso) ? null : etiquetaCaso;
+        etiquetaTexto = etiqueta;
         PasosTincion = 0; TincionErronea = false; Despues = false;
         Refrescar();
         ManosRig.Vibrar(transform.position, 0.5f, 0.1f);

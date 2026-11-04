@@ -190,6 +190,25 @@ public class EstacionAnalisis3D : MonoBehaviour
 
     // Grip cerca del virus: una mano lo gira (como una bola), dos manos lo amplían o reducen.
     // Devuelve si alguna mano está cerca (para el brillo).
+    // Grip del mando o, con seguimiento de manos (sin mandos), pellizco índice-pulgar.
+    readonly OVRHand[] manosHT = new OVRHand[2];
+    bool manosBuscadas;
+    bool Aprieta(int i, OVRInput.Controller mando)
+    {
+        if (!manosBuscadas)
+        {
+            manosBuscadas = true;
+            foreach (var h in FindObjectsOfType<OVRHand>(true))
+            {
+                if ((int)h.GetHand() == (int)OVRHand.Hand.HandLeft) manosHT[0] = h;
+                else if ((int)h.GetHand() == (int)OVRHand.Hand.HandRight) manosHT[1] = h;
+            }
+        }
+        var mano = manosHT[i];
+        if (mano != null && mano.IsTracked) return mano.GetFingerIsPinching(OVRHand.HandFinger.Index);
+        return OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, mando) > 0.55f;
+    }
+
     bool Manos(float dt)
     {
         if (rig == null) return false;
@@ -205,7 +224,7 @@ public class EstacionAnalisis3D : MonoBehaviour
             var dir = anclas[i].position - centro;
             bool dentro = dir.magnitude < alcance;
             cerca |= dentro;
-            bool grip = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, mandos[i]) > 0.55f;
+            bool grip = Aprieta(i, mandos[i]);
             if (grip && !agarrando[i] && dentro)
             {
                 agarrando[i] = true;

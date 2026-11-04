@@ -32,6 +32,9 @@ public static class MontarTodo
 
             Paso(paso = 5, "Montando la sala de Microbiología");
             MontarMicrobiologia.Montar();
+
+            // Muebles que bloquean al jugador en las dos salas (sin volver a hornear).
+            AsegurarColisiones.AmbasSalas();
         }
         catch (System.Exception e)
         {

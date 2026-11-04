@@ -21,6 +21,10 @@ public class CamaraExperimental : MonoBehaviour
     public TMP_Text resultado;
     public Portaobjetos portaDespues;
     public Transform anclajeDespues;
+    [Header("Compuerta de guillotina (se abre para que pase la bandeja y sella la cámara)")]
+    public Transform compuerta;
+    public Vector3 compuertaCerrada, compuertaAbierta;
+    public Renderer luzCompuerta;            // franja: ámbar mientras se mueve o está abierta, cian sellada
 
     public bool Ocupada { get; private set; }
     public float UltimaEficacia { get; private set; }
@@ -46,6 +50,8 @@ public class CamaraExperimental : MonoBehaviour
         StopAllCoroutines();
         Ocupada = false;
         if (bandeja != null) bandeja.localPosition = bandejaFuera;
+        if (compuerta != null) compuerta.localPosition = compuertaCerrada;
+        PonerLuzCompuerta(false);
         if (iconoExito != null) iconoExito.SetActive(false);
         if (iconoFallo != null) iconoFallo.SetActive(false);
         if (luzResultado != null) luzResultado.enabled = false;
@@ -93,7 +99,9 @@ public class CamaraExperimental : MonoBehaviour
 
         // 1) La bandeja entra en la cámara.
         if (pantalla != null) pantalla.text = "Cargando la placa...";
+        yield return MoverCompuerta(true);
         yield return MoverBandeja(bandejaFuera, bandejaDentro, 0.9f);
+        yield return MoverCompuerta(false);   // cámara sellada durante la prueba
 
         // 2) La cápsula se libera sobre la placa.
         if (pantalla != null) pantalla.text = $"Liberando agente <b>{a.sigla}</b>...";
@@ -135,7 +143,9 @@ public class CamaraExperimental : MonoBehaviour
         if (pantalla != null) pantalla.text = "Toma el portaobjetos DESPUÉS\ny compáralo en el MICROSCOPIO (3)";
 
         // 5) Sale la bandeja y se entrega el portaobjetos DESPUÉS.
+        yield return MoverCompuerta(true);
         yield return MoverBandeja(bandejaDentro, bandejaFuera, 0.9f);
+        yield return MoverCompuerta(false);
         placaEnc.Bloquear(false);
         if (portaDespues != null)
         {
@@ -146,6 +156,34 @@ public class CamaraExperimental : MonoBehaviour
         }
         rm.ResultadoExperimento(agente, eficacia);
         Ocupada = false;
+    }
+
+    // La compuerta sube (abrir) o baja (cerrar) con sonido de puerta y un golpe suave al terminar.
+    IEnumerator MoverCompuerta(bool abrir)
+    {
+        if (compuerta == null) yield break;
+        var desde = compuerta.localPosition;
+        var hasta = abrir ? compuertaAbierta : compuertaCerrada;
+        if ((desde - hasta).sqrMagnitude < 1e-6f) yield break;
+        PonerLuzCompuerta(true);
+        Sonidos.Puerta(compuerta.position, abrir);
+        for (float t = 0; t < 1f; t += Time.deltaTime / 0.55f)
+        {
+            compuerta.localPosition = Vector3.Lerp(desde, hasta, Mathf.SmoothStep(0f, 1f, t));
+            yield return null;
+        }
+        compuerta.localPosition = hasta;
+        if (!abrir) { PonerLuzCompuerta(false); Sonidos.Encaje(compuerta.position); }
+    }
+
+    void PonerLuzCompuerta(bool moviendo)
+    {
+        if (luzCompuerta == null) return;
+        var c = moviendo ? new Color(1f, 0.75f, 0.25f) : Reposo;
+        luzCompuerta.GetPropertyBlock(mpb);
+        mpb.SetColor("_Color", c * 0.6f);
+        mpb.SetColor("_EmissionColor", c * 1.8f);
+        luzCompuerta.SetPropertyBlock(mpb);
     }
 
     IEnumerator MoverBandeja(Vector3 desde, Vector3 hasta, float duracion)

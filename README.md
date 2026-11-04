@@ -47,7 +47,7 @@ El reto MVP (10–15 minutos) sigue el ciclo:
 EXPLORAR → OBSERVAR → INVESTIGAR → HIPÓTESIS → PREPARAR → EXPERIMENTAR → ANALIZAR → APRENDER
 ```
 
-1. **Introducción narrativa:** al aparecer, el tótem "ERES BAYMAX" explica que perdiste tus recuerdos, te invita a mirarte en el espejo y te orienta hasta el banco de muestras.
+1. **Introducción narrativa:** al aparecer, una ventana pequeña paso a paso (SIGUIENTE / ATRÁS / SALTAR) explica quién es Baymax, que perdiste tus recuerdos, el objetivo de NanoLab VR, el ciclo de investigación y los controles; te invita a mirarte en el espejo y te orienta hasta el banco de muestras. Al cerrarla queda una insignia con los recuerdos recuperados y un botón para volver a verla.
 2. **Exploración y elección:** el estudiante reconoce los recursos y elige un caso en el banco de muestras.
 3. **Primera observación:** coloca la muestra en el microscopio y registra el estado inicial.
 4. **Investigación e hipótesis:** consulta una ficha digital y elige una hipótesis predefinida.
@@ -180,13 +180,15 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 | Menú | Acción |
 |---|---|
 | `NanoLab/Montar TODO (Química + Microbiología)` | Convierte modelos, crea fichas de muestras y regenera ambas salas (sobrescribe cambios manuales y vuelve a hornear la luz) |
+| `NanoLab/Aplicar novedades (puertas, compuerta, colisiones, panel ☰)` | Sobre las escenas guardadas y sin hornear: en Microbiología pone la puerta corredera automática del Centro, la compuerta de la cámara experimental y la ventana de introducción paso a paso; en las dos salas rehace el panel ☰ (con el checkpoint) y los bloqueos de los muebles |
 | `NanoLab/Reconstruir solo el centro de experimentación` | Regenera únicamente el Centro de Experimentación |
 | `NanoLab/Probar reto completo (play mode)` | Ejecuta el Caso 01 de extremo a extremo sin visor |
 | `NanoLab/Configurar interacción Meta (…)` | Configura los componentes del Meta Interaction SDK en las salas |
 | `NanoLab/Avatar Baymax/…` | Convierte e instala el modelo de Baymax |
-| `NanoLab/Montar introducción Baymax` | Coloca el tótem "ERES BAYMAX" frente al punto de aparición y ordena las escenas de build |
+| `NanoLab/Montar introducción Baymax` | Monta la ventana de introducción paso a paso (`VentanaIntro`), la insignia de recuerdos y las balizas, y ordena las escenas de build |
 | `NanoLab/Probar locomoción (play mode)` · `NanoLab/Probar recorrido del jugador` | Pruebas de confort (velocidad constante, giro por pasos) y de rutas transitables |
 | `NanoLab/Reemplazar sillas (las dos salas)` | Cambia las sillas decorativas del paquete por sillas en las que sentarse (sin volver a hornear) |
+| `NanoLab/Asegurar colisiones (las dos salas)` | Armarios, mesas, estanterías y objetos sin collider bloquean al jugador (capa `BloqueoJugador`, que no choca con los objetos agarrables ni tapa el rayo). Los taburetes no bloquean, para poder usar el microscopio de pie |
 | `NanoLab/Capturas del E3 (sillas, ajustes, fichas)` | Capturas de la vista sentado, el panel de ajustes y la ficha del virus |
 
 ### Probar sin visor
@@ -215,8 +217,14 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `EstacionFicha` | Fichas de investigación consultables (RF-04): 3 bacterias, el virus (micrografía electrónica) y la pared celular; se abren con el botón, el rayo o tocándolas |
 | `TerminalHipotesis` | Registro de la hipótesis (RF-05) |
 | `VialAgente` / `PrensaCapsulas` / `Capsula` | Preparación de la intervención (RF-06) |
-| `CamaraExperimental` | Activación de la prueba con feedback multicanal (RF-07) |
+| `CamaraExperimental` | Activación de la prueba con feedback multicanal (RF-07); compuerta de guillotina que se abre para que pase la bandeja y sella la cámara durante la incubación |
 | `PanelResumen` | Informe final, conocimiento recuperado y repetición del caso |
+| `Partida` / `GestorPartida` | Partida guardada en el visor (autoguardado) y **checkpoint** al terminar cada reto: el botón VOLVER AL CHECKPOINT del panel ☰ restaura ese avance y lleva al jugador a ese punto |
+| `GuiaReto` | Guía del reto en el Centro: tarjeta de objetivo (caso, paso n de 9, qué hacer y a qué estación ir) que aparece al entrar, en cada paso y al llegar, y con **Y**; flechas en el suelo que fluyen hasta la estación y un anillo con su número y nombre. Sustituye al panel de la mano (`ObjetivoMuneca`) y a la baliza |
+| `Compartimento` / `Hueco` / `Guardable` | Cajones, vitrinas y tapas que se abren con el rayo (gatillo o A/X); los objetos se sacan y se guardan en sus huecos y vuelven a su sitio si caen al suelo (RNF-04) |
+| `PuertaAutomatica` / `PuertaCorrediza` | Puerta corredera de dos hojas en la entrada del Centro de Experimentación: se abre al acercarse (o al llegar con un objeto en la mano) y se esconde en el muro; franja verde encima cuando está abierta |
+| `CabinaDescontaminacion` | Cabina de la entrada de la BSL-3: con la puerta de vidrio cerrada, el usuario espera en el centro mientras sale la niebla de las boquillas; al terminar suena un aviso y se abre. Al salir se rocía de nuevo sin bloquear |
+| `AvisoInicio` | Aviso cuadrado delante de la vista: al iniciar la partida (aviso de casco + tutorial corto de 6 tarjetas) y cada vez que se pone el visor; se avanza con X. Sustituye a la ventana grande de introducción y al tótem del tutorial (`VentanaIntro` queda solo como insignia que reabre el tutorial) |
 | `Encajable` / `ZonaEncaje` | Objetos agarrables con encaje y retorno automático (RNF-04) |
 | `MetricsLogger` | Registro JSON de la sesión para HEART (RF-10) |
 | `AvatarBaymaxBebe` / `ConvertirBaymaxBebe` (Editor) | Baymax Bebé v4.2 (modelo con esqueleto hecho en Blender por un compañero) como avatar del jugador: escala a la altura del jugador, cabeza al visor, brazos al mando con IK (codo ≤ 65°), dedos con grip y gatillo, Idle/Walk y piernas dobladas al sentarse. En primera persona solo se ven las manos (malla recortada en la muñeca) |
@@ -227,7 +235,7 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `JugadorNanoLab` / `PunteroMuestras` / `ManosRig` | Locomoción de Meta, agarre con gatillo o grip y rayo corto para tomar muestras y soltar en platinas o mesas |
 | `MontarSalaAltoRiesgo` / `EstacionAnalisis3D` / `VisorVirus` | Sala de vidrio BSL-3 con los criotubos de virus y la estación holográfica 3D |
 | `Utileria` / `MontarMusica` / `Realismo` (Editor) | Utilería realista (portaobjetos, bandejas, criotubos, frasco lavador), música ambiental y ajustes de realismo |
-| `AjustesNanoLab` / `MenuAjustes` / `BotonMenu` / `MontarAjustes` (Editor) | Panel ☰ (botón menú del mando izquierdo): volumen de música y efectos, modo sentado y recalibrar la altura (RNF-07) |
+| `AjustesNanoLab` / `MenuAjustes` / `BotonMenu` / `MontarAjustes` (Editor) | Panel ☰ (botón menú del mando izquierdo): volumen de música y efectos, modo sentado y recalibrar la altura (RNF-07); guardar, nueva partida y volver al checkpoint |
 | `Silla` / `MontarSillas` / `MontarSillaLaboratorio` (Editor) | Taburete de laboratorio de Blender (asiento a 0.65 m, aro reposapiés, base de 5 radios) frente a cada microscopio de puesto y en Química: se sienta con el rayo y se levanta con el joystick; no bloquean al jugador. Prefab en `Assets/NanoLab/Silla_Laboratorio_Interactuable/Prefabs/` |
 | `Apuntable` | Base de lo que se usa con el rayo de la mano vacía (fichas, botones del panel, sillas) |
 

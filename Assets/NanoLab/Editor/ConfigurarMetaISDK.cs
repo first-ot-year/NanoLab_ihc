@@ -364,7 +364,8 @@ public static class ConfigurarMetaISDK
         {
             if (!File.Exists(path)) continue;
             EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
-            var rbs = Object.FindObjectsOfType<Grabbable>(true).Select(g => g.GetComponent<Rigidbody>()).Where(r => r != null).ToList();
+            // Lo guardado en un Hueco (cajones, vitrinas) lo deja cinemático el propio Hueco al empezar.
+            var rbs = Object.FindObjectsOfType<Grabbable>(true).Select(g => g.GetComponent<Rigidbody>()).Where(r => r != null && (r.transform.parent == null || r.transform.parent.GetComponent<Hueco>() == null)).ToList();
             var inicio = rbs.ToDictionary(r => r, r => r.position);
             var modo = Physics.simulationMode;
             Physics.simulationMode = SimulationMode.Script;
@@ -372,7 +373,7 @@ public static class ConfigurarMetaISDK
             Physics.simulationMode = modo;
             var movidos = rbs.Where(r => (r.position - inicio[r]).magnitude > 0.03f).ToList();
             Debug.Log($"[Fisica] {Path.GetFileNameWithoutExtension(path)}: {rbs.Count} agarrables, {movidos.Count} se movieron más de 3 cm" +
-                      (movidos.Count > 0 ? ": " + string.Join(", ", movidos.Take(15).Select(r => $"{r.name} ({(r.position - inicio[r]).magnitude:F2} m)")) : ""));
+                      (movidos.Count > 0 ? ": " + string.Join(", ", movidos.Take(15).Select(r => $"{(r.transform.parent != null ? r.transform.parent.name + "/" : "")}{r.name} ({(r.position - inicio[r]).magnitude:F2} m)")) : ""));
         }
     }
 }

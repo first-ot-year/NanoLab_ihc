@@ -29,7 +29,7 @@ public class HUDMicroscopio : MonoBehaviour
 
     static readonly Color Cian = new Color(0.35f, 0.85f, 1f, 1f);
     static readonly Color CianSuave = new Color(0.35f, 0.85f, 1f, 0.35f);
-    static readonly Color Panel = new Color(0.02f, 0.09f, 0.16f, 0.85f);
+    static readonly Color Panel = new Color(0.05f, 0.16f, 0.29f, 0.93f);   // azul profundo: el texto blanco contrasta > 12:1
     static readonly Color TextoClaro = new Color(0.85f, 0.93f, 1f, 1f);
     static readonly Color TextoGris = new Color(0.55f, 0.66f, 0.78f, 1f);
 
@@ -50,6 +50,11 @@ public class HUDMicroscopio : MonoBehaviour
     readonly TMP_Text[] leyendaTxt = new TMP_Text[5];
     MuestraData actual;
     int aumento, pestana;
+    // Zoom continuo: 'zoomObjetivo' lo fijan A/B (saltos a cada objetivo) o el joystick derecho arriba/abajo
+    // (zoom fino); 'zoomActual' lo sigue con suavidad. 'aumento' es el objetivo más cercano (etiquetas y reto).
+    float zoomActual = 1f, zoomObjetivo = 1f;
+    RectTransform zoomRelleno;
+    const float AnchoBarraZoom = 170f;
     Vector2 pan;               // desplazamiento de la muestra (uv), como mover la platina
     bool comparando;           // la micrografía pequeña es el ANTES y debe seguir al desplazamiento
     float alphaObjetivo;
@@ -117,6 +122,7 @@ public class HUDMicroscopio : MonoBehaviour
         enFresco = fresco && m.tipo == TipoMuestra.Bacteria;
         actual = m;
         aumento = m.AumentoInicial;
+        zoomActual = zoomObjetivo = m.FactoresZoom[aumento];
         pestana = 0;
         pan = Vector2.zero;
         modoVista = false;
@@ -150,12 +156,97 @@ public class HUDMicroscopio : MonoBehaviour
 
     public void Ocultar() => alphaObjetivo = 0f;
 
-    public void CambiarAumento(int d)
+    // A / B: salta al objetivo siguiente o anterior (el cambio de imagen es una transición suave).
+    // Devuelve false si ya estaba en el máximo o el mínimo.
+    public bool CambiarAumento(int d)
     {
-        if (actual == null) return;
-        aumento = Mathf.Clamp(aumento + d, 0, actual.Aumentos.Length - 1);
+        if (actual == null) return false;
+        var f = actual.FactoresZoom;
+        int i = Mathf.Clamp(aumento + d, 0, f.Length - 1);
+        // Si el zoom fino quedó entre dos objetivos, A/B va al siguiente en esa dirección.
+        if (d > 0 && zoomObjetivo < f[aumento] - 1e-3f) i = aumento;
+        if (d < 0 && zoomObjetivo > f[aumento] + 1e-3f) i = aumento;
+        bool cambia = !Mathf.Approximately(f[i], zoomObjetivo);
+        zoomObjetivo = f[i];
+        PonerAumento(i);
+        return cambia;
+    }
+
+    // Joystick derecho arriba (zoom +) / abajo (zoom -): zoom fino continuo entre el mínimo y el máximo.
+    public void ZoomContinuo(float eje)
+    {
+        if (actual == null || Mathf.Abs(eje) < 0.25f) return;
+        var f = actual.FactoresZoom;
+        float v = (Mathf.Abs(eje) - 0.25f) / 0.75f * Mathf.Sign(eje);
+        zoomObjetivo = Mathf.Clamp(zoomObjetivo * Mathf.Exp(v * 1.4f * Time.deltaTime), f[0], f[f.Length - 1]);
+        PonerAumento(ObjetivoCercano(zoomObjetivo));
+    }
+
+    int ObjetivoCercano(float z)
+    {
+        var f = actual.FactoresZoom;
+        int mejor = 0;
+        for (int i = 1; i < f.Length; i++)
+            if (Mathf.Abs(Mathf.Log(z / f[i])) < Mathf.Abs(Mathf.Log(z / f[mejor]))) mejor = i;
+        return mejor;
+    }
+
+    void PonerAumento(int i)
+    {
+        if (i == aumento) return;
+        aumento = i;
         Refrescar();
         AumentoCambiado?.Invoke(aumento);
+    }
+
+    // Aplica 'zoomActual' a la vista: recorte de la micrografía (bacterias) o cámara del virus.
+    void AplicarZoom()
+    {
+        if (actual == null) return;
+        if (actual.tipo == TipoMuestra.Virus) VisorVirus.Obtener().Zoom(zoomActual);
+        else
+        {
+            AplicarRecorte(1f / zoomActual);
+            if (comparando)
+            {
+                var r = vista.uvRect;
+                float h = r.width * 170f / 380f;
+                micro.uvRect = new Rect(r.x, r.y + (r.height - h) / 2f, r.width, h);
+            }
+        }
+        zoomTxt.text = TextoAumento(zoomActual);
+        if (zoomRelleno != null)
+        {
+            var f = actual.FactoresZoom;
+            float t = Mathf.InverseLerp(Mathf.Log(f[0]), Mathf.Log(f[f.Length - 1]), Mathf.Log(zoomActual));
+            float w = Mathf.Max(4f, AnchoBarraZoom * t);
+            zoomRelleno.sizeDelta = new Vector2(w, zoomRelleno.sizeDelta.y);
+            zoomRelleno.anchoredPosition = new Vector2(330f - AnchoBarraZoom / 2f + w / 2f, zoomRelleno.anchoredPosition.y);
+        }
+    }
+
+    // Aumento intermedio (escala logarítmica entre los objetivos): "650x" mientras se hace zoom fino.
+    string TextoAumento(float z)
+    {
+        var f = actual.FactoresZoom;
+        var et = actual.Aumentos;
+        int i = 0;
+        while (i < f.Length - 2 && z > f[i + 1]) i++;
+        float a = Numero(et[i]), b = Numero(et[Mathf.Min(i + 1, et.Length - 1)]);
+        if (a <= 0f || b <= 0f || f.Length < 2) return et[aumento];
+        if (Mathf.Abs(Mathf.Log(z / f[aumento])) < 0.02f) return et[aumento];
+        float t = Mathf.Clamp01(Mathf.InverseLerp(Mathf.Log(f[i]), Mathf.Log(f[i + 1]), Mathf.Log(z)));
+        float m = Mathf.Exp(Mathf.Lerp(Mathf.Log(a), Mathf.Log(b), t));
+        float paso = m >= 10000f ? 1000f : m >= 1000f ? 50f : 10f;
+        m = Mathf.Round(m / paso) * paso;
+        return m >= 10000f ? $"{m / 1000f:0} 000x" : $"{m:0}x";
+    }
+
+    static float Numero(string s)
+    {
+        float v = 0f; bool hay = false;
+        foreach (char c in s) if (char.IsDigit(c)) { v = v * 10f + (c - '0'); hay = true; }
+        return hay ? v : -1f;
     }
 
     // Joystick: mueve la muestra (bacterias: recorre la imagen ampliada; virus: gira el modelo).
@@ -219,6 +310,13 @@ public class HUDMicroscopio : MonoBehaviour
     void Update()
     {
         grupo.alpha = Mathf.MoveTowards(grupo.alpha, alphaObjetivo, Time.deltaTime * 4f);
+        // Transición suave del zoom (en escala logarítmica: cada objetivo tarda lo mismo).
+        if (actual != null && !Mathf.Approximately(zoomActual, zoomObjetivo))
+        {
+            float l = Mathf.Lerp(Mathf.Log(zoomActual), Mathf.Log(zoomObjetivo), 1f - Mathf.Exp(-9f * Time.deltaTime));
+            zoomActual = Mathf.Abs(l - Mathf.Log(zoomObjetivo)) < 0.002f ? zoomObjetivo : Mathf.Exp(l);
+            AplicarZoom();
+        }
         if (enFresco && proveedorReto == null && grupo.alpha > 0f) AnimarCelulas(Time.deltaTime);
         else if (celulasRaiz != null && celulasRaiz.gameObject.activeSelf) celulasRaiz.gameObject.SetActive(false);
         if (!modoVista) desplazamiento = Vector2.MoveTowards(desplazamiento, Vector2.zero, Time.deltaTime * 1.5f);
@@ -236,19 +334,10 @@ public class HUDMicroscopio : MonoBehaviour
         var m = actual;
         if (m == null) return;
         subtitulo.text = $"MUESTRA {m.codigo}  ·  {m.nombre.ToUpper()}" + (enFresco && proveedorReto == null ? "  ·  <color=#7CF29A>EN FRESCO: vivas, sin teñir</color>" : "");
-        zoomTxt.text = m.Aumentos[aumento];
         escalaTxt.text = m.Escalas[aumento];
-        float f = m.FactoresZoom[aumento];
-        if (m.tipo == TipoMuestra.Virus)
-        {
-            VisorVirus.Obtener().Zoom(f);
-            vista.uvRect = new Rect(0, 0, 1, 1);
-        }
-        else
-        {
-            // Recorte: más aumento = trozo más pequeño de la micrografía, desplazado por 'pan'.
-            AplicarRecorte(1f / f);
-        }
+        if (m.tipo == TipoMuestra.Virus) vista.uvRect = new Rect(0, 0, 1, 1);
+        // Recorte: más aumento = trozo más pequeño de la micrografía, desplazado por 'pan' (con el zoom actual).
+        AplicarZoom();
 
         for (int i = 0; i < claves.Length; i++)
         {
@@ -538,8 +627,11 @@ public class HUDMicroscopio : MonoBehaviour
         Img(raiz, "ZoomFondo", 330, 262, 190, 74, Panel);
         Marco(raiz, 330, 262, 190, 74, CianSuave);
         Esquinas(raiz, 330, 262, 190, 74);
-        Txt(raiz, "ZoomEtq", 330, 285, 170, 20, "ZOOM", 15, Cian, TextAlignmentOptions.Left);
-        zoomTxt = Txt(raiz, "Zoom", 330, 255, 170, 38, "", 30, Color.white, TextAlignmentOptions.Left, FontStyles.Bold);
+        Txt(raiz, "ZoomEtq", 330, 285, 170, 20, "ZOOM   <color=#9FB4C4>A: +   B: -</color>", 15, Cian, TextAlignmentOptions.Left);
+        zoomTxt = Txt(raiz, "Zoom", 330, 257, 170, 38, "", 30, Color.white, TextAlignmentOptions.Left, FontStyles.Bold);
+        // Barra de zoom: del objetivo menor al mayor.
+        Img(raiz, "ZoomBarraFondo", 330, 236, AnchoBarraZoom, 6, new Color(1f, 1f, 1f, 0.15f));
+        zoomRelleno = Img(raiz, "ZoomBarra", 330, 236, AnchoBarraZoom, 6, Cian).rectTransform;
 
         // Vista circular
         vista = Rect(raiz, "Vista", 0, 25, 440, 440).gameObject.AddComponent<RawImage>();
@@ -624,7 +716,7 @@ public class HUDMicroscopio : MonoBehaviour
 
         // Pie
         Txt(raiz, "Pie", -520, -305, 360, 20, "LAB. DE BIOCIENCIAS  |  NANOLAB", 13, TextoGris, TextAlignmentOptions.Left);
-        Txt(raiz, "Ayuda", 0, -305, 820, 20, "Joystick izq.: mover la muestra     X: mover la vista     Joystick der.: pestañas     A: más aumento     B / Y: menos     Aléjate del ocular", 13, TextoGris, TextAlignmentOptions.Center);
+        Txt(raiz, "Ayuda", 0, -305, 820, 20, "Joystick izq.: mover la muestra     X: mover la vista     Joystick der.: arriba/abajo zoom +/-, lados pestañas     A: más aumento     B / Y: menos     Aléjate del ocular", 13, TextoGris, TextAlignmentOptions.Center);
         // Indicador del modo (arriba, centrado): se resalta mientras se mueve la vista.
         modoFondo = Img(raiz, "ModoFondo", 0, 302, 450, 26, Cian);
         modoTxt = Txt(raiz, "Modo", 0, 302, 444, 24, "", 14, TextoGris, TextAlignmentOptions.Center, FontStyles.Bold);

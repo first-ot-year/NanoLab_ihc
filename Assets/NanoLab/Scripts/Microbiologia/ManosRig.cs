@@ -16,6 +16,10 @@ public static class ManosRig
         }
     }
 
+    // Anclas de los mandos / manos (null si no hay rig).
+    public static Transform ManoIzq => Rig != null ? Rig.leftHandAnchor : null;
+    public static Transform ManoDer => Rig != null ? Rig.rightHandAnchor : null;
+
     public static Transform Cabeza => Rig != null ? Rig.centerEyeAnchor : (Camera.main != null ? Camera.main.transform : null);
 
     // Mano (mando o mano rastreada) más cercana a un punto, dentro de un radio.

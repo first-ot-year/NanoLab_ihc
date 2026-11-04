@@ -3,7 +3,7 @@ using UnityEngine;
 // Sonidos de interfaz sintetizados por código (no necesitan archivos de audio).
 public static class Sonidos
 {
-    static AudioClip clic, carga, encaje, scan, logro, error, gota, etapa, pista, camara, fallo, tintineo, abrir, cerrar, modoVista, modoMuestra;
+    static AudioClip clic, carga, encaje, scan, logro, error, gota, etapa, pista, camara, fallo, tintineo, abrir, cerrar, modoVista, modoMuestra, puerta;
 
     public static void Clic(Vector3 p) => Reproducir(ref clic, "clic", p, 0.5f, 0.05f, 1800f);
     public static void Carga(Vector3 p) => Reproducir(ref carga, "carga", p, 0.6f, 0.22f, 520f, 780f, 1040f);
@@ -16,6 +16,8 @@ public static class Sonidos
     public static void Pista(Vector3 p) => Reproducir(ref pista, "pista", p, 0.5f, 0.35f, 880f, 740f, 880f);
     public static void Camara(Vector3 p) => Reproducir(ref camara, "camara", p, 0.6f, 1.6f, 110f, 130f, 150f, 170f, 190f, 210f, 230f, 250f);
     public static void Fallo(Vector3 p) => Reproducir(ref fallo, "fallo", p, 0.7f, 0.6f, 392f, 330f, 262f);
+    // Puerta corredera neumática: zumbido grave que baja.
+    public static void Puerta(Vector3 p) => Reproducir(ref puerta, "puerta", p, 0.5f, 0.7f, 150f, 135f, 120f, 105f);
     // Puerta, tapa o cajón (Compartimento): sube al abrir, baja al cerrar.
     public static void Puerta(Vector3 p, bool abre) { if (abre) Reproducir(ref abrir, "abrir", p, 0.45f, 0.18f, 330f, 440f); else Reproducir(ref cerrar, "cerrar", p, 0.5f, 0.16f, 300f, 200f); }
     // Microscopio: X pasa a mover la vista (dos notas que suben) o vuelve a la muestra (bajan).

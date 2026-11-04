@@ -110,14 +110,14 @@ public class DebugLocomocion : MonoBehaviour
         if (musica != null)
         {
             AjustesNanoLab.VolumenMusica = 0f;
-            yield return new WaitForSeconds(1.2f);
+            yield return new WaitForSeconds(2.4f);   // la música (volumen 0.5) baja a 0.25 por segundo
             var fuente = musica.GetComponent<AudioSource>();
             Comprobar(fuente.volume < 0.01f, $"Volumen de música al 0 %: la música baja a {fuente.volume:F3}");
         }
         else log.AppendLine("(sin música en la escena)");
 
         var menu = MenuAjustes.Instancia;
-        Comprobar(menu != null && menu.panel != null && menu.botones != null && menu.botones.Length == 7 && !menu.Abierto,
+        Comprobar(menu != null && menu.panel != null && menu.botones != null && menu.botones.Length == 10 && !menu.Abierto,
                   $"Panel ☰ de ajustes montado en el rig ({(menu != null && menu.botones != null ? menu.botones.Length : 0)} botones), cerrado al empezar");
         if (menu != null && menu.panel != null)
         {

@@ -84,8 +84,9 @@ public class MicroscopioOptico : MonoBehaviour
     {
         var hud = HUDMicroscopio.Instancia;
         if (hud == null) return;
-        if (OVRInput.GetDown(OVRInput.Button.One)) { hud.CambiarAumento(+1); Sonidos.Clic(ocular.position); }
-        if (OVRInput.GetDown(OVRInput.Button.Two) || OVRInput.GetDown(OVRInput.Button.Four)) { hud.CambiarAumento(-1); Sonidos.Clic(ocular.position); }
+        // A: zoom + / B o Y: zoom - (al tope suena un aviso corto).
+        if (OVRInput.GetDown(OVRInput.Button.One)) Zoom(hud.CambiarAumento(+1));
+        if (OVRInput.GetDown(OVRInput.Button.Two) || OVRInput.GetDown(OVRInput.Button.Four)) Zoom(hud.CambiarAumento(-1));
         // X: el joystick izquierdo pasa de mover la muestra a mover la vista (para ver los paneles laterales).
         if (OVRInput.GetDown(OVRInput.Button.Three))
         {
@@ -97,9 +98,18 @@ public class MicroscopioOptico : MonoBehaviour
         var eje = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch);
         if (hud.ModoVista) hud.MoverVista(eje);
         else hud.Mover(eje);
-        float x = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch).x;
+        var der = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch);
+        // Joystick derecho arriba/abajo: zoom fino continuo (zoom + / zoom -).
+        if (Mathf.Abs(der.y) > Mathf.Abs(der.x)) hud.ZoomContinuo(der.y);
+        float x = Mathf.Abs(der.x) > Mathf.Abs(der.y) ? der.x : 0f;
         if (Mathf.Abs(x) > 0.7f && Mathf.Abs(ejeAnterior) <= 0.7f) { hud.CambiarPestana(x > 0 ? 1 : -1); Sonidos.Clic(ocular.position); }
         ejeAnterior = x;
+    }
+
+    void Zoom(bool cambia)
+    {
+        if (cambia) { Sonidos.Clic(ocular.position); Vibrar(OVRInput.Controller.RTouch, 0.25f); }
+        else Sonidos.Error(ocular.position);
     }
 
     // Pulso corto en el mando que pulsó X (con la cara en el ocular, las manos pueden quedar lejos).
@@ -110,7 +120,7 @@ public class MicroscopioOptico : MonoBehaviour
         Invoke(nameof(PararVibracion), 0.1f);
     }
 
-    void PararVibracion() => OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch);
+    void PararVibracion() { OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch); OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.RTouch); }
 
     void OnDisable() { if (activo == this) Salir(); }
 }

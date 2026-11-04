@@ -179,6 +179,73 @@ public static class MontarCentroExperimentacion
             MM.Caja(p, "MarcoS", V(x, suelo + AltoPuerta - 0.025f, (PuertaZ0 + PuertaZ1) / 2f), V(0.02f, 0.05f, PuertaZ1 - PuertaZ0), M["EmisivoCian"], false);
         }
         MM.Caja(p, "Umbral", V((ParedX0 + ParedX1) / 2f, suelo + 0.004f, (PuertaZ0 + PuertaZ1) / 2f), V(Grosor + 0.1f, 0.008f, PuertaZ1 - PuertaZ0), M["Cromo"], false);
+        PuertaDeslizante(p);
+    }
+
+    // Puerta corredera automática de dos hojas de vidrio esmerilado: se esconden dentro del muro al abrirse
+    // (puerta de bolsillo) cuando el jugador se acerca y se cierran al alejarse (PuertaAutomatica).
+    // 'p' es el grupo "Puerta" del centro; si ya había una puerta automática, se reemplaza.
+    internal static PuertaAutomatica PuertaDeslizante(Transform p)
+    {
+        foreach (var vieja in p.GetComponentsInChildren<PuertaAutomatica>(true)) Object.DestroyImmediate(vieja.gameObject);
+        MM.Emisivo("EmisivoVerde", new Color(0.25f, 1f, 0.45f), 1.8f);
+
+        float xc = (ParedX0 + ParedX1) / 2f, zc = (PuertaZ0 + PuertaZ1) / 2f;
+        var raiz = new GameObject("PuertaAutomatica").transform;
+        raiz.SetParent(p, false);
+        raiz.position = V(xc, suelo, zc);
+        raiz.rotation = Quaternion.identity;   // local x atraviesa la pared, local z va a lo ancho del hueco
+        var auto = raiz.gameObject.AddComponent<PuertaAutomatica>();
+
+        float w = (PuertaZ1 - PuertaZ0) / 2f + 0.02f;   // cada hoja solapa 2 cm en el centro
+        float h = AltoPuerta - 0.02f;
+        var hojas = new List<PuertaCorrediza>();
+        foreach (int lado in new[] { -1, 1 })
+        {
+            var pivote = new GameObject(lado < 0 ? "Hoja_Sur" : "Hoja_Norte").transform;
+            pivote.SetParent(raiz, false);
+            var pc = pivote.gameObject.AddComponent<PuertaCorrediza>();
+            var hoja = new GameObject("Hoja").transform;
+            hoja.SetParent(pivote, false);
+            MM.Caja(hoja, "Vidrio", V(0f, h / 2f, 0f), V(0.025f, h, w), M["VidrioPared"], true);
+            MM.Caja(hoja, "MarcoSup", V(0f, h - 0.03f, 0f), V(0.045f, 0.06f, w), M["Marco"], false);
+            MM.Caja(hoja, "MarcoInf", V(0f, 0.07f, 0f), V(0.045f, 0.14f, w), M["Marco"], false);
+            MM.Caja(hoja, "MarcoExt", V(0f, h / 2f, lado * (w / 2f - 0.03f)), V(0.045f, h, 0.06f), M["Marco"], false);
+            MM.Caja(hoja, "MarcoInt", V(0f, h / 2f, -lado * (w / 2f - 0.02f)), V(0.045f, h, 0.04f), M["Oscuro"], false);   // junta de goma del centro
+            MM.Caja(hoja, "Franja", V(0f, 1.05f, 0f), V(0.047f, 0.05f, w - 0.1f), M["EmisivoCian"], false);
+            MM.Caja(hoja, "Esmerilado", V(0f, 1.45f, 0f), V(0.027f, 0.5f, w - 0.1f), M["Blanco"], false);
+            var rb = hoja.gameObject.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            pc.hoja = hoja;
+            pc.cerrada = V(0f, 0f, lado * w / 2f);
+            pc.abierta = V(0f, 0f, lado * (w / 2f + w + 0.02f));   // dentro del muro
+            pc.duracion = 0.9f;
+            pc.sonido = lado < 0;
+            hoja.localPosition = pc.cerrada;
+            hojas.Add(pc);
+        }
+        auto.hojas = hojas.ToArray();
+        auto.zona = V(1.7f, 1.5f, 1.3f);
+
+        // Franja de estado sobre la puerta, a los dos lados: verde = abierta; gris = cerrada.
+        var abierta = new List<GameObject>();
+        var cerrada = new List<GameObject>();
+        foreach (int cara in new[] { -1, 1 })
+        {
+            float x = cara * (Grosor / 2f + 0.03f);
+            abierta.Add(MM.Caja(raiz, "LuzAbierta", V(x, AltoPuerta + 0.06f, 0f), V(0.02f, 0.04f, PuertaZ1 - PuertaZ0 - 0.2f), M["EmisivoVerde"], false));
+            cerrada.Add(MM.Caja(raiz, "LuzCerrada", V(x, AltoPuerta + 0.06f, 0f), V(0.02f, 0.04f, PuertaZ1 - PuertaZ0 - 0.2f), M["Oscuro"], false));
+        }
+        auto.luzAbierta = abierta.ToArray();
+        auto.luzCerrada = cerrada.ToArray();
+        foreach (var l in abierta) l.SetActive(false);
+
+        foreach (var t in raiz.GetComponentsInChildren<Transform>(true))
+            GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);   // se mueve: sin luz horneada
+        Debug.Log($"[Centro] Puerta corredera automática en la entrada del centro ({hojas.Count} hojas).");
+        return auto;
     }
 
     static void Sala(Transform s)
@@ -924,6 +991,7 @@ public static class MontarCentroExperimentacion
         cam.bandeja = bandeja;
         cam.bandejaDentro = V(0f, 0.925f, 0f);
         cam.puntoLiberacion = MM.Vacio(e, "PuntoLiberacion", V(0f, 1.15f, 0f));
+        Compuerta(e, cam);
         var tp = MM.Texto3D(e, "PLACA", V(0f, 0.957f, 1.2f), Quaternion.Euler(90f, 180f, 0f), 0.16f, Color.white, 0.25f);
         tp.alignment = TextAlignmentOptions.Center;
 
@@ -992,6 +1060,36 @@ public static class MontarCentroExperimentacion
         guia = Cartel(e, V(-1.2f, 0f, 1.45f), 7, "CÁMARA EXPERIMENTAL",
             "Aquí se prueba tu intervención de forma segura: la cápsula actúa sobre la placa dentro de la cámara, no al aire libre.", V(0f, 3.0f, 0f));
         return cam;
+    }
+
+    // Compuerta de guillotina en el frente de la cámara (por donde entra la bandeja): de vidrio con marco,
+    // sube y se esconde en una carcasa al pasar la bandeja y baja para sellar la cámara durante la prueba.
+    internal static void Compuerta(Transform e, CamaraExperimental cam)
+    {
+        var vieja = e.Find("Compuerta");
+        if (vieja != null) Object.DestroyImmediate(vieja.gameObject);
+        const float ancho = 0.4f, alto = 0.26f, sube = 0.3f;
+        var c = MM.Grupo(e, "Compuerta");
+        c.localPosition = V(0f, 0.925f, 0.68f);
+        // Marco: dos guías laterales y una carcasa arriba donde se esconde la hoja abierta.
+        foreach (float x in new[] { -ancho / 2f - 0.02f, ancho / 2f + 0.02f })
+            MM.Caja(c, "Guia", V(x, (alto + sube) / 2f, 0f), V(0.03f, alto + sube, 0.05f), M["Marco"], false);
+        MM.Caja(c, "Carcasa", V(0f, alto + sube / 2f + 0.01f, 0.012f), V(ancho + 0.07f, sube + 0.02f, 0.028f), M["Blanco"], false);
+        var luz = MM.Caja(c, "LuzCompuerta", V(0f, alto + 0.025f, 0.028f), V(ancho + 0.02f, 0.012f, 0.006f), M["EmisivoCian"], false);
+        // Hoja móvil.
+        var hoja = new GameObject("Hoja").transform;
+        hoja.SetParent(c, false);
+        MM.Caja(hoja, "Vidrio", V(0f, alto / 2f, -0.006f), V(ancho, alto, 0.012f), M["VidrioPared"], false);
+        MM.Caja(hoja, "Canto", V(0f, 0.012f, -0.006f), V(ancho, 0.024f, 0.02f), M["Marco"], false);
+        MM.Caja(hoja, "Junta", V(0f, 0.002f, -0.006f), V(ancho, 0.004f, 0.022f), M["Oscuro"], false);
+        MM.Caja(hoja, "Franja", V(0f, alto - 0.03f, -0.006f), V(ancho, 0.015f, 0.014f), M["EmisivoCian"], false);
+        foreach (var t in c.GetComponentsInChildren<Transform>(true))
+            GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);   // se mueve: sin luz horneada
+        cam.compuerta = hoja;
+        cam.compuertaCerrada = Vector3.zero;
+        cam.compuertaAbierta = V(0f, sube, 0f);
+        cam.luzCompuerta = luz.GetComponent<Renderer>();
+        EditorUtility.SetDirty(cam);
     }
 
     static ParticleSystem Niebla(Transform e)
