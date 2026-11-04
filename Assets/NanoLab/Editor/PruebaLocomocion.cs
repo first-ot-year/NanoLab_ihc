@@ -29,6 +29,7 @@ public static class PruebaLocomocion
         EditorApplication.playModeStateChanged += Cambio;
         EditorApplication.update -= Vigilar;
         EditorApplication.update += Vigilar;
+        PartidaPruebas.Usar();   // partida aparte y vacía: la prueba no carga ni pisa la partida guardada
         EditorApplication.EnterPlaymode();
     }
 

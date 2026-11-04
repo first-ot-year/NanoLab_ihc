@@ -10,8 +10,12 @@ using UnityEngine.SceneManagement;
 // GUARDAR PARTIDA del panel ☰; al abrir la app se continúa donde se dejó. NUEVA PARTIDA la borra.
 // Checkpoint: cada vez que se termina un reto se guarda una foto del avance (y dónde estaba el jugador);
 // el botón CHECKPOINT del panel ☰ vuelve a ella aunque luego se haya repetido o cambiado el caso.
+// Respaldo: cada guardado deja la versión anterior en partida.json.bak. Si partida.json se daña (la app
+// se cerró a mitad de escribir, memoria llena…), se aparta a partida.corrupta.json y se carga el respaldo.
 public static class Partida
 {
+    public const int Version = 2;   // 1: partida de la rama de E3 (sin checkpoints); 2: con checkpoints
+
     [System.Serializable]
     public class Checkpoint
     {
@@ -30,7 +34,7 @@ public static class Partida
     [System.Serializable]
     public class Datos
     {
-        public int version = 1;
+        public int version = Version;
         public string fecha;
         public string escena;
         public bool hayPosicion;
@@ -45,11 +49,39 @@ public static class Partida
         public List<Checkpoint> checkpoints = new List<Checkpoint>();   // uno por reto terminado, el último al final
     }
 
-    public static string Ruta => Path.Combine(Application.persistentDataPath, "partida.json");
-    public static bool Existe => File.Exists(Ruta);
+#if UNITY_EDITOR
+    // Las pruebas automáticas (PruebaReto, PruebaLocomocion) guardan en un archivo aparte: así no leen ni
+    // pisan la partida de quien prueba en el Editor. Lo fija PartidaPruebas (Editor) y dura la sesión.
+    public const string ClaveRutaPrueba = "NanoLab.Partida.RutaPrueba";
+#endif
+
+    public static string Ruta
+    {
+        get
+        {
+#if UNITY_EDITOR
+            string prueba = UnityEditor.SessionState.GetString(ClaveRutaPrueba, "");
+            if (!string.IsNullOrEmpty(prueba)) return prueba;
+#endif
+            return Path.Combine(Application.persistentDataPath, "partida.json");
+        }
+    }
+    public static string RutaRespaldo => Ruta + ".bak";
+    public static string RutaCorrupta => Path.ChangeExtension(Ruta, ".corrupta.json");
+    static string RutaTemporal => Ruta + ".tmp";
+
+    public static bool Existe => File.Exists(Ruta) || File.Exists(RutaRespaldo);
     public static System.DateTime? UltimoGuardado { get; private set; }
+    public static bool UltimoFueManual { get; private set; }
+    // La partida en memoria salió de partida.json.bak (el archivo principal faltaba o estaba dañado).
+    public static bool DesdeRespaldo { get; private set; }
     // Tras NUEVA PARTIDA no se guarda nada hasta que la escena nueva arranque (si no, el estado viejo volvía).
     internal static bool Suspendido { get; set; }
+
+    // Copia en memoria: el autoguardado (cada minuto) y el panel ☰ no releen el JSON del disco.
+    static Datos cache;
+    static bool leida;
+    static bool soloLectura;   // archivo de una versión más nueva de la app: se lee, pero no se sobrescribe
 
     public static Checkpoint UltimoCheckpoint
     {
@@ -60,27 +92,84 @@ public static class Partida
         }
     }
 
-    public static Datos Leer()
+    // Vuelve a leer del disco en la próxima consulta (pruebas y menús del Editor).
+    public static void Olvidar()
     {
-        try
-        {
-            if (!Existe) return null;
-            return JsonUtility.FromJson<Datos>(File.ReadAllText(Ruta));
-        }
-        catch (System.Exception e) { Debug.LogWarning("[Partida] No se pudo leer: " + e.Message); return null; }
+        cache = null;
+        leida = false;
+        soloLectura = false;
+        DesdeRespaldo = false;
     }
 
-    // Reúne el estado actual. Lo que no se toca aquí (los checkpoints) se conserva del archivo.
-    public static bool Guardar() => Guardar(null);
+    public static Datos Leer()
+    {
+        if (leida) return cache;
+        leida = true;
+        DesdeRespaldo = false;
+        cache = LeerArchivo(Ruta, out bool danado);
+        if (danado)
+        {
+            // Se aparta para que el próximo guardado no mande el archivo dañado al respaldo.
+            try
+            {
+                File.Copy(Ruta, RutaCorrupta, true);
+                File.Delete(Ruta);
+                Debug.LogWarning($"[Partida] {Ruta} estaba dañada: se apartó a {RutaCorrupta}.");
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Partida] No se pudo apartar la partida dañada: " + e.Message); }
+        }
+        if (cache == null)
+        {
+            cache = LeerArchivo(RutaRespaldo, out _);
+            DesdeRespaldo = cache != null;
+            if (DesdeRespaldo) Debug.LogWarning("[Partida] Se cargó la copia de respaldo (partida.json.bak).");
+        }
+        if (cache != null)
+        {
+            if (cache.checkpoints == null) cache.checkpoints = new List<Checkpoint>();
+            if (cache.muestras == null) cache.muestras = new List<string>();
+            if (cache.recuerdos == null) cache.recuerdos = new List<string>();
+            soloLectura = cache.version > Version;
+            if (soloLectura) Debug.LogWarning($"[Partida] La partida es de una versión más nueva ({cache.version} > {Version}): se carga, pero no se sobrescribe.");
+        }
+        return cache;
+    }
+
+    // null si no existe; 'danado' si existe pero no se puede interpretar.
+    static Datos LeerArchivo(string ruta, out bool danado)
+    {
+        danado = false;
+        try
+        {
+            if (!File.Exists(ruta)) return null;
+            string texto = File.ReadAllText(ruta);
+            var d = string.IsNullOrWhiteSpace(texto) ? null : JsonUtility.FromJson<Datos>(texto);
+            danado = d == null;
+            return d;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[Partida] No se pudo leer {Path.GetFileName(ruta)}: {e.Message}");
+            danado = File.Exists(ruta);
+            return null;
+        }
+    }
+
+    // Autoguardado. Lo que no se toca aquí (los checkpoints) se conserva.
+    public static bool Guardar() => Guardar(null, false);
+
+    // Botón GUARDAR PARTIDA del panel ☰.
+    public static bool GuardarManual() => Guardar(null, true);
 
     // Guarda la partida y, además, un checkpoint del reto que se acaba de terminar.
-    public static bool GuardarCheckpoint(string reto) => Guardar(reto);
+    public static bool GuardarCheckpoint(string reto) => Guardar(reto, false);
 
-    static bool Guardar(string checkpointDe)
+    static bool Guardar(string checkpointDe, bool manual)
     {
         if (Suspendido) return false;
         var d = Leer() ?? new Datos();
-        if (d.checkpoints == null) d.checkpoints = new List<Checkpoint>();
+        if (soloLectura) return false;
+        d.version = Version;
         d.fecha = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm");
         d.escena = SceneManager.GetActiveScene().name;
         d.muestras = new List<string>(Progreso.Vistas);
@@ -94,9 +183,14 @@ public static class Partida
             d.hipotesis = rm.Hipotesis != null ? rm.Hipotesis.name : null;
         }
         var j = JugadorNanoLab.Instancia;
-        // Solo se guarda una posición con suelo del laboratorio debajo (si no, se aparecería cayendo al vacío).
-        if (j != null && j.Pies(out var pies, out var yaw) && JugadorNanoLab.PosicionValida(pies)) { d.hayPosicion = true; d.pies = pies; d.yaw = yaw; }
-        else if (j != null) d.hayPosicion = false;
+        if (j != null && j.Pies(out var pies, out var yaw))
+        {
+            // Sentado se guarda el punto por donde se levanta (al cargar se aparece de pie, junto a la silla).
+            if (JugadorNanoLab.Sentado(out var silla)) pies = new Vector3(silla.PuntoSalida.x, pies.y, silla.PuntoSalida.z);
+            // Solo se guarda una posición con suelo del laboratorio debajo (si no, se aparecería cayendo al vacío).
+            d.hayPosicion = JugadorNanoLab.PosicionValida(pies);
+            if (d.hayPosicion) { d.pies = pies; d.yaw = yaw; }
+        }
         if (!string.IsNullOrEmpty(checkpointDe))
         {
             d.checkpoints.RemoveAll(c => c.reto == checkpointDe);   // el del mismo reto se actualiza y pasa a ser el último
@@ -109,25 +203,48 @@ public static class Partida
         }
         try
         {
-            // Se escribe aparte y se reemplaza: si la app se cierra a mitad, la partida anterior sigue intacta.
-            string tmp = Ruta + ".tmp";
-            File.WriteAllText(tmp, JsonUtility.ToJson(d, true));
-            if (!File.Exists(Ruta)) File.Move(tmp, Ruta);
-            else
-            {
-                try { File.Replace(tmp, Ruta, null); }
-                catch (System.Exception) { File.Delete(Ruta); File.Move(tmp, Ruta); }   // sin File.Replace en la plataforma
-            }
+            Escribir(JsonUtility.ToJson(d, true));
+            cache = d;
+            leida = true;
+            DesdeRespaldo = false;
             UltimoGuardado = System.DateTime.Now;
+            UltimoFueManual = manual;
             return true;
         }
         catch (System.Exception e) { Debug.LogWarning("[Partida] No se pudo guardar: " + e.Message); return false; }
     }
 
+    // Se escribe aparte y se reemplaza: si la app se cierra a mitad, la partida anterior sigue intacta.
+    // La que había pasa a ser el respaldo (.bak).
+    static void Escribir(string json)
+    {
+        string tmp = RutaTemporal;
+        Directory.CreateDirectory(Path.GetDirectoryName(Ruta));
+        File.WriteAllText(tmp, json);
+        if (!File.Exists(Ruta)) { File.Move(tmp, Ruta); return; }
+        try { File.Replace(tmp, Ruta, RutaRespaldo); }
+        catch (System.Exception)
+        {
+            // Sin File.Replace en la plataforma: el respaldo se copia antes de cambiar el archivo.
+            File.Copy(Ruta, RutaRespaldo, true);
+            File.Delete(Ruta);
+            File.Move(tmp, Ruta);
+        }
+    }
+
+    // NUEVA PARTIDA: se borra todo, también el respaldo (si no, se cargaría al volver a abrir la app).
     public static void Borrar()
     {
         Suspendido = true;
-        try { if (Existe) File.Delete(Ruta); } catch (System.Exception e) { Debug.LogWarning("[Partida] No se pudo borrar: " + e.Message); }
+        foreach (var ruta in new[] { Ruta, RutaRespaldo, RutaTemporal })
+        {
+            try { if (File.Exists(ruta)) File.Delete(ruta); }
+            catch (System.Exception e) { Debug.LogWarning("[Partida] No se pudo borrar: " + e.Message); }
+        }
+        cache = null;
+        leida = true;
+        soloLectura = false;
+        DesdeRespaldo = false;
         UltimoGuardado = null;
         Progreso.Reiniciar();
         RecuerdosBaymax.Reiniciar();
@@ -178,7 +295,7 @@ public class GestorPartida : MonoBehaviour
             if (!restauradaEnSesion)
             {
                 restauradaEnSesion = true;
-                // Al abrir la app se vuelve a la sala donde se dejó (hoy solo existe Microbiología).
+                // Al abrir la app se vuelve a la sala donde se dejó (la app arranca en Microbiología).
                 if (!string.IsNullOrEmpty(d.escena) && d.escena != SceneManager.GetActiveScene().name && Application.CanStreamedLevelBeLoaded(d.escena))
                 {
                     posicionPendiente = d.hayPosicion;
@@ -208,7 +325,8 @@ public class GestorPartida : MonoBehaviour
                 if (cab != null)
                 {
                     var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-                    Aviso.Mostrar($"Partida cargada ({d.fecha}).\nMuestras: {d.muestras.Count} · Recuerdos: {d.recuerdos.Count}/{RecuerdosBaymax.Total}", cab.position + f * 1f, Aviso.Tipo.Ok, 4f);
+                    string origen = Partida.DesdeRespaldo ? "\n<size=80%>(desde la copia de respaldo: la última se había dañado)</size>" : "";
+                    Aviso.Mostrar($"Partida cargada ({d.fecha}).\nMuestras: {d.muestras.Count} · Recuerdos: {d.recuerdos.Count}/{RecuerdosBaymax.Total}{origen}", cab.position + f * 1f, Aviso.Tipo.Ok, 4f);
                 }
             }
         }

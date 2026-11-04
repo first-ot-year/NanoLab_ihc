@@ -1,4 +1,5 @@
 using System.Collections;
+using System.IO;
 using System.Linq;
 using System.Text;
 using UnityEngine;
@@ -154,7 +155,55 @@ public class DebugReto : MonoBehaviour
         Paso($"Pista en cierre: {pista}");
         yield return null;
         Momento?.Invoke("archivo");
+        yield return ProbarPartida(rm);
         Fin();
+    }
+
+    // Partida guardada: checkpoint del caso, respaldo ante un archivo dañado, versión nueva y NUEVA PARTIDA.
+    IEnumerator ProbarPartida(RetoManager rm)
+    {
+#if UNITY_EDITOR
+        // Solo con el archivo de prueba (NanoLab/Probar reto completo): con F9/F10 se borraría la partida real.
+        if (string.IsNullOrEmpty(UnityEditor.SessionState.GetString(Partida.ClaveRutaPrueba, ""))) { log.AppendLine("(partida: se prueba solo desde NanoLab/Probar reto completo)"); yield break; }
+        var cp = Partida.UltimoCheckpoint;
+        Comprobar(cp != null && cp.reto == rm.reto.codigo && cp.etapa == (int)EtapaReto.Cierre,
+                  $"Al cerrar el caso se guarda un checkpoint ({(cp != null ? $"{cp.reto}, etapa {(EtapaReto)cp.etapa}" : "ninguno")})");
+
+        bool guardada = Partida.GuardarManual();
+        Partida.Olvidar();
+        var d = Partida.Leer();
+        Comprobar(guardada && d != null && d.reto == rm.reto.codigo && d.etapa == (int)EtapaReto.Cierre && d.recuerdos.Count == RecuerdosBaymax.Cantidad,
+                  $"GUARDAR PARTIDA escribe el caso, la etapa, {d?.muestras.Count ?? 0} muestras y {d?.recuerdos.Count ?? 0} recuerdos");
+
+        Partida.Guardar();   // el anterior pasa al respaldo
+        File.WriteAllText(Partida.Ruta, "{\"version\": 2, \"fecha\": ");   // como si la app se cerrara a mitad de escribir
+        Partida.Olvidar();
+        d = Partida.Leer();
+        Comprobar(d != null && Partida.DesdeRespaldo && d.etapa == (int)EtapaReto.Cierre && File.Exists(Partida.RutaCorrupta) && !File.Exists(Partida.Ruta),
+                  "Con partida.json dañado se carga partida.json.bak y el dañado se aparta a partida.corrupta.json");
+        Comprobar(Partida.Guardar() && File.Exists(Partida.Ruta), "El siguiente guardado vuelve a crear partida.json");
+
+        rm.Reiniciar();
+        bool vuelto = GestorPartida.VolverAlCheckpoint(out var mensaje);
+        yield return null;
+        Comprobar(vuelto && rm.Actual == EtapaReto.Cierre, $"VOLVER AL CHECKPOINT tras reiniciar el caso: {mensaje} (etapa {rm.Actual})");
+
+        string antes = File.ReadAllText(Partida.Ruta);
+        File.WriteAllText(Partida.Ruta, antes.Replace($"\"version\": {Partida.Version}", "\"version\": 99"));
+        Partida.Olvidar();
+        string nueva = File.ReadAllText(Partida.Ruta);
+        Comprobar(Partida.Leer() != null && !Partida.Guardar() && File.ReadAllText(Partida.Ruta) == nueva,
+                  "Una partida de una versión más nueva de la app se carga, pero no se sobrescribe");
+        File.WriteAllText(Partida.Ruta, antes);
+        Partida.Olvidar();
+
+        Partida.Borrar();
+        Comprobar(!Partida.Existe && !Partida.Guardar() && RecuerdosBaymax.Cantidad == 0 && Progreso.Vistas.Count() == 0,
+                  "NUEVA PARTIDA borra la partida y el respaldo, y no se vuelve a guardar el estado viejo antes de recargar");
+        Partida.Suspendido = false;
+#else
+        yield break;
+#endif
     }
 
     IEnumerator Intento(RetoManager rm, int opcion, int agente, VialAgente[] viales, PrensaCapsulas prensa, CamaraExperimental camara, MicroscopioOptico micro, Portaobjetos porta)

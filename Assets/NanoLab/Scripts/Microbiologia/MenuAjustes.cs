@@ -75,7 +75,7 @@ public class MenuAjustes : MonoBehaviour
                 AjustesNanoLab.ModoSentado = true;
                 break;
             case "guardar":
-                bool ok = Partida.Guardar();
+                bool ok = Partida.GuardarManual();
                 if (partida != null) partida.text = ok ? "<color=#7CF29A><b>Partida guardada</b></color>" : "<color=#FF7A7A><b>No se pudo guardar</b></color>";
                 if (ok) Sonidos.Logro(panel.transform.position); else Sonidos.Error(panel.transform.position);
                 return;
@@ -106,12 +106,15 @@ public class MenuAjustes : MonoBehaviour
 
     string EstadoPartida()
     {
+        string estado;
         if (Partida.UltimoGuardado.HasValue)
         {
             int min = (int)(System.DateTime.Now - Partida.UltimoGuardado.Value).TotalMinutes;
-            return $"Autoguardado: {(min < 1 ? "hace un momento" : $"hace {min} min")}";
+            estado = $"{(Partida.UltimoFueManual ? "Guardada" : "Autoguardado")}: {(min < 1 ? "hace un momento" : $"hace {min} min")}";
         }
-        return Partida.Existe ? "Hay una partida guardada" : "Se guarda sola al avanzar";
+        else estado = Partida.Existe ? "Hay una partida guardada" : "Se guarda sola al avanzar";
+        var c = Partida.UltimoCheckpoint;
+        return c != null ? $"{estado}  ·  Checkpoint: {c.reto} ({c.fecha})" : estado;
     }
 
     void Refrescar()
