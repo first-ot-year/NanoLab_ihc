@@ -41,7 +41,7 @@ Gran parte del objeto de estudio de la microbiología no puede observarse a simp
 
 El estudiante **es Baymax** (versión infantil): ha perdido sus recuerdos científicos y los recupera a medida que investiga muestras en el laboratorio. Baymax no es un guía externo: es el avatar del jugador (manos en primera persona, cuerpo completo en los espejos). Las pistas y el feedback orientan, pero **no resuelven los retos**.
 
-El reto MVP (10–15 minutos) sigue el ciclo:
+El reto (10–15 minutos) es **CASO 01 · Crea la vacuna**, el único del Centro de Experimentación, y sigue el ciclo:
 
 ```text
 EXPLORAR → OBSERVAR → INVESTIGAR → HIPÓTESIS → PREPARAR → EXPERIMENTAR → ANALIZAR → APRENDER
@@ -55,6 +55,8 @@ EXPLORAR → OBSERVAR → INVESTIGAR → HIPÓTESIS → PREPARAR → EXPERIMENTA
 6. **Verificación:** vuelve al microscopio y compara el estado inicial con el posterior.
 7. **Recuerdo recuperado:** si la interpretación es correcta, Baymax recupera un recuerdo científico (indicador 0/3); si falla, recibe una pista y puede reintentar sin penalización.
 8. **Cierre:** resumen de lo observado, las decisiones tomadas y lo aprendido.
+
+**CASO 01 · Crea la vacuna** (*Laboratorio de vacunas*, en el centro de la sala; es el **único reto**: el anterior de bacterias queda oculto al empezar, sin borrarse de la escena): el estudiante fabrica con sus manos una vacuna de ARNm contra el SARS-CoV-2 en 9 pasos, en un mostrador con 4 mesas (antígeno → diseño del ARNm con bloques → síntesis con pipeta y termobloque → nanopartículas lipídicas en el mezclador → control de calidad y cadena de frío → ensayo de neutralización en la placa → título → fases clínicas → eficacia), con un tablero-guía de cómo se crea una vacuna de ARNm y otro de conceptos clave. Detalle completo en [Docs/Reto_Vacuna.md](Docs/Reto_Vacuna.md).
 
 ## Audiencia y persona
 
@@ -182,7 +184,8 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 | `NanoLab/Aplicar: sin Química + puertas del centro + checkpoint` | Sobre la escena guardada y sin hornear: quita el portal a Química y su baliza, pone la puerta corredera automática del Centro y la compuerta de la cámara experimental, deja la ventana «Eres Baymax» como cristal transparente (se avanza con X) y rehace el panel ☰ con el botón del checkpoint |
 | `NanoLab/Reconstruir solo el centro de experimentación` | Regenera únicamente el Centro de Experimentación |
 | `NanoLab/Montar cámara de descontaminación (BSL-3)` | Cambia la cabina de la puerta del BSL-3 por una esclusa con dos puertas correderas y ciclo de descontaminación (niebla, luz UV-C, extracción), sin volver a hornear la luz |
-| `NanoLab/Probar reto completo (play mode)` | Ejecuta el Caso 01 de extremo a extremo sin visor |
+| `NanoLab/Probar reto completo (play mode)` | Prueba del reto anterior de bacterias (hoy oculto: ya no aplica mientras `MontajeVacuna.OcultarRetoAnterior` esté activo) |
+| `NanoLab/Probar reto de vacuna (play mode)` | Ejecuta el Caso 01 (crea la vacuna) de extremo a extremo sin visor, con las mismas acciones del estudiante y un error típico por paso: informe en `Logs/prueba_vacuna.txt` y capturas `Logs/Capturas/vacuna_*.png`. No recarga la escena si ya está abierta |
 | `NanoLab/Configurar interacción Meta (…)` | Configura los componentes del Meta Interaction SDK en las salas |
 | `NanoLab/Avatar Baymax/…` | Convierte e instala el modelo de Baymax |
 | `NanoLab/Montar introducción Baymax` | Monta la ventana de introducción paso a paso (`VentanaIntro`), la insignia de recuerdos y las balizas, y ordena las escenas de build |
@@ -193,10 +196,10 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 
 ### Probar sin visor
 
-En Play Mode, el componente `DebugReto` permite recorrer el Caso 01 desde el teclado:
+En Play Mode, desde el teclado:
 
-- **F9:** recorrido con acierto directo.
-- **F10:** recorrido que falla primero (prueba pista y reintento).
+- **F9 / F10:** recorridos del reto anterior de bacterias (oculto: no aplican).
+- **F7 / F6 (Caso 01, vacuna):** resuelve el paso actual / comete el error típico del paso.
 
 ### Compilar para Meta Quest
 
@@ -219,9 +222,11 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `VialAgente` / `PrensaCapsulas` / `Capsula` | Preparación de la intervención (RF-06) |
 | `CamaraExperimental` | Activación de la prueba con feedback multicanal (RF-07); compuerta de guillotina que se abre para que pase la bandeja y sella la cámara durante la incubación |
 | `PanelResumen` | Informe final, conocimiento recuperado y repetición del caso |
+| `RetoVacuna` / `ContenidoVacuna` / `MontajeVacuna` / `InteraccionVacuna` / `DiagramasVacuna` / `VisualesVacuna` / `KitVacuna` | CASO 01 · *Laboratorio de vacunas*, único reto: al empezar oculta el reto anterior de bacterias (`OcultarRetoAnterior`) y se monta en el centro de la sala (sin hornear); mostrador con 4 mesas y piezas agarrables creadas por código (Meta Interaction SDK inyectado en tiempo de ejecución), pipeta, termobloque, mezclador, analizador y almacenes; lógica de los 9 pasos, textos educativos y diagramas ([Docs/Reto_Vacuna.md](Docs/Reto_Vacuna.md)) |
 | `Partida` / `GestorPartida` | Partida guardada en el visor (autoguardado) y **checkpoint** al terminar cada reto: el botón VOLVER AL CHECKPOINT del panel ☰ restaura ese avance y lleva al jugador a ese punto |
 | `GuiaReto` | Guía del reto en el Centro: tarjeta de objetivo (caso, paso n de 9, qué hacer y a qué estación ir) que aparece al entrar, en cada paso y al llegar, y con **Y**; flechas en el suelo que fluyen hasta la estación y un anillo con su número y nombre. Sustituye al panel de la mano (`ObjetivoMuneca`) y a la baliza |
-| `Compartimento` | Cajones, vitrinas y tapas: se abren con el rayo (gatillo o A/X) y los cajones también se **jalan con la mano** (grip junto al frente): siguen a la mano y se quedan donde se sueltan || `PuertaAutomatica` / `PuertaCorrediza` | Puerta corredera de dos hojas en la entrada del Centro de Experimentación: se abre al acercarse (o al llegar con un objeto en la mano) y se esconde en el muro; franja verde encima cuando está abierta |
+| `Compartimento` | Cajones, vitrinas y tapas: se abren con el rayo (gatillo o A/X) y los cajones también se **jalan con la mano** (grip junto al frente): siguen a la mano y se quedan donde se sueltan |
+| `PuertaAutomatica` / `PuertaCorrediza` | Puerta corredera de dos hojas en la entrada del Centro de Experimentación: se abre al acercarse (o al llegar con un objeto en la mano) y se esconde en el muro; franja verde encima cuando está abierta |
 | `AdaptadorEscena` | Al empezar (lo añade `JugadorNanoLab`): quita la cristalería de química y el portal (pone placas de Petri en los huecos), monta la puerta del Centro y la compuerta de la cámara si la escena guardada no las tiene, y deja los tableros en cristal claro con el texto contorneado; convierte en interactivos los cajones de todas las mesas que el montaje no convirtió |
 | `CabinaDescontaminacion` | Esclusa con dos puertas de vidrio (la exterior se crea al empezar si falta): nunca abiertas a la vez; al quedarte dentro se cierran las dos y hay una desinfección completa de 11 s en 4 fases (ducha de aire, nebulización, UV-C, extracción) con una pantalla fija en cada pared lateral (fase, explicación, barra, % y segundos); al terminar se abre la otra puerta. Igual al salir de la BSL-3 |
 | `AvisoInicio` | Aviso cuadrado delante de la vista: al iniciar la partida (aviso de casco + tutorial corto de 6 tarjetas) y cada vez que se pone el visor; se avanza con X. Sustituye a la ventana grande de introducción y al tótem del tutorial (`VentanaIntro` queda solo como insignia que reabre el tutorial) |

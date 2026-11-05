@@ -41,6 +41,31 @@ public class AdaptadorEscena : MonoBehaviour
         Debug.Log($"[NanoLab] Escena adaptada: {q} objetos de química quitados, {t} tableros de cristal.");
     }
 
+    // 5) Centro de Experimentación: oculta el reto anterior de bacterias y monta el único reto, el LABORATORIO DE
+    //    VACUNAS (CASO 01 · Crea la vacuna). En Start, cuando el RetoManager ya existe; si algo falla, el resto del
+    //    laboratorio sigue funcionando.
+    void Start()
+    {
+        try { MontajeVacuna.Asegurar(); }
+        catch (System.Exception e) { Debug.LogException(e); }
+        int t = TextosAlFrente();
+        if (t > 0) Debug.Log($"[NanoLab] Textos puestos por delante de sus paneles: {t}.");
+    }
+
+    // 6) Los paneles de los tableros son transparentes (RoundedBoxUnlit / cristal, sin ZWrite) igual que el texto
+    //    TextMeshPro: Unity los ordena por la distancia a la cámara y, según desde dónde se mire, dibujaba el panel
+    //    ENCIMA del texto (letras tenues o que desaparecen al alejarse). Con un sortingOrder mayor, el texto se
+    //    dibuja siempre después de su panel. (AvisoInicio y GuiaReto ya lo hacían así.)
+    public const int OrdenTexto = 5;
+
+    public static int TextosAlFrente()
+    {
+        int n = 0;
+        foreach (var t in FindObjectsOfType<TextMeshPro>(true))
+            if (t.sortingOrder < OrdenTexto) { t.sortingOrder = OrdenTexto; n++; }
+        return n;
+    }
+
     // ------------------------------------------------------------------ materiales de la escena
 
     void IndexarMateriales()

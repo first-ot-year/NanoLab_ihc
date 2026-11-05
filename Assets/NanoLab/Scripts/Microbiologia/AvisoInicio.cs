@@ -20,10 +20,10 @@ public class AvisoInicio : MonoBehaviour
     static readonly Tarjeta[] Tutorial =
     {
         new Tarjeta { titulo = "ERES BAYMAX", texto = "Un pequeño robot asistente de salud. Sus manos son tus manos: míralo en el <b>espejo</b> de la entrada." },
-        new Tarjeta { titulo = "TU MISIÓN", texto = "Baymax perdió sus <b>recuerdos científicos</b>. Investiga muestras como un microbiólogo: cada caso resuelto te devuelve uno." },
+        new Tarjeta { titulo = "TU MISIÓN", texto = "Baymax perdió sus <b>recuerdos científicos</b>. Explora el laboratorio y <b>crea una vacuna</b> para recuperar tu recuerdo." },
         new Tarjeta { titulo = "MOVERTE", texto = "<b>Joystick izquierdo:</b> caminar\n<b>Joystick derecho:</b> girar\n<b>Grip o gatillo:</b> agarrar objetos" },
         new Tarjeta { titulo = "EL MICROSCOPIO", texto = "1. Coge un <b>portaobjetos</b>\n2. Toca una muestra\n3. Déjalo en la <b>platina</b>\n4. Acerca la cara al ocular" },
-        new Tarjeta { titulo = "¿DÓNDE EMPIEZO?", texto = "Ve al <b>Centro de Experimentación</b> (puerta de la derecha) y elige el <b>CASO 01</b>." },
+        new Tarjeta { titulo = "¿DÓNDE EMPIEZO?", texto = "Ve al <b>Centro de Experimentación</b> (puerta de la derecha): en el centro está el <b>LABORATORIO DE VACUNAS</b> (CASO 01)." },
         new Tarjeta { titulo = "MENÚ Y CHECKPOINT", texto = "<b>Botón menú</b> (mando izq.): volumen, modo sentado y volver al checkpoint.\n<size=80%>Contenido educativo simplificado.</size>" },
     };
 
