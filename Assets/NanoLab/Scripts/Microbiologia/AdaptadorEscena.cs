@@ -9,7 +9,9 @@ using UnityEngine;
 //     NanoLab VR es de microbiología. En los huecos de los cajones y vitrinas pone placas de Petri estériles;
 //  2) si la entrada del Centro de Experimentación no tiene puerta, monta la corredera automática de dos hojas;
 //  3) si la cámara experimental no tiene compuerta, monta la de guillotina;
-//  4) tableros y carteles: fondo de cristal claro (no paneles negros) con el texto contorneado para leerse.
+//  4) tableros y carteles: fondo azul con borde fino (3 mm) y el texto contorneado para leerse; los tableros
+//     informativos sueltos de la sala principal (los celestes) se quitan y solo quedan los de los equipos;
+//  0) la letra de todos los textos 3D pasa a Nunito SemiBold (EstiloNanoLab).
 public class AdaptadorEscena : MonoBehaviour
 {
     static readonly string[] Quimica =
@@ -29,13 +31,17 @@ public class AdaptadorEscena : MonoBehaviour
     public static readonly Color BordePanel = new Color(0.4f, 0.88f, 1f, 1f);
 
     readonly Dictionary<string, Material> materiales = new Dictionary<string, Material>();
+    readonly List<Transform> fondosTableros = new List<Transform>();
+
     void Awake()
     {
+        EstiloNanoLab.AplicarATodos();   // antes de Tableros: el contorno se hace sobre el material de Nunito
         IndexarMateriales();
         int q = QuitarQuimica();
         PuertaCentro();
         foreach (var cam in FindObjectsOfType<CamaraExperimental>(true)) if (cam.compuerta == null) Compuerta(cam);
         int t = Tableros();
+        QuitarTablerosSala();
         int c = Cajones();
         if (c > 0) Debug.Log($"[NanoLab] Cajones que se pueden abrir y jalar añadidos: {c}.");
         Debug.Log($"[NanoLab] Escena adaptada: {q} objetos de química quitados, {t} tableros de cristal.");
@@ -48,6 +54,7 @@ public class AdaptadorEscena : MonoBehaviour
     {
         try { MontajeVacuna.Asegurar(); }
         catch (System.Exception e) { Debug.LogException(e); }
+        EstiloNanoLab.AplicarATodos();   // textos creados después de Awake (estación, avisos…)
         int t = TextosAlFrente();
         if (t > 0) Debug.Log($"[NanoLab] Textos puestos por delante de sus paneles: {t}.");
     }
@@ -372,16 +379,19 @@ public class AdaptadorEscena : MonoBehaviour
     int Tableros()
     {
         int n = 0;
-        var fondos = new List<Transform>();
+        var fondos = fondosTableros;
+        fondos.Clear();
         foreach (var p in FindObjectsOfType<PanelRedondeado>(true))
         {
+            // Bordes finos y simétricos en todos los paneles de la escena.
+            if (p.borde > 0.003f) { p.borde = 0.003f; p.Aplicar(); }
             var c = p.color;
             bool oscuro = Mathf.Max(c.r, Mathf.Max(c.g, c.b)) < 0.2f && c.a > 0.5f;
             bool pequeno = p.ancho * p.alto < 0.01f;   // ojos de Baymax, separadores, puntos…
             if (!oscuro || pequeno || EsBoton(p.transform)) continue;
             p.color = ColorPanel;
             p.colorBorde = BordePanel;
-            p.borde = Mathf.Max(p.borde, 0.006f);
+            p.borde = 0.003f;
             p.Aplicar();
             fondos.Add(p.transform.parent != null ? p.transform.parent : p.transform);
             n++;
@@ -401,6 +411,96 @@ public class AdaptadorEscena : MonoBehaviour
         foreach (var f in fondos)
             foreach (var t in f.GetComponentsInChildren<TMP_Text>(true))
                 if (hechos.Add(t)) Contorno(t);
+        return n;
+    }
+
+    // 7) Sala principal: sin los tableros informativos celestes. Solo se ocultan los tableros SUELTOS (rótulos,
+    //    tótems de texto); los paneles que forman parte de un equipo (autoclave, portal, incubadora,
+    //    ultracongelador…) o de una estación con función se mantienen. De la Bienvenida se quitan los tótems
+    //    (Introducción, Tutorial, Progreso) salvo la ventana de introducción, y de AreasLaboratorio sus rótulos.
+    static readonly System.Type[] ConFuncion =
+    {
+        typeof(EstacionFicha), typeof(EstacionAnalisis3D), typeof(MicroscopioOptico), typeof(CabinaDescontaminacion),
+        typeof(VisorVirus), typeof(MenuAjustes), typeof(VentanaIntro),
+    };
+
+    void QuitarTablerosSala()
+    {
+        var quitados = new List<string>();
+        var mantenidos = new List<string>();
+        var hechos = new HashSet<Transform>();
+        var rig = FindObjectOfType<OVRCameraRig>(true);
+        foreach (var f in fondosTableros)
+        {
+            if (f == null || !hechos.Add(f)) continue;
+            if (Ancestro(f, "CentroExperimentacion") != null || (rig != null && f.IsChildOf(rig.transform))) continue;
+
+            var bienvenida = Ancestro(f, "Bienvenida");
+            if (bienvenida != null && bienvenida != f)
+            {
+                var hijo = f;
+                while (hijo.parent != bienvenida) hijo = hijo.parent;
+                if (hijo.GetComponentInChildren<VentanaIntro>(true) != null) continue;
+                var quitar = hijo.name == "AreasLaboratorio" ? f : hijo;   // de las áreas, solo cada rótulo
+                hechos.Add(quitar);
+                Ocultar(quitar, quitados);
+                continue;
+            }
+
+            // Tótem (panel con poste y pie): se oculta entero; si no, el tablero solo.
+            var objetivo = f.parent != null && f.parent.Find("Pie") != null ? f.parent : f;
+            if (Piezas(objetivo) == 0 && !TieneFuncion(objetivo) && !TieneFuncionArriba(objetivo))
+            {
+                hechos.Add(objetivo);
+                Ocultar(objetivo, quitados);
+            }
+            else mantenidos.Add(Ruta(objetivo));
+        }
+        Debug.Log($"[NanoLab] Quitados de la sala principal ({quitados.Count}): {string.Join(", ", quitados)}");
+        Debug.Log($"[NanoLab] Paneles de equipos que se mantienen ({mantenidos.Count}): {string.Join(", ", mantenidos)}");
+    }
+
+    static void Ocultar(Transform t, List<string> registro)
+    {
+        if (!t.gameObject.activeSelf) return;
+        t.gameObject.SetActive(false);
+        registro.Add(Ruta(t));
+    }
+
+    static string Ruta(Transform t) => t.parent != null ? t.parent.name + "/" + t.name : t.name;
+
+    static Transform Ancestro(Transform t, string nombre)
+    {
+        for (var x = t; x != null; x = x.parent) if (x.name == nombre) return x;
+        return null;
+    }
+
+    static bool TieneFuncion(Transform t)
+    {
+        foreach (var tipo in ConFuncion) if (t.GetComponentInChildren(tipo, true) != null) return true;
+        return false;
+    }
+
+    static bool TieneFuncionArriba(Transform t)
+    {
+        for (var x = t.parent; x != null; x = x.parent)
+            foreach (var tipo in ConFuncion) if (x.GetComponent(tipo) != null) return true;
+        return false;
+    }
+
+    // Piezas de un equipo debajo del tablero: mallas que no son el panel, su texto, el poste o el pie.
+    static int Piezas(Transform t)
+    {
+        int n = 0;
+        foreach (var r in t.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            if (r.GetComponent<PanelRedondeado>() != null || r.GetComponent<TMP_Text>() != null) continue;
+            string nombre = r.name;
+            if (nombre == "Pie" || nombre == "Poste" || nombre.StartsWith("Borde") || nombre.StartsWith("Circulo")) continue;
+            var m = r.sharedMaterial;
+            if (m != null && (m.name.StartsWith("PanelHUD") || m.name.StartsWith("TableroAzul"))) continue;
+            n++;
+        }
         return n;
     }
 

@@ -4,8 +4,10 @@ using UnityEngine;
 // Aviso cuadrado delante de la vista que sustituye a las pancartas del inicio (la ventana grande de
 // introducción y el tótem del tutorial). Cada vez que empieza la partida muestra un tutorial corto de
 // tarjetas (quién eres, la misión, cómo moverte, el microscopio, dónde empezar y el menú), y cada vez que
-// el usuario se pone el visor aparece un aviso de "casco listo". Todo se avanza con el botón X del mando
-// izquierdo (en el Editor sin visor, la tecla X). Lo añade JugadorNanoLab; se construye por código.
+// el usuario se pone el visor aparece un aviso de "casco listo". Interacción clara (IHC): cada botón dice lo
+// que pasa al pulsarlo ("Ya lo veo bien ›", "Siguiente ›", "Empezar a jugar") y hay "‹ Atrás" para volver
+// (control y libertad del usuario). Son botones poke de Meta (dedo, mando o rayo); atajos: X/A = siguiente,
+// Y/B = atrás, y la tecla X en el Editor. Lo añade JugadorNanoLab; se construye por código.
 public class AvisoInicio : MonoBehaviour
 {
     public static AvisoInicio Instancia { get; private set; }
@@ -14,7 +16,7 @@ public class AvisoInicio : MonoBehaviour
 
     static readonly Tarjeta[] Bienvenida =
     {
-        new Tarjeta { titulo = "BIENVENIDO A NANOLAB VR", texto = "Ajusta el casco hasta que este texto se vea nítido.\nPonte cómodo: puedes jugar de pie o sentado." },
+        new Tarjeta { titulo = "BIENVENIDO A NANOLAB VR", texto = "Ajusta el casco hasta que este texto se vea nítido.\nPuedes jugar de pie o sentado.\n<size=80%><color=#1E9ED9>Toca el botón con el dedo (o apúntalo y aprieta el gatillo).</color></size>" },
     };
 
     static readonly Tarjeta[] Tutorial =
@@ -39,7 +41,9 @@ public class AvisoInicio : MonoBehaviour
     static readonly Color Acento = new Color(0.12f, 0.62f, 0.85f);
 
     GameObject raiz;
-    TextMeshPro titulo, texto, contador, boton;
+    TextMeshPro titulo, texto, contador, boton, botonAtras;
+    GameObject goSiguiente, goAtras;
+    const float AnchoSiguiente = 0.17f, AnchoAtras = 0.09f;
     PanelRedondeado[] puntos;
     Tarjeta[] actuales;
     int indice;
@@ -102,8 +106,15 @@ public class AvisoInicio : MonoBehaviour
         bool tut = actuales == Tutorial;
         int n = tut ? Tutorial.Length : 0;
         contador.text = tut ? $"{i + 1} / {n}" : "";
+        // La etiqueta dice lo que pasa al pulsar (no un "Continuar" genérico, que suena a cerrar).
         bool ultimaTarjeta = i == actuales.Length - 1 && !(actuales == Bienvenida && conTutorial);
-        boton.text = $"<b>X</b>   {(ultimaTarjeta ? "Empezar" : "Continuar")}";
+        if (actuales == Bienvenida) boton.text = conTutorial ? "Ya lo veo bien  ›" : "Ya lo veo bien";
+        else boton.text = ultimaTarjeta ? "Empezar a jugar" : "Siguiente  ›";
+        // "‹ Atrás" solo cuando hay una tarjeta anterior del tutorial; entonces el botón principal se aparta a la derecha.
+        bool atras = tut && i > 0;
+        goAtras.SetActive(atras);
+        float y = goSiguiente.transform.localPosition.y;
+        goSiguiente.transform.localPosition = new Vector3(atras ? 0.05f : 0f, y, goSiguiente.transform.localPosition.z);
         for (int k = 0; k < puntos.Length; k++)
         {
             puntos[k].gameObject.SetActive(tut);
@@ -113,7 +124,15 @@ public class AvisoInicio : MonoBehaviour
         Sonidos.Clic(raiz.transform.position);
     }
 
-    void Continuar()
+    void Atras()
+    {
+        if (Time.unscaledTime - ultimo < 0.3f || Time.unscaledTime - mostradoEn < 0.25f) return;
+        if (actuales != Tutorial || indice == 0) return;
+        ultimo = Time.unscaledTime;
+        Ir(indice - 1);
+    }
+
+    void Siguiente()
     {
         if (Time.unscaledTime - ultimo < 0.3f || Time.unscaledTime - mostradoEn < 0.25f) return;
         ultimo = Time.unscaledTime;
@@ -126,7 +145,9 @@ public class AvisoInicio : MonoBehaviour
     void Update()
     {
         if (!Abierto) return;
-        if (OVRInput.GetDown(OVRInput.Button.Three) || XEnTeclado()) Continuar();
+        // Atajos: X (mando izq.) o A (mando der.), y la tecla X en el Editor.
+        if (OVRInput.GetDown(OVRInput.Button.Three) || OVRInput.GetDown(OVRInput.Button.One) || XEnTeclado()) Siguiente();
+        else if (OVRInput.GetDown(OVRInput.Button.Four) || OVRInput.GetDown(OVRInput.Button.Two)) Atras();
     }
 
     void LateUpdate()
@@ -161,8 +182,9 @@ public class AvisoInicio : MonoBehaviour
         var ejemplo = FindObjectOfType<PanelRedondeado>(true);
         if (ejemplo != null) mat = ejemplo.GetComponent<MeshRenderer>().sharedMaterial;
         if (mat == null) { var sh = Shader.Find("Interaction/RoundedBoxUnlit"); if (sh != null) mat = new Material(sh); }
-        TMP_FontAsset fuente = null;
-        foreach (var tx in FindObjectsOfType<TextMeshPro>(true)) if (tx.font != null) { fuente = tx.font; break; }
+        TMP_FontAsset fuente = EstiloNanoLab.Fuente;   // Nunito; respaldo: la letra de la escena
+        if (fuente == null)
+            foreach (var tx in FindObjectsOfType<TextMeshPro>(true)) if (tx.font != null) { fuente = tx.font; break; }
 
         float h = Lado / 2f;
         Quad("Fondo", new Vector3(0f, 0f, 0f), Lado, Lado, 0.03f, Fondo, new Color(0.55f, 0.85f, 1f, 1f), 0.004f, mat, 0);
@@ -175,17 +197,87 @@ public class AvisoInicio : MonoBehaviour
         Quad("Linea", new Vector3(0f, h - 0.058f, -0.002f), 0.03f, 0.002f, 0f, Tinta, Color.clear, 0f, mat, 2);
 
         titulo = Texto("Titulo", new Vector3(0f, h - 0.11f, -0.003f), 0.26f, true, Acento, fuente, 0.03f);
+        // Una sola línea que se encoge si no cabe (con Nunito el título largo se montaba sobre el texto).
+        titulo.enableWordWrapping = false;
+        titulo.enableAutoSizing = true;
+        titulo.fontSizeMin = 0.14f;
+        titulo.fontSizeMax = 0.26f;
         texto = Texto("Texto", new Vector3(0f, -0.005f, -0.003f), 0.19f, false, Tinta, fuente, 0.15f);
         texto.alignment = TextAlignmentOptions.Center;
 
-        var b = Quad("Boton", new Vector3(0f, -h + 0.05f, -0.001f), 0.17f, 0.042f, 0.021f, Tinta, Color.clear, 0f, mat, 1);
-        boton = Texto("TextoBoton", b.transform.localPosition + new Vector3(0f, 0f, -0.002f), 0.2f, false, Color.white, fuente, 0.04f);
-        contador = Texto("Contador", new Vector3(h - 0.045f, -h + 0.05f, -0.003f), 0.14f, false, new Color(0.4f, 0.5f, 0.6f), fuente, 0.03f);
+        // Botón principal (oscuro, lleno) y botón secundario "‹ Atrás" (claro): se distinguen a simple vista.
+        goSiguiente = BotonPoke("BotonSiguiente", new Vector3(0f, -h + 0.05f, -0.001f), AnchoSiguiente, Tinta, Acento, Color.white, mat, fuente, out boton, Siguiente);
+        goAtras = BotonPoke("BotonAtras", new Vector3(-0.105f, -h + 0.05f, -0.001f), AnchoAtras, new Color(0.82f, 0.89f, 0.95f), new Color(0.7f, 0.85f, 0.97f), Tinta, mat, fuente, out botonAtras, Atras);
+        botonAtras.text = "‹  Atrás";
+        goAtras.SetActive(false);
+        // Progreso arriba a la derecha (no compite con los botones).
+        contador = Texto("Contador", new Vector3(h - 0.04f, h - 0.03f, -0.003f), 0.14f, false, new Color(0.4f, 0.5f, 0.6f), fuente, 0.03f);
         contador.rectTransform.sizeDelta = new Vector2(0.06f, 0.03f);
 
         puntos = new PanelRedondeado[Tutorial.Length];
         for (int i = 0; i < puntos.Length; i++)
             puntos[i] = Quad("Punto" + i, new Vector3((i - (puntos.Length - 1) / 2f) * 0.018f, -h + 0.016f, -0.001f), 0.009f, 0.009f, 0.0045f, Acento, Color.clear, 0f, mat, 1);
+    }
+
+    // Botón poke oficial del Interaction SDK de Meta (copiado de un botón de la escena): se hunde con el dedo o el
+    // mando y también responde al rayo. La etiqueta va pegada a la cara para hundirse con ella.
+    GameObject BotonPoke(string nombre, Vector3 pos, float ancho, Color reposo, Color encima, Color tinta, Material mat, TMP_FontAsset fuente,
+                         out TextMeshPro boton, System.Action alPulsar)
+    {
+        var go = new GameObject(nombre);
+        go.transform.SetParent(raiz.transform, false);
+        go.transform.localPosition = pos;
+        // El bloque poke se pulsa hacia su +z: hacia dentro del aviso (que se lee desde -z).
+        var p = EstiloNanoLab.CrearPoke(go.transform, Vector3.zero, Quaternion.identity, new Vector3(ancho, 0.046f, 0.046f), reposo, encima);
+        Transform cara = EstiloNanoLab.CaraPoke(p);
+        if (p == null)
+        {
+            // Respaldo sin poke en la escena: la píldora dibujada (se pulsa con el rayo o el atajo).
+            var q = Quad("Boton", pos, ancho, 0.042f, 0.021f, reposo, Color.clear, 0f, mat, 1);
+            q.transform.SetParent(go.transform, true);
+        }
+        boton = Texto("TextoBoton", pos + new Vector3(0f, 0f, -0.002f), 0.2f, true, tinta, fuente, 0.04f);
+        // La etiqueta cabe siempre en su botón (se encoge si el texto es largo).
+        boton.rectTransform.sizeDelta = new Vector2(ancho - 0.02f, 0.04f);
+        boton.enableWordWrapping = false;
+        boton.enableAutoSizing = true;
+        boton.fontSizeMax = 0.2f;
+        boton.fontSizeMin = 0.11f;
+        if (p != null)
+        {
+            foreach (var rr in p.GetComponentsInChildren<Renderer>(true))
+                rr.sortingOrder = Mathf.Max(rr.sortingOrder, 2);   // por delante del fondo del aviso
+            // Etiqueta justo delante de la cara del poke (su lado -z), para que no la atraviese.
+            float z = -0.004f;
+            if (cara != null)
+            {
+                var b = new Bounds();
+                bool hay = false;
+                foreach (var rr in cara.GetComponentsInChildren<Renderer>(true)) { if (!hay) { b = rr.bounds; hay = true; } else b.Encapsulate(rr.bounds); }
+                if (hay)
+                {
+                    // Punto de los bounds más cercano al usuario, en el marco del botón.
+                    var hacia = go.transform.TransformPoint(new Vector3(0f, 0f, -1f));
+                    z = go.transform.InverseTransformPoint(b.ClosestPoint(hacia)).z - 0.0015f;
+                }
+            }
+            boton.transform.SetParent(go.transform, false);
+            boton.transform.localPosition = new Vector3(0f, 0f, z);
+            if (cara != null) boton.transform.SetParent(cara, true);
+        }
+        boton.sortingOrder = Mathf.Max(boton.sortingOrder, 3);
+
+        go.SetActive(false);   // BotonFisico.Awake debe encontrar ya el poke y la etiqueta
+        var bc = go.AddComponent<BoxCollider>();
+        bc.isTrigger = true;   // para el rayo
+        bc.size = new Vector3(ancho, 0.046f, 0.03f);
+        var bf = go.AddComponent<BotonFisico>();
+        bf.etiqueta = boton;
+        bf.colorReposo = reposo;
+        bf.radio = 0.05f;
+        bf.Pulsado += alPulsar;
+        go.SetActive(true);
+        return go;
     }
 
     PanelRedondeado Quad(string n, Vector3 pos, float ancho, float alto, float radio, Color c, Color borde, float grosor, Material mat, int orden)

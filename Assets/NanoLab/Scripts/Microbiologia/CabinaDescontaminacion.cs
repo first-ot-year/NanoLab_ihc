@@ -395,8 +395,9 @@ public class CabinaDescontaminacion : MonoBehaviour
                 var sh = Shader.Find("Interaction/RoundedBoxUnlit");
                 if (sh != null) mat = new Material(sh);
             }
-            TMP_FontAsset fuente = null;
-            foreach (var tx in FindObjectsOfType<TextMeshPro>(true)) if (tx.font != null) { fuente = tx.font; break; }
+            TMP_FontAsset fuente = EstiloNanoLab.Fuente;   // Nunito; respaldo: la letra de la escena
+            if (fuente == null)
+                foreach (var tx in FindObjectsOfType<TextMeshPro>(true)) if (tx.font != null) { fuente = tx.font; break; }
 
             Quad("Fondo", Vector3.zero, W, H, 0.025f, AdaptadorEscena.ColorPanel, AdaptadorEscena.BordePanel, 0.003f, mat);
             Quad("Barra", new Vector3(0f, -0.075f, -0.002f), AnchoBarra, 0.026f, 0.013f, new Color(1f, 1f, 1f, 0.18f), Color.clear, 0f, mat);

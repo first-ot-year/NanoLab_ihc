@@ -32,6 +32,9 @@ public class BotonFisico : Apuntable
 
     PokeInteractable poke;
     InteractableColorVisual colorTapa;
+    Transform bloquePoke;                // bloque poke entero: se hunde al pulsar con el rayo (con el dedo ya lo hunde el SDK)
+    Vector3 bloquePos;
+    float hundido;
     bool seleccionado, encima, tapaVerde;
     float ultimo = -1f, hastaRayo, destello, verde;
     Vector3 tapaPos, escalaEtiqueta, escalaHalo;
@@ -43,6 +46,13 @@ public class BotonFisico : Apuntable
     {
         poke = GetComponentInChildren<PokeInteractable>(true);
         colorTapa = GetComponentInChildren<InteractableColorVisual>(true);
+        if (poke != null)
+        {
+            bloquePoke = poke.transform;
+            while (bloquePoke.parent != null && bloquePoke.parent != transform) bloquePoke = bloquePoke.parent;
+            if (bloquePoke.parent != transform) bloquePoke = null;
+            else bloquePos = bloquePoke.localPosition;
+        }
         if (tapa != null) tapaPos = tapa.localPosition;
         if (halo != null) { escalaHalo = halo.transform.localScale; halo.enabled = false; }
         if (etiqueta != null) escalaEtiqueta = etiqueta.transform.localScale;
@@ -119,6 +129,7 @@ public class BotonFisico : Apuntable
     void Update()
     {
         if (poke == null) Respaldo();
+        else Hundir();
 
         // Tapa verde ~1 s tras pulsar (o mientras la función esté activa) y halo que se expande y se apaga.
         verde = Mathf.MoveTowards(verde, 0f, Time.deltaTime / 1.1f);
@@ -144,6 +155,16 @@ public class BotonFisico : Apuntable
             etiqueta.color = Color.Lerp(etiqueta.color, c, Time.deltaTime * 15f);
             etiqueta.transform.localScale = escalaEtiqueta * (1f + 0.18f * destello);
         }
+    }
+
+    // Pulsado con el rayo (o el gatillo / A/X): el bloque poke baja 6 mm hacia dentro y vuelve, como un botón real.
+    void Hundir()
+    {
+        if (bloquePoke == null) return;
+        float objetivo = Time.time < hastaRayo - 0.2f ? 1f : 0f;
+        hundido = Mathf.MoveTowards(hundido, objetivo, Time.deltaTime * (objetivo > hundido ? 18f : 7f));
+        var dentro = bloquePoke.parent.InverseTransformVector(bloquePoke.forward * 0.006f);   // el bloque se pulsa hacia su +z
+        bloquePoke.localPosition = bloquePos + dentro * Mathf.SmoothStep(0f, 1f, hundido);
     }
 
     // Sin poke: pulsar al acercar la mano y hundir la tapa a mano.
