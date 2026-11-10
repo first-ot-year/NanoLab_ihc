@@ -5,7 +5,7 @@ using UnityEngine;
 // Recuerdos científicos que Baymax recupera al resolver casos (hilo narrativo, RF-01 / RF-09).
 public static class RecuerdosBaymax
 {
-    public const int Total = 3;
+    public const int Total = 1;   // un solo reto: CASO 01 · Crea la vacuna
     static readonly HashSet<string> recuperados = new HashSet<string>();
 
     public static int Cantidad => recuperados.Count;
@@ -57,6 +57,7 @@ public class IndicadorRecuerdos : MonoBehaviour
         for (int i = 0; i < ranuras.Length; i++)
         {
             if (ranuras[i] == null) continue;
+            ranuras[i].enabled = i < RecuerdosBaymax.Total;   // la escena trae 3 ranuras; solo se ven las que hay
             ranuras[i].GetPropertyBlock(mpb);
             mpb.SetColor("_Color", i < n ? new Color(0.3f, 1f, 0.55f) : new Color(0.15f, 0.2f, 0.27f));
             ranuras[i].SetPropertyBlock(mpb);

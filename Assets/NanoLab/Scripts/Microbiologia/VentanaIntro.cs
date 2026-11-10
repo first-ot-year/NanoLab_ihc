@@ -266,9 +266,9 @@ public class VentanaIntro : MonoBehaviour
         new Paso
         {
             titulo = "¿DÓNDE EMPIEZO?",
-            texto = "Sigue las <b>balizas numeradas</b>:  <b>1</b> Microscopios · <b>2</b> Cepario · <b>3</b> Alto riesgo (virus en 3D) · <b>5</b> Química\n" +
-                    "Para tu primer recuerdo ve al <color=#FFD25A><b>4 · CENTRO DE EXPERIMENTACIÓN</b></color> y elige el " +
-                    "<b>CASO 01</b> en el banco de muestras. Al terminar cada reto se guarda un <b>checkpoint</b>.\n" +
+            texto = "Sigue las <b>balizas numeradas</b>:  <b>1</b> Microscopios · <b>2</b> Cepario · <b>3</b> Alto riesgo (virus en 3D)\n" +
+                    "Para recuperar tu recuerdo ve al <color=#FFD25A><b>4 · CENTRO DE EXPERIMENTACIÓN</b></color>: en el centro está el " +
+                    "<b>LABORATORIO DE VACUNAS</b> (CASO 01 · Crea la vacuna). Al terminarlo se guarda un <b>checkpoint</b>.\n" +
                     "Para la sala de alto riesgo pasa antes por la <b>cabina de descontaminación</b> (11 s, quédate quieto). ¡Suerte, Baymax!",
         },
     };
