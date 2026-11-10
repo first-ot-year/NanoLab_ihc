@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEngine;
 
 // Diana de un agente de intervención (modelo educativo simplificado, no un tratamiento real).
@@ -17,6 +18,17 @@ public class RetoData : ScriptableObject
         public Color color = Color.white;
         public DianaAgente diana;
         [TextArea(2, 4)] public string pistaSiFalla;
+    }
+
+    // Estrategia de la terminal (RF-05): qué estructura del microorganismo se decide atacar. Los agentes de la
+    // prensa comparten la misma diana, así se comprueba si la preparación coincide con la decisión.
+    [System.Serializable]
+    public class Estrategia
+    {
+        public string nombre;           // "Atacar la pared"
+        public string corto;            // rótulo del botón: "PARED"
+        [TextArea(1, 3)] public string descripcion;
+        public DianaAgente diana;
     }
 
     [System.Serializable]
@@ -45,6 +57,7 @@ public class RetoData : ScriptableObject
     public Evidencia[] evidencias;
 
     [Header("Intervención")]
+    public Estrategia[] estrategias;    // segunda decisión de la terminal
     public Agente[] agentes;
     [Range(0, 1)] public float umbralExito = 0.7f;
 
@@ -66,11 +79,19 @@ public class RetoData : ScriptableObject
     // Eficacia (0..1) de un agente sobre la muestra del caso: depende de su estructura, no de su nombre.
     public float Eficacia(Agente a) => Eficacia(a, muestra);
 
-    public static float Eficacia(Agente a, MuestraData m)
+    public static float Eficacia(Agente a, MuestraData m) => a == null ? 0f : Eficacia(a.diana, m);
+
+    // La estrategia que de verdad funciona con la muestra del caso (la diana más eficaz).
+    public DianaAgente DianaCorrecta =>
+        ((DianaAgente[])System.Enum.GetValues(typeof(DianaAgente))).OrderByDescending(d => Eficacia(d, muestra)).First();
+
+    public Estrategia EstrategiaDe(DianaAgente d) => estrategias?.FirstOrDefault(e => e.diana == d);
+
+    public static float Eficacia(DianaAgente diana, MuestraData m)
     {
-        if (a == null || m == null) return 0f;
+        if (m == null) return 0f;
         bool bacteria = m.tipo == TipoMuestra.Bacteria;
-        switch (a.diana)
+        switch (diana)
         {
             case DianaAgente.ParedPeptidoglucano: return bacteria ? (m.gramPositiva ? 0.95f : 0.2f) : 0f;
             case DianaAgente.MembranaExterna: return bacteria ? (m.gramPositiva ? 0.1f : 0.9f) : 0f;

@@ -86,6 +86,17 @@ public static class PruebaReto
                 Render(cam, Path.Combine(dir, nombre + ".png"), 1600, 800);
                 Object.DestroyImmediate(camGo);
             }
+            else if (nombre.StartsWith("terminal"))
+            {
+                // De pie frente a la terminal (5): consola con las dos filas y la pantalla.
+                ML.Capturar(dir, nombre, new Vector3(20.5f, 1.62f, 15.4f), new Vector3(0f, -0.27f, 1f));
+            }
+            else if (nombre.StartsWith("prensa"))
+            {
+                // Frente a la prensa (6): pantalla, viales y el tablero de agentes detrás.
+                ML.Capturar(dir, nombre, new Vector3(15.25f, 1.6f, 14.75f), new Vector3(0f, -0.22f, 1f));
+                ML.Capturar(dir, nombre + "_pantalla", new Vector3(14.95f, 1.42f, 15.6f), new Vector3(0f, -0.3f, 1f));
+            }
             else if (nombre.StartsWith("camara"))
             {
                 float y = 1.75f;

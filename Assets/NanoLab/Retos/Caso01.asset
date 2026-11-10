@@ -43,6 +43,24 @@ MonoBehaviour:
     aumentoMinimo: 0
     requiereGram: 1
     comoObtenerla: "completa la tinci\xF3n 1-2-3-4"
+  estrategias:
+  - nombre: Atacar la pared de peptidoglucano
+    corto: PARED
+    descripcion: "Impedir que la bacteria construya su pared: sin ella, la c\xE9lula
+      se rompe."
+    diana: 0
+  - nombre: Romper la membrana externa
+    corto: MEMBRANA EXT.
+    descripcion: Romper la capa externa que solo tienen las bacterias Gram negativas.
+    diana: 1
+  - nombre: "Bloquear la replicaci\xF3n viral"
+    corto: VIRUS
+    descripcion: "Impedir que un virus se copie dentro de las c\xE9lulas."
+    diana: 2
+  - nombre: 'Control: no atacar nada'
+    corto: CONTROL
+    descripcion: "No intervenir, para comparar qu\xE9 pasa sin tratamiento."
+    diana: 3
   agentes:
   - sigla: PG
     nombre: Agente PG
@@ -95,17 +113,20 @@ MonoBehaviour:
   - "Abre las fichas de la BIBLIOTECA (4) y busca cu\xE1l coincide en forma, agrupaci\xF3n
     y color Gram."
   - "Abre tambi\xE9n el panel 'Pared celular': explica qu\xE9 significa que tu muestra
-    quedara VIOLETA."
+    quedara VIOLETA. Te servir\xE1 para elegir la estrategia."
   pistasHipotesis:
   - "Tu muestra: cocos, en racimos y Gram positiva (violeta). \xBFQu\xE9 ficha describe
     exactamente eso?"
-  - "Pulsa en la TERMINAL (5) el bot\xF3n del microorganismo que elijas. Puedes cambiarlo
-    antes de experimentar."
+  - "La estrategia depende de la pared: las Gram + (violetas) tienen una pared GRUESA
+    de peptidoglucano y NO tienen membrana externa. \xBFQu\xE9 estructura conviene
+    atacar?"
+  - "En la TERMINAL (5) pulsa primero el microorganismo (fila 1) y despu\xE9s la
+    estructura que atacar\xE1s (fila 2). Puedes cambiarlos antes de experimentar."
   pistasPreparacion:
-  - "Cada vial ataca una estructura distinta. Lee el tablero AGENTES DISPONIBLES
-    detr\xE1s de la prensa."
-  - "Las Gram + tienen una pared GRUESA de peptidoglucano y NO tienen membrana externa.
-    \xBFQu\xE9 agente ataca lo que s\xED tienen?"
+  - "Busca el vial que hace lo que decidiste en la terminal: el tablero AGENTES DISPONIBLES
+    dice a qu\xE9 estrategia corresponde cada uno."
+  - "Encaja el vial en la silueta de la prensa: la pantalla te dice si COINCIDE con
+    tu estrategia. Despu\xE9s pulsa FORMULAR."
   pistasExperimento:
   - "La placa va en la bandeja de la c\xE1mara y la c\xE1psula en su ranura (siluetas
     azules)."

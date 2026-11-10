@@ -180,6 +180,7 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 | Menú | Acción |
 |---|---|
 | `NanoLab/Montar TODO (Química + Microbiología)` | Convierte modelos, crea fichas de muestras y regenera ambas salas (sobrescribe cambios manuales y vuelve a hornear la luz) |
+| `NanoLab/Aplicar E4 (terminal de hipótesis y estrategia)` | Sobre la escena guardada y sin hornear: rehace la terminal (5) con las dos filas de botones, el tablero de agentes de la prensa (con la estrategia de cada agente) y el reto `Caso01` (estrategias y pistas). No toca el resto de Microbiología |
 | `NanoLab/Aplicar novedades (puertas, compuerta, colisiones, panel ☰)` | Sobre las escenas guardadas y sin hornear: en Microbiología pone la puerta corredera automática del Centro, la compuerta de la cámara experimental y la ventana de introducción paso a paso; en las dos salas rehace el panel ☰ (con el checkpoint) y los bloqueos de los muebles |
 | `NanoLab/Reconstruir solo el centro de experimentación` | Regenera únicamente el Centro de Experimentación |
 | `NanoLab/Probar reto completo (play mode)` | Ejecuta el Caso 01 de extremo a extremo sin visor |
@@ -215,8 +216,8 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `PlacaCaso` | Placa de Petri cuyas colonias cambian tras la intervención |
 | `MicroscopioOptico` / `HUDMicroscopio` / `Platina` | Observación ampliada antes y después |
 | `EstacionFicha` | Fichas de investigación consultables (RF-04): 3 bacterias, el virus (micrografía electrónica) y la pared celular; se abren con el botón, el rayo o tocándolas |
-| `TerminalHipotesis` | Registro de la hipótesis (RF-05) |
-| `VialAgente` / `PrensaCapsulas` / `Capsula` | Preparación de la intervención (RF-06) |
+| `TerminalHipotesis` | Terminal (5) con dos decisiones (RF-05): 1) qué microorganismo es y 2) qué estructura atacar (pared, membrana externa, replicación viral o control). Solo acepta la hipótesis con las evidencias completas y tras consultar una ficha; la pantalla resume las evidencias. Botones por toque o rayo |
+| `VialAgente` / `PrensaCapsulas` / `Capsula` | Preparación de la intervención (RF-06): la pantalla de la prensa muestra la hipótesis y la estrategia y dice si el vial encajado COINCIDE con ella; si no coincide, FORMULAR avisa y hay que pulsarlo otra vez para probarlo igual |
 | `CamaraExperimental` | Activación de la prueba con feedback multicanal (RF-07); compuerta de guillotina que se abre para que pase la bandeja y sella la cámara durante la incubación |
 | `PanelResumen` | Informe final, conocimiento recuperado y repetición del caso |
 | `Partida` / `GestorPartida` | Partida guardada en el visor (autoguardado) y **checkpoint** al terminar cada reto: el botón VOLVER AL CHECKPOINT del panel ☰ restaura ese avance y lleva al jugador a ese punto. Cada guardado deja la versión anterior en `partida.json.bak`: si `partida.json` se daña, se aparta y se carga el respaldo. Las pruebas usan `Logs/partida_prueba.json` y el menú `NanoLab/Partida` borra o abre la partida del Editor |
@@ -283,7 +284,7 @@ Según el informe del hito 1 (Cuadro 6):
 | E1 | 10 | 15 % | Alcance del MVP, matriz de trazabilidad, criterios de aceptación, backlog y lista de ajustes | RF-02, 03, 07, 08 | RNF-02, 03 | ✅ [Docs/E1](Docs/E1_alcance_y_trazabilidad.md) |
 | E2 | 11 | 30 % | Entorno VR, introducción en la que el estudiante es Baymax y selección de una muestra | RF-01 | RNF-01, 04 | ✅ [Docs/E2](Docs/E2_avance.md) (validar en Quest) |
 | E3 | 12 | 50 % | Observación microscópica inicial y ficha digital | RF-04 | RNF-05, 07 | ✅ [Docs/E3](Docs/E3_avance.md) (validar en Quest) |
-| E4 | 13 | 70 % | Hipótesis y preparación de la intervención | RF-05, 06 | RNF-06 | Implementado |
+| E4 | 13 | 70 % | Hipótesis, estrategia y preparación de la intervención | RF-05, 06 | RNF-06 | ✅ [Docs/E4](Docs/E4_avance.md) (validar en Quest) |
 | E5 | 14 | 85 % | Cámara experimental, feedback, pistas y reintento | RF-09 | RNF-01, 08 | Implementado (falta perfilar 72 FPS) |
 | E6 | 15 | 100 % | Integración, piloto, preguntas de comprensión, demostración y video | RF-01…09 | RNF-01…08 | Pendiente |
 

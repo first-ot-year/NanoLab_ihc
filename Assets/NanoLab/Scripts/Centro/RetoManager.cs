@@ -28,11 +28,14 @@ public class RetoManager : MonoBehaviour
 
     public EtapaReto Actual { get; private set; }
     public MuestraData Hipotesis { get; private set; }
+    public int Estrategia { get; private set; } = -1;   // índice en reto.estrategias (-1 = sin elegir)
+    public RetoData.Estrategia EstrategiaElegida => reto.estrategias != null && Estrategia >= 0 && Estrategia < reto.estrategias.Length ? reto.estrategias[Estrategia] : null;
     public bool[] Evidencias { get; private set; }
     public int Pistas => metricas.Datos.pistasPedidas;
     public int Intentos => metricas.Datos.intentos.Count;
     public MetricsLogger Metricas => metricas;
     public string ObjetivoActual => Objetivo(Actual);
+    public string PistaFallo => pistaFallo;      // pista ligada al último fallo (se muestra en Hipótesis)
     public bool JugadorDentro => dentro;
 
     MetricsLogger metricas;
@@ -41,6 +44,8 @@ public class RetoManager : MonoBehaviour
     bool dentro, sesionGuardada, cronometro;
     int ultimoAgente = -1;
     float ultimaEficacia;
+    string ultimaEstrategia;
+    bool ultimoCoherente;
     string pistaFallo, pistaPendiente;
     bool checkpointPendiente;
 
@@ -123,10 +128,14 @@ public class RetoManager : MonoBehaviour
             case EtapaReto.Tincion: return "Tiñe el frotis: toca los goteros en orden 1 > 2 > 3 > 4 (tinción de Gram).";
             case EtapaReto.Observacion: return $"Pon el portaobjetos en un MICROSCOPIO (3) y mira por el ocular. Evidencias: {Evidencias.Count(x => x)}/{Evidencias.Length} (A: más aumento · X: mover la vista).";
             case EtapaReto.Investigacion: return "Compara tus evidencias con las fichas de la BIBLIOTECA (4) y el panel de agentes.";
-            case EtapaReto.Hipotesis: return Intentos > 0
-                ? $"Intento {Intentos + 1}: revisa tu hipótesis en la TERMINAL (5) y elige otro agente."
-                : "Registra en la TERMINAL (5) qué microorganismo crees que es.";
-            case EtapaReto.Preparacion: return "Elige un agente, encájalo en la PRENSA (6) y pulsa FORMULAR.";
+            case EtapaReto.Hipotesis:
+                if (Intentos > 0) return $"Intento {Intentos + 1}: revisa en la TERMINAL (5) tu hipótesis y elige otra vez qué estructura atacarás.";
+                return Hipotesis == null
+                    ? "En la TERMINAL (5): 1) qué microorganismo crees que es y 2) qué estructura atacarás."
+                    : $"Hipótesis: {Hipotesis.nombre}. Ahora elige en la TERMINAL (5) qué estructura atacarás (fila 2).";
+            case EtapaReto.Preparacion: return EstrategiaElegida != null
+                ? $"Estrategia: {EstrategiaElegida.nombre.ToLower()}. Busca el vial que lo hace, encájalo en la PRENSA (6) y pulsa FORMULAR."
+                : "Elige un agente, encájalo en la PRENSA (6) y pulsa FORMULAR.";
             case EtapaReto.Experimento: return "Pon la placa y la cápsula en la CÁMARA (7) y pulsa ACTIVAR.";
             case EtapaReto.Analisis: return "Lleva el portaobjetos DESPUÉS a un MICROSCOPIO (3) y compáralo con el ANTES.";
             default: return "Caso resuelto. Lee el informe en el ARCHIVO (8).";
@@ -163,12 +172,17 @@ public class RetoManager : MonoBehaviour
 
     // Partida guardada. Lo que depende de objetos que no se guardan (el portaobjetos teñido en la mano,
     // la cápsula formulada, el portaobjetos DESPUÉS) se retoma desde el último punto que no los necesita.
-    public void Restaurar(EtapaReto etapa, bool[] evidencias, string hipotesis)
+    public void Restaurar(EtapaReto etapa, bool[] evidencias, string hipotesis, string estrategia = null)
     {
         for (int i = 0; i < Evidencias.Length && i < evidencias.Length; i++) Evidencias[i] = evidencias[i];
         Hipotesis = null;
         if (!string.IsNullOrEmpty(hipotesis) && reto.opciones != null)
             foreach (var o in reto.opciones) if (o != null && o.name == hipotesis) Hipotesis = o;
+        // La estrategia se guarda por su diana (no por su posición), así sobrevive a reordenar los botones.
+        Estrategia = -1;
+        if (!string.IsNullOrEmpty(estrategia) && reto.estrategias != null)
+            Estrategia = System.Array.FindIndex(reto.estrategias, s => s != null && s.diana.ToString() == estrategia);
+        if (Hipotesis == null) Estrategia = -1;
         bool todas = Evidencias.All(x => x);
         EtapaReto e;
         switch (etapa)
@@ -176,7 +190,7 @@ public class RetoManager : MonoBehaviour
             case EtapaReto.Cierre: e = EtapaReto.Cierre; break;
             case EtapaReto.Preparacion:
             case EtapaReto.Experimento:
-            case EtapaReto.Analisis: e = Hipotesis != null ? EtapaReto.Preparacion : EtapaReto.Hipotesis; break;
+            case EtapaReto.Analisis: e = Hipotesis != null && EstrategiaElegida != null ? EtapaReto.Preparacion : EtapaReto.Hipotesis; break;
             case EtapaReto.Investigacion:
             case EtapaReto.Hipotesis: e = etapa; break;
             default: e = todas ? EtapaReto.Investigacion : EtapaReto.Exploracion; break;
@@ -276,25 +290,61 @@ public class RetoManager : MonoBehaviour
             var faltan = reto.evidencias.Where((e, i) => !Evidencias[i]).Select(e => e.clave.ToLower());
             motivo = $"Aún no tienes evidencia suficiente. Observa la muestra teñida al microscopio. Te falta: {string.Join(", ", faltan)}.";
         }
+        // La hipótesis se apoya también en la información consultada (RF-05): primero una ficha de la biblioteca.
+        else if (Actual < EtapaReto.Hipotesis) motivo = "Ya tienes tus evidencias. Antes de decidir, compáralas con una ficha de la BIBLIOTECA (4).";
         return motivo == null;
     }
+
+    public bool PuedeEstrategia(out string motivo)
+    {
+        if (!PuedeHipotesis(out motivo)) return false;
+        if (Hipotesis == null) motivo = "Primero elige en la fila 1 qué microorganismo crees que es.";
+        return motivo == null;
+    }
+
+    Vector3 SobreTerminal => terminal != null ? terminal.Encima : transform.position;
 
     public void RegistrarHipotesis(MuestraData m)
     {
         Hipotesis = m;
         metricas.Datos.hipotesis.Add(m.nombre);
         pistaFallo = null;
-        Aviso.Mostrar($"Hipótesis registrada: {m.nombre}. Ahora prepara la intervención en la PRENSA (6).", terminal != null ? terminal.transform.position + Vector3.up * 0.6f : transform.position, Aviso.Tipo.Ok);
+        if (EstrategiaElegida != null)
+        {
+            Aviso.Mostrar($"Hipótesis: {m.nombre} · Estrategia: {EstrategiaElegida.nombre.ToLower()}. Prepara la intervención en la PRENSA (6).", SobreTerminal, Aviso.Tipo.Ok);
+            if (Actual < EtapaReto.Preparacion) Poner(EtapaReto.Preparacion); else Refrescar(false);
+        }
+        else
+        {
+            Aviso.Mostrar($"Hipótesis registrada: {m.nombre}. Ahora elige qué estructura atacarás (fila 2).", SobreTerminal, Aviso.Tipo.Ok);
+            Refrescar(false);
+        }
+    }
+
+    public void RegistrarEstrategia(int i)
+    {
+        if (reto.estrategias == null || i < 0 || i >= reto.estrategias.Length) return;
+        Estrategia = i;
+        var s = reto.estrategias[i];
+        metricas.Datos.estrategias.Add(s.nombre);
+        pistaFallo = null;
+        Aviso.Mostrar($"Estrategia: {s.nombre.ToLower()}. Busca en la PRENSA (6) el vial que lo hace y formula la cápsula.", SobreTerminal, Aviso.Tipo.Ok);
         if (Actual < EtapaReto.Preparacion) Poner(EtapaReto.Preparacion);
         else Refrescar(false);
     }
+
+    // ¿El agente ataca la estructura que el estudiante decidió atacar?
+    public bool EsCoherente(int agente) =>
+        EstrategiaElegida != null && agente >= 0 && agente < reto.agentes.Length && reto.agentes[agente].diana == EstrategiaElegida.diana;
 
     public bool PuedeFormular(out string motivo)
     {
         motivo = null;
         if (Actual == EtapaReto.Cierre) motivo = "El caso ya está resuelto. Pulsa REINICIAR en el ARCHIVO (8) para repetirlo.";
         else if (Actual == EtapaReto.Analisis) motivo = "Antes de probar otro agente, analiza el resultado: mira el portaobjetos DESPUÉS en un MICROSCOPIO (3).";
-        else if (Hipotesis == null || Actual < EtapaReto.Preparacion) motivo = "Primero registra tu hipótesis en la TERMINAL (5): ¿qué microorganismo crees que es?";
+        else if (Hipotesis == null || Actual < EtapaReto.Preparacion) motivo = Hipotesis == null
+            ? "Primero registra tu hipótesis en la TERMINAL (5): ¿qué microorganismo crees que es?"
+            : "Primero elige tu estrategia en la TERMINAL (5): ¿qué estructura atacarás?";
         return motivo == null;
     }
 
@@ -309,14 +359,32 @@ public class RetoManager : MonoBehaviour
         return motivo == null;
     }
 
+    // Pista tras un fallo. Si la estrategia era la buena pero el vial no la seguía, se dice eso; si la estrategia
+    // era la equivocada, la pista del agente explica por qué esa estructura no sirve con esta muestra.
+    string PistaDelFallo()
+    {
+        var a = reto.agentes[ultimoAgente];
+        var buena = reto.EstrategiaDe(reto.DianaCorrecta);
+        if (!ultimoCoherente && ultimaEstrategia != null && buena != null && ultimaEstrategia == buena.nombre)
+        {
+            var real = reto.EstrategiaDe(a.diana);
+            return $"Tu estrategia ({ultimaEstrategia.ToLower()}) era buena, pero el agente {a.sigla} no hace eso" +
+                   (real != null ? $": {real.nombre.ToLower()}." : ".") + " Busca en el tablero AGENTES DISPONIBLES el vial que sigue tu estrategia.";
+        }
+        return a.pistaSiFalla;
+    }
+
     public void ResultadoExperimento(int agente, float eficacia)
     {
         ultimoAgente = agente;
         ultimaEficacia = eficacia;
+        ultimaEstrategia = EstrategiaElegida != null ? EstrategiaElegida.nombre : null;
+        ultimoCoherente = EsCoherente(agente);
         var a = reto.agentes[agente];
         metricas.Datos.intentos.Add(new MetricsLogger.Intento
         {
-            numero = Intentos + 1, hipotesis = Hipotesis != null ? Hipotesis.nombre : "", agente = a.sigla,
+            numero = Intentos + 1, hipotesis = Hipotesis != null ? Hipotesis.nombre : "",
+            estrategia = EstrategiaElegida != null ? EstrategiaElegida.nombre : "", agente = a.sigla, coherente = EsCoherente(agente),
             eficacia = eficacia, exito = Exito, minuto = metricas.Minutos,
         });
         Poner(EtapaReto.Analisis);
@@ -340,8 +408,9 @@ public class RetoManager : MonoBehaviour
         else
         {
             // El error es información: pista ligada a la evidencia y nueva placa para reintentar.
-            pistaFallo = reto.agentes[ultimoAgente].pistaSiFalla;
+            pistaFallo = PistaDelFallo();
             if (placa != null) placa.Reiniciar();
+            Estrategia = -1;   // la hipótesis se conserva, pero la estrategia hay que repensarla
             Poner(EtapaReto.Hipotesis);
             pistaPendiente = pistaFallo;   // se muestra al apartar la cara del ocular (el HUD ya la explica)
         }
@@ -378,8 +447,10 @@ public class RetoManager : MonoBehaviour
         metricas = new MetricsLogger(reto.codigo);
         sesionGuardada = false;
         Hipotesis = null;
+        Estrategia = -1;
         Evidencias = new bool[reto.evidencias.Length];
         nivelPista.Clear();
+        ultimaEstrategia = null; ultimoCoherente = false;
         ultimoAgente = -1; ultimaEficacia = 0f; pistaFallo = null; pistaPendiente = null; checkpointPendiente = false;
         if (camara != null) camara.Reiniciar();
         if (placa != null)
@@ -478,18 +549,22 @@ public class RetoManager : MonoBehaviour
             vista = exito ? reto.vistaDespuesEficaz : crecio ? reto.vistaDespuesCrecimiento : m.micrografia,
             antes = m.micrografia,
             antesTitulo = "ANTES (sin intervención)",
-            claves = new[] { "Vista central", "Agente", "Acción", "Hipótesis", "Células vivas", "Intento" },
-            valores = new[] { "DESPUÉS", $"{a.sigla} · {a.nombre}", a.accion, Hipotesis != null ? Hipotesis.nombre : "-", exito ? "muy pocas (lisadas)" : crecio ? "más que antes" : "casi todas", Intentos.ToString() },
+            claves = new[] { "Vista central", "Hipótesis", "Estrategia", "Agente", "Acción", "Células vivas" },
+            valores = new[] { "DESPUÉS", Hipotesis != null ? Hipotesis.nombre : "-",
+                              // Rótulo corto: las filas del HUD son de una línea.
+                              (reto.estrategias?.FirstOrDefault(s => s.nombre == ultimaEstrategia)?.corto ?? ultimaEstrategia ?? "-") +
+                              (ultimaEstrategia != null && !ultimoCoherente ? " <color=#FFD25A>[!] NO COINCIDE</color>" : ""),
+                              $"{a.sigla} · {a.nombre}", a.accion, exito ? "muy pocas (lisadas)" : crecio ? "más que antes" : "casi todas" },
             riesgo = exito ? "EFICAZ" : "SIN EFECTO",
             riesgoClave = "Resultado",
             colorRiesgo = exito ? new Color(0.3f, 1f, 0.5f) : new Color(1f, 0.35f, 0.3f),
             cuadernoTitulo = "INTERPRETACIÓN",
             cuaderno = exito
                 ? $"Las células perdieron su forma y se rompieron. El agente {a.sigla} {a.accion.ToLower()} Tu muestra tiene una pared gruesa de peptidoglucano: por eso quedó VIOLETA en la tinción de Gram."
-                : a.pistaSiFalla,
+                : PistaDelFallo(),
             obsTitulo = "SIGUIENTE PASO",
             obs = exito ? "¡Recuerdo recuperado y CHECKPOINT guardado! Ve al ARCHIVO (8): el informe del caso y tu recuerdo científico te esperan."
-                        : "Vuelve a la TERMINAL (5): revisa tu hipótesis y prueba otro agente. La cámara ya tiene una placa nueva del cultivo.",
+                        : "Vuelve a la TERMINAL (5): revisa tu hipótesis, elige de nuevo la estrategia y prueba otro agente. La cámara ya tiene una placa nueva del cultivo.",
             aviso = exito ? "RESULTADO: EFICAZ · La intervención detuvo a la bacteria" : "RESULTADO: SIN EFECTO · Compara con el ANTES y piensa por qué",
             colorAviso = exito ? new Color(0.35f, 1f, 0.55f) : new Color(1f, 0.45f, 0.4f),
         };
@@ -509,8 +584,10 @@ public class RetoManager : MonoBehaviour
         foreach (var ev in reto.evidencias) izq.AppendLine($"  • {ev.clave}: {ev.valor}");
         izq.AppendLine($"<b>Fichas consultadas:</b> {(dat.fichasConsultadas.Count > 0 ? string.Join(", ", dat.fichasConsultadas) : "ninguna")}");
         izq.AppendLine($"<b>Tus hipótesis:</b> {string.Join(" > ", dat.hipotesis)}");
-        izq.AppendLine("<b>Intervenciones probadas:</b>");
-        foreach (var it in dat.intentos) izq.AppendLine($"  {it.numero}. Agente {it.agente}: {(it.exito ? "<color=#39FF88>eficaz</color>" : "<color=#FF7A6B>sin efecto</color>")}");
+        izq.AppendLine("<b>Tus decisiones</b> (hipótesis · estrategia · agente):");
+        foreach (var it in dat.intentos)
+            izq.AppendLine($"  {it.numero}. {it.hipotesis} · {(string.IsNullOrEmpty(it.estrategia) ? "-" : it.estrategia.ToLower())} · {it.agente}: " +
+                           $"{(it.exito ? "<color=#39FF88>eficaz</color>" : "<color=#FF7A6B>sin efecto</color>")}{(it.coherente ? "" : " <color=#FFD25A>(el vial no seguía tu estrategia)</color>")}");
         izq.AppendLine($"<b>Pistas pedidas:</b> {dat.pistasPedidas}   <b>Tiempo:</b> {Mathf.FloorToInt(metricas.Segundos / 60f)}:{Mathf.FloorToInt(metricas.Segundos % 60f):00} min");
 
         var der = new StringBuilder();

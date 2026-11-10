@@ -54,6 +54,24 @@ public static class AplicarNovedades
         Debug.Log("[Novedades] Listo: Microbiología y Química guardadas con las novedades (sin hornear la luz).");
     }
 
+    // E4 (RF-05/RF-06): terminal con hipótesis + estrategia y tablero de agentes con su estrategia. Solo toca el
+    // Centro de Experimentación de Microbiología; el resto de la escena (cajones, cabina, puertas) queda igual.
+    [MenuItem("NanoLab/Aplicar E4 (terminal de hipótesis y estrategia)", false, 4)]
+    public static void AplicarE4()
+    {
+        if (Application.isPlaying) { Debug.LogWarning("[E4] Sal del modo Play antes de aplicar los cambios."); return; }
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+        AsegurarColisiones.CapaYMatriz();
+        var s = EditorSceneManager.OpenScene(Microbiologia, OpenSceneMode.Single);
+        MontarMicrobiologia.CrearMateriales();
+        MontarMicrobiologia.suelo = MontarLaboratorio.AlturaSuelo(MontarLaboratorio.BoundsEscena());
+        if (!MontarCentroExperimentacion.AplicarE4()) return;
+        AsegurarColisiones.Aplicar(s);
+        EditorSceneManager.MarkSceneDirty(s);
+        EditorSceneManager.SaveScene(s);
+        Debug.Log("[E4] Listo: Microbiología guardada con la terminal de hipótesis y estrategia (sin hornear la luz).");
+    }
+
     // Rehace el panel ☰ del rig con los botones de partida y checkpoint.
     static void Panel()
     {

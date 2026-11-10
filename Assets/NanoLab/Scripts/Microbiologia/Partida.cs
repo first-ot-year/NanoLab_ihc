@@ -29,6 +29,7 @@ public static class Partida
         public int etapa;
         public bool[] evidencias;
         public string hipotesis;
+        public string estrategia;        // DianaAgente de la estrategia (RF-05); vacío = sin elegir
     }
 
     [System.Serializable]
@@ -46,6 +47,7 @@ public static class Partida
         public int etapa;
         public bool[] evidencias;
         public string hipotesis;         // MuestraData.name
+        public string estrategia;        // DianaAgente de la estrategia de la terminal; vacío = sin elegir (campo aditivo de la v2)
         public List<Checkpoint> checkpoints = new List<Checkpoint>();   // uno por reto terminado, el último al final
     }
 
@@ -181,6 +183,7 @@ public static class Partida
             d.etapa = (int)rm.Actual;
             d.evidencias = (bool[])rm.Evidencias.Clone();
             d.hipotesis = rm.Hipotesis != null ? rm.Hipotesis.name : null;
+            d.estrategia = rm.EstrategiaElegida != null ? rm.EstrategiaElegida.diana.ToString() : null;
         }
         var j = JugadorNanoLab.Instancia;
         if (j != null && j.Pies(out var pies, out var yaw))
@@ -198,7 +201,7 @@ public static class Partida
             {
                 reto = checkpointDe, fecha = d.fecha, escena = d.escena, pies = d.pies, yaw = d.yaw,
                 muestras = new List<string>(d.muestras), recuerdos = new List<string>(d.recuerdos),
-                etapa = d.etapa, evidencias = d.evidencias != null ? (bool[])d.evidencias.Clone() : null, hipotesis = d.hipotesis,
+                etapa = d.etapa, evidencias = d.evidencias != null ? (bool[])d.evidencias.Clone() : null, hipotesis = d.hipotesis, estrategia = d.estrategia,
             });
         }
         try
@@ -290,7 +293,7 @@ public class GestorPartida : MonoBehaviour
             RecuerdosBaymax.Restaurar(d.recuerdos);
             var rm = RetoManager.Instancia;
             if (rm != null && rm.reto != null && d.reto == rm.reto.codigo && d.evidencias != null)
-                rm.Restaurar((EtapaReto)d.etapa, d.evidencias, d.hipotesis);
+                rm.Restaurar((EtapaReto)d.etapa, d.evidencias, d.hipotesis, d.estrategia);
 
             if (!restauradaEnSesion)
             {
@@ -372,7 +375,7 @@ public class GestorPartida : MonoBehaviour
         if (rm != null && rm.reto != null && rm.reto.codigo == c.reto && c.evidencias != null)
         {
             if (rm.Actual != EtapaReto.Exploracion) rm.Reiniciar();   // estaciones, placa y cámara como al empezar
-            rm.Restaurar((EtapaReto)c.etapa, c.evidencias, c.hipotesis);
+            rm.Restaurar((EtapaReto)c.etapa, c.evidencias, c.hipotesis, c.estrategia);
         }
         var adelante = Quaternion.Euler(0f, c.yaw, 0f) * Vector3.forward;
         if (JugadorNanoLab.Instancia != null)

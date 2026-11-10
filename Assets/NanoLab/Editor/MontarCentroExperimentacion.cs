@@ -802,17 +802,27 @@ public static class MontarCentroExperimentacion
 
     // ---------------------------------------------------------------- 5 terminal de hipótesis
 
-    static TerminalHipotesis Terminal(Transform padre, out EstacionGuia guia)
+    // Dos filas en la consola: al fondo, 1) el microorganismo (A, B, C); delante, 2) la estrategia (qué
+    // estructura atacar). La pantalla resume las evidencias y el estado de las dos decisiones (RF-05).
+    internal static TerminalHipotesis Terminal(Transform padre, out EstacionGuia guia)
     {
-        var e = Estacion(padre, "5_Terminal", V(20.5f, 0f, 16.55f), 180f, 5, "HIPÓTESIS", 2.2f);
+        var e = Estacion(padre, "5_Terminal", V(20.5f, 0f, 16.55f), 180f, 5, "HIPÓTESIS Y ESTRATEGIA", 2.2f);
         var c = MM.Grupo(e, "Consola");
-        MM.Caja(c, "Cuerpo", V(0f, 0.45f, -0.3f), V(1.4f, 0.9f, 0.45f), M["Blanco"], true);
-        MM.Caja(c, "Tapa", V(0f, 0.91f, -0.3f), V(1.44f, 0.02f, 0.5f), M["Oscuro"], true);
-        MM.Caja(c, "FranjaLuz", V(0f, 0.85f, -0.07f), V(1.4f, 0.02f, 0.01f), M["Zona5"], false);
+        // Más honda que antes (0,7 m) para la segunda fila; la pared queda a 0,71 m detrás del frente.
+        MM.Caja(c, "Cuerpo", V(0f, 0.45f, -0.175f), V(1.4f, 0.9f, 0.7f), M["Blanco"], true);
+        MM.Caja(c, "Tapa", V(0f, 0.91f, -0.175f), V(1.44f, 0.02f, 0.75f), M["Oscuro"], true);
+        MM.Caja(c, "FranjaLuz", V(0f, 0.85f, 0.18f), V(1.4f, 0.02f, 0.01f), M["Zona5"], false);
+        MM.Caja(c, "Separador", V(0f, 0.9215f, -0.075f), V(1.3f, 0.002f, 0.006f), M["Zona5"], false);
         FijoPrimitiva(c.gameObject);
-        var pantalla = Tablero(e, "Pantalla", V(0f, 1.55f, -0.62f), 1.6f, 0.75f, "TERMINAL DE HIPÓTESIS", null);
+        var pantalla = Tablero(e, "Pantalla", V(0f, 1.6f, -0.62f), 1.7f, 0.85f, "TERMINAL DE HIPÓTESIS Y ESTRATEGIA", null);
         var t = e.gameObject.AddComponent<TerminalHipotesis>();
-        t.pantalla = Txt(pantalla, "", 0f, 0.05f, 0.3f, Color.white, 1.45f, TextAlignmentOptions.Center);
+        t.pantalla = Txt(pantalla, "", 0f, -0.04f, 0.4f, Color.white, 1.58f, TextAlignmentOptions.Center);
+        t.pantalla.rectTransform.sizeDelta = new Vector2(1.58f, 0.68f);
+        t.pantalla.verticalAlignment = VerticalAlignmentOptions.Middle;
+        var cab1 = MM.Texto3D(e, "<b>1) HIPÓTESIS:</b> ¿QUÉ MICROORGANISMO ES?", V(0f, 0.923f, -0.505f), Quaternion.Euler(90f, 180f, 0f), 0.26f, Cian, 1.36f);
+        cab1.alignment = TextAlignmentOptions.Center;
+        var cab2 = MM.Texto3D(e, "<b>2) ESTRATEGIA:</b> ¿QUÉ ESTRUCTURA ATACARÁS?", V(0f, 0.923f, -0.03f), Quaternion.Euler(90f, 180f, 0f), 0.26f, Cian, 1.36f);
+        cab2.alignment = TextAlignmentOptions.Center;
         t.opciones = reto.opciones;
         t.botones = new BotonFisico[reto.opciones.Length];
         t.marcos = new Renderer[reto.opciones.Length];
@@ -829,8 +839,28 @@ public static class MontarCentroExperimentacion
             var n = MM.Texto3D(e, $"<b>{reto.opciones[i].nombre}</b>", V(x, 0.923f, -0.38f), Quaternion.Euler(90f, 180f, 0f), 0.24f, Color.white, 0.42f);
             n.alignment = TextAlignmentOptions.Center;
         }
-        guia = Cartel(e, V(-1.25f, 0f, 0.15f), 5, "HIPÓTESIS",
-            "Decide qué microorganismo es, según tus evidencias. Podrás cambiar de idea si el experimento te da nueva información.", V(0f, 2.3f, -0.3f));
+        // Fila 2: una tecla por estrategia, con su nombre delante (más cerca del usuario).
+        int ns = reto.estrategias != null ? reto.estrategias.Length : 0;
+        t.botonesEstrategia = new BotonFisico[ns];
+        t.marcosEstrategia = new Renderer[ns];
+        for (int i = 0; i < ns; i++)
+        {
+            var s = reto.estrategias[i];
+            float x = 0.51f - i * 0.34f;   // la primera a la izquierda del usuario
+            var b = MM.Boton(e, "Estrategia" + (i + 1), V(x, 0.92f, 0.06f));
+            b.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            MM.ColorBoton(b, M["Zona5"]);
+            // La etiqueta del botón queda oculta (el nombre grande va delante), pero da el texto del rayo: "pulsar PARED".
+            if (b.etiqueta != null) { b.etiqueta.text = s.corto; b.etiqueta.gameObject.SetActive(false); }
+            t.botonesEstrategia[i] = b;
+            var marco = MM.Caja(e, "ElegidaEstrategia", V(x, 0.925f, 0.06f), V(0.11f, 0.03f, 0.11f), M["Brillo"], false);
+            t.marcosEstrategia[i] = marco.GetComponent<Renderer>();
+            t.marcosEstrategia[i].enabled = false;
+            var n = MM.Texto3D(e, $"<b>{s.corto}</b>", V(x, 0.923f, 0.145f), Quaternion.Euler(90f, 180f, 0f), 0.24f, Color.white, 0.33f);
+            n.alignment = TextAlignmentOptions.Center;
+        }
+        guia = Cartel(e, V(-1.25f, 0f, 0.15f), 5, "HIPÓTESIS Y ESTRATEGIA",
+            "Decide qué microorganismo es y qué estructura vas a atacar, según tus evidencias y las fichas. Podrás cambiar de idea si el experimento te da nueva información.", V(0f, 2.3f, -0.3f));
         return t;
     }
 
@@ -874,7 +904,7 @@ public static class MontarCentroExperimentacion
         pantallaT.localPosition = V(0.55f, 0.28f, -0.455f);
         pantallaT.localRotation = Quaternion.Euler(0f, 180f, 0f);
         MM.Caja(pantallaT, "Fondo", V(0f, 0f, 0.004f), V(0.56f, 0.24f, 0.006f), M["PanelHUD"], false);
-        var pantalla = Txt(pantallaT, "", 0f, 0f, 0.17f, Color.white, 0.52f, TextAlignmentOptions.Center);
+        var pantalla = Txt(pantallaT, "", 0f, 0f, TamPantallaPrensa, Color.white, 0.52f, TextAlignmentOptions.Center);
         var b = MM.Boton(p, "FORMULAR", V(0.62f, 0f, -0.08f));
         b.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         MM.ColorBoton(b, M["Zona6"]);
@@ -888,13 +918,66 @@ public static class MontarCentroExperimentacion
         prensa.pantalla = pantalla; prensa.luz = luz.GetComponent<Renderer>();
         prensa.capsula = CrearCapsula(p, salida);
 
-        var sb = new System.Text.StringBuilder();
-        foreach (var a in reto.agentes) sb.AppendLine($"<color=#{ColorUtility.ToHtmlStringRGB(a.color)}><b>{a.sigla}</b></color>  ·  <b>{a.nombre}</b>: {a.accion}");
-        sb.Append("<size=80%><color=#A9BED2>Modelo educativo simplificado: no son tratamientos reales.</color></size>");
-        Tablero(e, "Agentes", V(0f, h + 0.75f, -1.33f), 1.9f, 1.0f, "AGENTES DISPONIBLES", sb.ToString(), 0.25f);
+        TableroAgentes(e, h);
         guia = Cartel(e, V(-1.55f, 0f, 0.2f), 6, "PREPARACIÓN",
-            "Cada agente ataca una estructura distinta. Elige el que creas que afecta a tu microorganismo y formula una cápsula.", V(0f, 2.15f, -0.35f));
+            "Busca el vial que hace lo que decidiste en la terminal (tu estrategia), encájalo en la prensa y formula una cápsula.", V(0f, 2.15f, -0.35f));
         return prensa;
+    }
+
+    const float TamPantallaPrensa = 0.22f;   // la pantalla muestra decisión, agente, coincidencia y aviso (E4)
+
+    // Tablero de agentes: qué hace cada uno y a qué estrategia de la terminal corresponde (mismo nombre, RNF-05).
+    internal static Transform TableroAgentes(Transform e, float h)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var a in reto.agentes)
+        {
+            var s = reto.EstrategiaDe(a.diana);
+            sb.AppendLine($"<color=#{ColorUtility.ToHtmlStringRGB(a.color)}><b>{a.sigla}</b></color>  ·  <b>{a.nombre}</b>: {a.accion}" +
+                          (s != null ? $"  <color=#8FD8FF>> {s.corto}</color>" : ""));
+        }
+        sb.Append($"<size=80%><color=#A9BED2>{TerminalHipotesis.AvisoSimplificado}</color></size>");
+        return Tablero(e, "Agentes", V(0f, h + 0.75f, -1.33f), 1.9f, 1.0f, "AGENTES DISPONIBLES  ·  > ESTRATEGIA", sb.ToString(), 0.24f);
+    }
+
+    // E4 sobre la escena guardada (sin volver a montar el centro ni hornear la luz): rehace la terminal con
+    // las dos decisiones y el tablero de agentes de la prensa, y actualiza el reto (estrategias y pistas).
+    internal static bool AplicarE4()
+    {
+        var raiz = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == NombreRaiz);
+        var rm = raiz != null ? raiz.GetComponentInChildren<RetoManager>(true) : null;
+        var viejo = raiz != null ? raiz.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "5_Terminal") : null;
+        var prensa = raiz != null ? raiz.GetComponentInChildren<PrensaCapsulas>(true) : null;
+        if (rm == null || viejo == null || prensa == null)
+        {
+            Debug.LogError("[E4] No se encontró el centro (RetoManager, 5_Terminal o la prensa): ejecuta 'Reconstruir solo el centro de experimentación'.");
+            return false;
+        }
+        MaterialesCentro();
+        reto = CrearReto();
+        rm.reto = reto;
+
+        var padre = viejo.parent;
+        int orden = viejo.GetSiblingIndex();
+        Object.DestroyImmediate(viejo.gameObject);
+        rm.terminal = Terminal(padre, out var guia);
+        rm.terminal.transform.SetSiblingIndex(orden);
+        if (rm.estaciones != null && rm.estaciones.Length > 4) rm.estaciones[4] = guia;
+
+        var tablero = prensa.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Agentes");
+        float h = tablero != null ? prensa.transform.InverseTransformPoint(tablero.position).y - 0.75f : 0.9f;
+        if (tablero != null) Object.DestroyImmediate(tablero.gameObject);
+        TableroAgentes(prensa.transform, h);
+        if (prensa.pantalla != null) { prensa.pantalla.fontSize = TamPantallaPrensa; EditorUtility.SetDirty(prensa.pantalla); }
+        var cartel = prensa.GetComponentInChildren<EstacionGuia>(true);
+        if (cartel != null)
+        {
+            cartel.descripcion = "Busca el vial que hace lo que decidiste en la terminal (tu estrategia), encájalo en la prensa y formula una cápsula.";
+            EditorUtility.SetDirty(cartel);
+        }
+        EditorUtility.SetDirty(rm);
+        Debug.Log($"[E4] Terminal rehecha: {rm.terminal.botones.Length} hipótesis + {rm.terminal.botonesEstrategia.Length} estrategias; tablero de agentes con su estrategia; reto {reto.codigo} con {reto.estrategias.Length} estrategias.");
+        return true;
     }
 
     static void CrearVial(Transform padre, int agente, RetoData.Agente a, Vector3 pos, ZonaEncaje casa)
@@ -1372,6 +1455,18 @@ public static class MontarCentroExperimentacion
             new RetoData.Evidencia { clave = "Agrupación", valor = "en racimos, como uvas", aumentoMinimo = 2, comoObtenerla = "sube a 1000x" },
             new RetoData.Evidencia { clave = "Gram", valor = "positiva (VIOLETA)", aumentoMinimo = 0, requiereGram = true, comoObtenerla = "completa la tinción 1-2-3-4" },
         };
+        // Segunda decisión de la terminal (RF-05): la estrategia. Cada una comparte diana con un agente de la prensa.
+        r.estrategias = new[]
+        {
+            new RetoData.Estrategia { nombre = "Atacar la pared de peptidoglucano", corto = "PARED", diana = DianaAgente.ParedPeptidoglucano,
+                descripcion = "Impedir que la bacteria construya su pared: sin ella, la célula se rompe." },
+            new RetoData.Estrategia { nombre = "Romper la membrana externa", corto = "MEMBRANA EXT.", diana = DianaAgente.MembranaExterna,
+                descripcion = "Romper la capa externa que solo tienen las bacterias Gram negativas." },
+            new RetoData.Estrategia { nombre = "Bloquear la replicación viral", corto = "VIRUS", diana = DianaAgente.Virus,
+                descripcion = "Impedir que un virus se copie dentro de las células." },
+            new RetoData.Estrategia { nombre = "Control: no atacar nada", corto = "CONTROL", diana = DianaAgente.Ninguna,
+                descripcion = "No intervenir, para comparar qué pasa sin tratamiento." },
+        };
         r.agentes = new[]
         {
             new RetoData.Agente { sigla = "PG", nombre = "Agente PG", accion = "Impide construir la pared de peptidoglucano.", color = new Color(0.25f, 0.85f, 1f), diana = DianaAgente.ParedPeptidoglucano,
@@ -1402,17 +1497,18 @@ public static class MontarCentroExperimentacion
         r.pistasInvestigacion = new[]
         {
             "Abre las fichas de la BIBLIOTECA (4) y busca cuál coincide en forma, agrupación y color Gram.",
-            "Abre también el panel 'Pared celular': explica qué significa que tu muestra quedara VIOLETA.",
+            "Abre también el panel 'Pared celular': explica qué significa que tu muestra quedara VIOLETA. Te servirá para elegir la estrategia.",
         };
         r.pistasHipotesis = new[]
         {
             "Tu muestra: cocos, en racimos y Gram positiva (violeta). ¿Qué ficha describe exactamente eso?",
-            "Pulsa en la TERMINAL (5) el botón del microorganismo que elijas. Puedes cambiarlo antes de experimentar.",
+            "La estrategia depende de la pared: las Gram + (violetas) tienen una pared GRUESA de peptidoglucano y NO tienen membrana externa. ¿Qué estructura conviene atacar?",
+            "En la TERMINAL (5) pulsa primero el microorganismo (fila 1) y después la estructura que atacarás (fila 2). Puedes cambiarlos antes de experimentar.",
         };
         r.pistasPreparacion = new[]
         {
-            "Cada vial ataca una estructura distinta. Lee el tablero AGENTES DISPONIBLES detrás de la prensa.",
-            "Las Gram + tienen una pared GRUESA de peptidoglucano y NO tienen membrana externa. ¿Qué agente ataca lo que sí tienen?",
+            "Busca el vial que hace lo que decidiste en la terminal: el tablero AGENTES DISPONIBLES dice a qué estrategia corresponde cada uno.",
+            "Encaja el vial en la silueta de la prensa: la pantalla te dice si COINCIDE con tu estrategia. Después pulsa FORMULAR.",
         };
         r.pistasExperimento = new[]
         {

@@ -7,7 +7,7 @@ using UnityEngine;
 public class MetricsLogger
 {
     [System.Serializable] public class TiempoEtapa { public string etapa; public float segundos; }
-    [System.Serializable] public class Intento { public int numero; public string hipotesis; public string agente; public float eficacia; public bool exito; public float minuto; }
+    [System.Serializable] public class Intento { public int numero; public string hipotesis; public string estrategia; public string agente; public bool coherente; public float eficacia; public bool exito; public float minuto; }
 
     [System.Serializable]
     public class Sesion
@@ -19,6 +19,7 @@ public class MetricsLogger
         public List<TiempoEtapa> tiempos = new List<TiempoEtapa>();
         public List<Intento> intentos = new List<Intento>();
         public List<string> hipotesis = new List<string>();
+        public List<string> estrategias = new List<string>();   // RF-05: estructura que se decidió atacar
         public List<string> fichasConsultadas = new List<string>();
         public List<string> evidencias = new List<string>();
         public int pistasPedidas;

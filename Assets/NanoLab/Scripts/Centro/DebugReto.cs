@@ -114,6 +114,8 @@ public class DebugReto : MonoBehaviour
         Momento?.Invoke("hud_2_observacion_1000x");
         Comprobar(rm.Evidencias.All(x => x) && rm.Actual == EtapaReto.Investigacion, "A 1000x se completan las evidencias > etapa Investigación");
         micro.DejarDeObservar();
+        // RF-05: la hipótesis se decide con las evidencias y la información consultada.
+        Comprobar(!rm.PuedeHipotesis(out var sinFicha) && sinFicha.Contains("BIBLIOTECA"), "Con las evidencias completas, la terminal pide consultar antes una ficha (RF-05)");
 
         // 4) Biblioteca.
         var ficha = rm.fichas.FirstOrDefault(f => f.id == rm.reto.muestra.nombre) ?? rm.fichas.First();
@@ -139,20 +141,46 @@ public class DebugReto : MonoBehaviour
         int incorrecto = System.Array.FindIndex(rm.reto.agentes, a => rm.reto.Eficacia(a) < rm.reto.umbralExito);
         var opcionCorrecta = System.Array.IndexOf(rm.terminal.opciones, rm.reto.muestra);
         var opcionIncorrecta = opcionCorrecta == 0 ? 1 : 0;
+        int estrategiaCorrecta = System.Array.FindIndex(rm.reto.estrategias ?? new RetoData.Estrategia[0], s => s.diana == rm.reto.DianaCorrecta);
+        Comprobar(estrategiaCorrecta >= 0 && rm.terminal.botonesEstrategia != null && rm.terminal.botonesEstrategia.Length == rm.reto.estrategias.Length,
+                  $"La terminal tiene {rm.terminal.botones.Length} hipótesis y {rm.terminal.botonesEstrategia?.Length ?? 0} estrategias (RF-05)");
+        if (fallo) { Fin(); yield break; }
+
+        // RNF-06: el aviso de contenido simplificado se ve al inicio, durante la intervención y al cierre.
+        bool Tiene(Component c) => c != null && c.GetComponentsInChildren<TMPro.TMP_Text>(true).Any(t => t.text.IndexOf("simplificad", System.StringComparison.OrdinalIgnoreCase) >= 0);
+        var intro = FindObjectOfType<VentanaIntro>(true);
+        var recepcion = FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "Recepcion");
+        var avisos = new (string donde, bool ok)[]
+        {
+            ("introducción", intro != null && intro.pasos.Any(p => p.texto != null && p.texto.Contains("simplificad"))),
+            ("recepción", Tiene(recepcion)),
+            ("terminal", Tiene(rm.terminal)),
+            ("prensa y tablero de agentes", Tiene(prensa) && prensa.pantalla.text.Contains("simplificad")),
+            ("panel ☰", MenuAjustes.Instancia != null && Tiene(MenuAjustes.Instancia.panel.transform)),
+        };
+        Comprobar(avisos.All(a => a.ok), "Aviso de contenido simplificado (RNF-06) en: " + string.Join(", ", avisos.Select(a => a.donde + (a.ok ? "" : " (FALTA)"))));
 
         if (fallarPrimero)
         {
-            yield return Intento(rm, opcionIncorrecta, incorrecto, viales, prensa, camara, micro, porta);
+            // Hipótesis equivocada, estrategia buena y un vial que no la sigue: la prensa avisa antes de formular.
+            yield return Intento(rm, opcionIncorrecta, estrategiaCorrecta, incorrecto, viales, prensa, camara, micro, porta);
             Comprobar(rm.Actual == EtapaReto.Hipotesis && rm.Intentos == 1, "Tras un fallo y el análisis se vuelve a Hipótesis con una pista");
             Comprobar(!rm.placa.Tratada, "La placa se regenera para reintentar");
+            var it = rm.Metricas.Datos.intentos.LastOrDefault();
+            Comprobar(it != null && !it.coherente && it.estrategia == rm.reto.estrategias[estrategiaCorrecta].nombre,
+                      $"El registro guarda la estrategia del intento y que el vial no la seguía ({it?.estrategia}, coherente {it?.coherente})");
+            Comprobar(rm.PistaFallo != null && rm.PistaFallo.Contains("estrategia") && rm.EstrategiaElegida == null && rm.Hipotesis != null,
+                      $"La pista dice que la estrategia era buena y el vial no; la estrategia se borra para repensarla y la hipótesis se mantiene: \"{rm.PistaFallo}\"");
         }
-        yield return Intento(rm, opcionCorrecta, correcto, viales, prensa, camara, micro, porta);
+        yield return Intento(rm, opcionCorrecta, estrategiaCorrecta, correcto, viales, prensa, camara, micro, porta);
         Comprobar(rm.Actual == EtapaReto.Cierre, "Tras el éxito y el análisis el caso se cierra");
         Comprobar(rm.Metricas.Datos.comparacionAntesDespues, "Se registró la comparación antes/después");
         Comprobar(RecuerdosBaymax.Cantidad >= 1 && indicador != null && indicador.texto.text.Contains($"{RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}"),
                   $"Baymax recupera un recuerdo: el indicador muestra {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}");
         string pista = rm.PedirPista();
         Paso($"Pista en cierre: {pista}");
+        Comprobar(Tiene(rm.resumen) && rm.resumen.izquierda.text.Contains(rm.reto.estrategias[estrategiaCorrecta].nombre.ToLower()),
+                  "El informe del caso muestra hipótesis · estrategia · agente de cada intento y el aviso de contenido simplificado (RNF-06)");
         yield return null;
         Momento?.Invoke("archivo");
         yield return ProbarPartida(rm);
@@ -187,6 +215,15 @@ public class DebugReto : MonoBehaviour
         bool vuelto = GestorPartida.VolverAlCheckpoint(out var mensaje);
         yield return null;
         Comprobar(vuelto && rm.Actual == EtapaReto.Cierre, $"VOLVER AL CHECKPOINT tras reiniciar el caso: {mensaje} (etapa {rm.Actual})");
+        string diana = rm.reto.DianaCorrecta.ToString();
+        Comprobar(cp != null && cp.estrategia == diana && d != null && d.estrategia == diana && rm.EstrategiaElegida != null && rm.EstrategiaElegida.diana.ToString() == diana,
+                  $"La partida y el checkpoint guardan la estrategia y VOLVER AL CHECKPOINT la restaura ({cp?.estrategia})");
+        var todas = Enumerable.Repeat(true, rm.Evidencias.Length).ToArray();
+        rm.Restaurar(EtapaReto.Preparacion, todas, rm.reto.muestra.name, null);
+        bool sinEstrategia = rm.Actual == EtapaReto.Hipotesis && rm.Hipotesis == rm.reto.muestra && rm.EstrategiaElegida == null;
+        rm.Restaurar(EtapaReto.Preparacion, todas, rm.reto.muestra.name, diana);
+        Comprobar(sinEstrategia && rm.Actual == EtapaReto.Preparacion && rm.EstrategiaElegida != null,
+                  "Una partida en Preparación sin estrategia (anterior al E4) vuelve a Hipótesis; con estrategia sigue en Preparación");
 
         string antes = File.ReadAllText(Partida.Ruta);
         File.WriteAllText(Partida.Ruta, antes.Replace($"\"version\": {Partida.Version}", "\"version\": 99"));
@@ -206,19 +243,51 @@ public class DebugReto : MonoBehaviour
 #endif
     }
 
-    IEnumerator Intento(RetoManager rm, int opcion, int agente, VialAgente[] viales, PrensaCapsulas prensa, CamaraExperimental camara, MicroscopioOptico micro, Portaobjetos porta)
+    IEnumerator Intento(RetoManager rm, int opcion, int estrategia, int agente, VialAgente[] viales, PrensaCapsulas prensa, CamaraExperimental camara, MicroscopioOptico micro, Portaobjetos porta)
     {
         int n = rm.Intentos + 1;
+        var s = rm.reto.estrategias[estrategia];
+        if (rm.Hipotesis == null)
+        {
+            rm.terminal.ElegirEstrategia(estrategia);
+            Comprobar(rm.EstrategiaElegida == null && rm.Actual == EtapaReto.Hipotesis, $"Intento {n}: sin hipótesis, la terminal no acepta todavía la estrategia");
+        }
         rm.terminal.Elegir(opcion);
-        Comprobar(rm.Hipotesis == rm.terminal.opciones[opcion] && rm.Actual == EtapaReto.Preparacion, $"Intento {n}: hipótesis {rm.Hipotesis?.nombre} > etapa Preparación");
+        Comprobar(rm.Hipotesis == rm.terminal.opciones[opcion] && rm.Actual == EtapaReto.Hipotesis && rm.EstrategiaElegida == null,
+                  $"Intento {n}: hipótesis {rm.Hipotesis?.nombre} registrada; sin estrategia sigue en Hipótesis");
+        yield return null;
+        if (n == 1) Momento?.Invoke("terminal_1_hipotesis");
+        rm.terminal.botonesEstrategia[estrategia].Activar();   // lo que hace el rayo al pulsar el gatillo
+        Comprobar(rm.EstrategiaElegida == s && rm.Actual == EtapaReto.Preparacion,
+                  $"Intento {n}: estrategia \"{s.nombre}\" elegida con el rayo > etapa Preparación");
+        yield return null;
+        if (n == 1) Momento?.Invoke("terminal_2_estrategia");
 
         var vial = viales.First(v => v.agente == agente);
         vial.Encajable.Encajar(prensa.ranura, false);
+        yield return null;
+        bool coherente = rm.EsCoherente(agente);
+        string sigla = rm.reto.agentes[agente].sigla;
+        Comprobar(prensa.pantalla.text.Contains(rm.Hipotesis.nombre) && prensa.pantalla.text.Contains(coherente ? "[OK] COINCIDE" : "NO COINCIDE"),
+                  $"Intento {n}: con el vial {sigla} encajado, la pantalla de la prensa muestra la hipótesis y que {(coherente ? "coincide" : "NO coincide")} con la estrategia");
+        if (coherente) Momento?.Invoke("prensa_2_coincide");
+        bool activaAntes = prensa.capsula.gameObject.activeSelf;
         prensa.Formular();
+        if (!coherente)
+        {
+            yield return null;
+            Comprobar(prensa.EsperandoConfirmacion && rm.Actual == EtapaReto.Preparacion && prensa.capsula.gameObject.activeSelf == activaAntes,
+                      $"Intento {n}: con el vial {sigla} la prensa avisa y no formula hasta pulsar FORMULAR otra vez");
+            yield return new WaitForSeconds(0.5f);   // que el aviso termine de aparecer (sigue dentro de la ventana de confirmación)
+            Momento?.Invoke("prensa_1_no_coincide");
+            prensa.Formular();   // segunda pulsación: se prueba igual (el error también informa)
+        }
+        else Comprobar(!prensa.EsperandoConfirmacion, $"Intento {n}: el vial {sigla} sigue la estrategia y se formula al primer pulsado");
         float t0 = Time.time;
         while (rm.Actual != EtapaReto.Experimento && Time.time - t0 < 5f) yield return null;
         Comprobar(rm.Actual == EtapaReto.Experimento && prensa.capsula.gameObject.activeSelf, $"Intento {n}: cápsula {rm.reto.agentes[agente].sigla} formulada > etapa Experimento");
         Comprobar(vial.Encajable.Encajada == vial.Encajable.casa, $"Intento {n}: el vial vuelve a su sitio");
+        if (coherente) Momento?.Invoke("prensa_3_capsula_lista");
 
         rm.placa.GetComponent<Encajable>().Encajar(camara.zonaPlaca, false);
         prensa.capsula.Encajable.Encajar(camara.zonaCapsula, false);
