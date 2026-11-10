@@ -84,7 +84,13 @@ public static class PruebaVacuna
             ML.Capturar(dir, nombre + "_mesa", t.TransformPoint(new Vector3(0f, 1.75f, 0.7f)), t.TransformDirection(new Vector3(0f, -0.85f, -1f)));
             // Al empezar, vista general del centro desde la entrada (comprueba que el reto anterior está oculto).
             if (nombre == "vacuna_0_intro")
+            {
                 ML.Capturar(dir, "vacuna_0_centro", t.TransformPoint(new Vector3(0f, 3.4f, 6.5f)), t.TransformDirection(new Vector3(0f, -0.45f, -1f)));
+                // Sala principal desde donde aparece el jugador, en 4 direcciones (comprueba que se quitaron los paneles celestes).
+                var spawn = new Vector3(-3.3f, 1.6f, 2.24f);   // donde aparece el jugador (MontarMicrobiologia)
+                for (int k = 0; k < 8; k++)
+                    ML.Capturar(dir, $"sala_{k}", spawn, Quaternion.Euler(0f, k * 45f, 0f) * new Vector3(0f, -0.12f, 1f));
+            }
         }
         catch (System.Exception e) { Debug.LogWarning($"[PruebaVacuna] No se pudo capturar {nombre}: {e.Message}"); }
     }

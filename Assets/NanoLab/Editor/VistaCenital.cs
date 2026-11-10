@@ -10,8 +10,8 @@ public static class VistaCenital
 {
     public const int PixelesPorMetro = 60;
 
-    [MenuItem("NanoLab/Vista cenital (Laboratorio)")]
-    public static void Laboratorio() => Renderizar("Assets/NanoLab/Scenes/Laboratorio.unity");
+    [MenuItem("NanoLab/Vista cenital (Microbiología)")]
+    public static void Microbiologia() => Renderizar("Assets/NanoLab/Scenes/Microbiologia.unity");
 
     public static void Renderizar(string scenePath)
     {

@@ -2,15 +2,15 @@ using UnityEditor;
 using UnityEngine;
 
 // Monta el proyecto completo en el orden correcto:
-// modelos convertidos -> fichas de muestras -> sala de Química -> sala de Microbiología.
-// (Microbiología va al final porque también añade el portal dentro de Química.)
+// modelos convertidos -> fichas de muestras -> sala de Microbiología (con el Centro de Experimentación).
+// La sala de Química y su portal se quitaron: la experiencia es solo de microbiología.
 public static class MontarTodo
 {
-    [MenuItem("NanoLab/Montar TODO (Química + Microbiología)", false, 0)]
+    [MenuItem("NanoLab/Montar TODO (Microbiología)", false, 0)]
     public static void Montar()
     {
         if (!Application.isBatchMode && !EditorUtility.DisplayDialog("Montar todo",
-                "Se van a regenerar desde cero las escenas Laboratorio (Química) y Microbiología, " +
+                "Se va a regenerar desde cero la escena Microbiología, " +
                 "incluido el horneado de la luz. Se perderán los cambios hechos a mano en ellas y puede tardar bastante.\n\n¿Continuar?",
                 "Montar todo", "Cancelar"))
             return;
@@ -27,14 +27,8 @@ public static class MontarTodo
             Paso(paso = 3, "Creando fichas de muestras");
             CrearMuestras.Crear();
 
-            Paso(paso = 4, "Montando la sala de Química");
-            MontarLaboratorio.Montar();
-
-            Paso(paso = 5, "Montando la sala de Microbiología");
+            Paso(paso = 4, "Montando la sala de Microbiología");
             MontarMicrobiologia.Montar();
-
-            // Muebles que bloquean al jugador en las dos salas (sin volver a hornear).
-            AsegurarColisiones.AmbasSalas();
         }
         catch (System.Exception e)
         {
@@ -42,7 +36,7 @@ public static class MontarTodo
             EditorUtility.ClearProgressBar();
             Debug.LogException(e);
             if (!Application.isBatchMode)
-                EditorUtility.DisplayDialog("Montar todo", $"Falló el paso {paso}/5:\n{e.Message}\n\nLa escena de Microbiología quedó sin montar (se reemplaza al empezar). Vuelve a ejecutar Montar TODO o recupérala con: git restore Assets/NanoLab/Scenes/Microbiologia.unity\n\nEl detalle está en la consola (Console).", "OK");
+                EditorUtility.DisplayDialog("Montar todo", $"Falló el paso {paso}/4:\n{e.Message}\n\nLa escena de Microbiología quedó sin montar (se reemplaza al empezar). Vuelve a ejecutar Montar TODO o recupérala con: git restore Assets/NanoLab/Scenes/Microbiologia.unity\n\nEl detalle está en la consola (Console).", "OK");
             UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/NanoLab/Scenes/Microbiologia.unity", UnityEditor.SceneManagement.OpenSceneMode.Single);
             return;
         }
@@ -50,9 +44,9 @@ public static class MontarTodo
         EditorUtility.ClearProgressBar();
         // Las capturas dejan la escena abierta con cámaras de prueba: se reabre tal como quedó guardada.
         UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/NanoLab/Scenes/Microbiologia.unity", UnityEditor.SceneManagement.OpenSceneMode.Single);
-        Debug.Log("[Todo] Proyecto montado: Laboratorio.unity y Microbiologia.unity listos.");
+        Debug.Log("[Todo] Proyecto montado: Microbiologia.unity lista.");
         if (!Application.isBatchMode)
-            EditorUtility.DisplayDialog("Montar todo", "Listo. Abre Assets/NanoLab/Scenes/Microbiologia.unity o Laboratorio.unity.", "OK");
+            EditorUtility.DisplayDialog("Montar todo", "Listo. Abre Assets/NanoLab/Scenes/Microbiologia.unity.", "OK");
     }
 
     // Descarta los cambios sin guardar de la escena abierta (p. ej. el techo apagado por una captura)
@@ -67,7 +61,7 @@ public static class MontarTodo
 
     static void Paso(int n, string texto)
     {
-        Debug.Log($"[Todo] Paso {n}/5: {texto}...");
-        if (!Application.isBatchMode) EditorUtility.DisplayProgressBar("Montar todo", texto, n / 5f);
+        Debug.Log($"[Todo] Paso {n}/4: {texto}...");
+        if (!Application.isBatchMode) EditorUtility.DisplayProgressBar("Montar todo", texto, n / 4f);
     }
 }

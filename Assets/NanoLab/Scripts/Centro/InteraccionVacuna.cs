@@ -1,4 +1,5 @@
 #pragma warning disable 618   // PhysicsGrabbable está marcado como obsoleto, pero es el que usan el resto de agarrables del proyecto
+using System.Collections;
 using System.Collections.Generic;
 using Oculus.Interaction;
 using Oculus.Interaction.HandGrab;
@@ -274,5 +275,70 @@ public class SelectorVacuna : Apuntable
         bool ahora = ManosRig.MasCercana(transform.position, radioTactil, out _);
         if (ahora && !dentro) Activar();
         dentro = ahora;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------- almacenes con puerta
+
+// Ultracongelador o nevera de la mesa CALIDAD Y FRÍO. La puerta se abre sola al acercar el vial en la mano; al
+// soltarlo en la boca, el vial ENTRA (su anclaje se desliza hacia dentro) y la puerta se cierra (se ve por la ventana).
+// Si no era el sitio correcto, Expulsar() abre la puerta y saca el vial antes de devolverlo.
+public class AlmacenFrio : MonoBehaviour
+{
+    public Transform puerta;            // bisagra (gira en Y)
+    public Transform ancla;             // anclaje de la zona: la boca al recibir, el fondo al terminar de entrar
+    public ZonaEncaje zona;
+    public float anguloAbierta = -105f;
+    public Vector3 dentro = new Vector3(0f, 0f, -0.075f);
+    public float radioApertura = 0.35f;
+
+    float angulo, tDentro = -1f, kSalida = 1f, abiertaHasta;
+    bool expulsando, abiertaAntes;
+
+    public bool Abierta => Mathf.Abs(angulo - anguloAbierta) < 2f;
+    public bool Cerrada => Mathf.Abs(angulo) < 0.5f;
+
+    // Abre la puerta un momento (p. ej. mientras la guía enseña dónde guardar).
+    public void Entreabrir(float segundos) => abiertaHasta = Mathf.Max(abiertaHasta, Time.time + segundos);
+
+    void Update()
+    {
+        bool ocupado = zona != null && zona.Actual != null;
+        tDentro = ocupado ? (tDentro < 0f ? 0f : tDentro + Time.deltaTime) : -1f;
+
+        bool cerca = false;
+        if (!ocupado && zona != null)
+            foreach (var e in Encajable.Todos)
+                if (e != null && e.tipo == zona.tipo && e.Agarrado && (e.transform.position - zona.transform.position).sqrMagnitude < radioApertura * radioApertura) { cerca = true; break; }
+
+        // Entrada: espera a que la puerta esté abierta, desliza el vial al fondo y después cierra.
+        float k = expulsando ? kSalida : ocupado ? Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((tDentro - 0.1f) / 0.55f)) : 0f;
+        if (ancla != null) ancla.localPosition = Vector3.Lerp(Vector3.zero, dentro, k);
+
+        bool abrir = expulsando || cerca || (ocupado && tDentro < 0.8f) || Time.time < abiertaHasta;
+        angulo = Mathf.MoveTowards(angulo, abrir ? anguloAbierta : 0f, 300f * Time.deltaTime);
+        if (puerta != null) puerta.localRotation = Quaternion.Euler(0f, angulo, 0f);
+        if (abrir != abiertaAntes)
+        {
+            abiertaAntes = abrir;
+            if (puerta != null) Sonidos.Puerta(puerta.position, abrir);
+        }
+    }
+
+    // Abre, saca el vial a la boca y llama a 'alSalir' (que lo devuelve a su sitio).
+    public IEnumerator Expulsar(System.Action alSalir)
+    {
+        expulsando = true;
+        kSalida = 1f;
+        float t0 = Time.time;
+        while (!Abierta && Time.time - t0 < 1f) yield return null;
+        for (float t = 0f; t < 1f; t += Time.deltaTime / 0.45f)
+        {
+            kSalida = 1f - Mathf.SmoothStep(0f, 1f, t);
+            yield return null;
+        }
+        kSalida = 0f;
+        alSalir?.Invoke();
+        expulsando = false;
     }
 }

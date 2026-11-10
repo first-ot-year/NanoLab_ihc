@@ -15,7 +15,7 @@ using UnityEngine.SceneManagement;
 //   └── Microbiologia / Props_Descargados / Portal  (lo añadido por NanoLab)
 public static class AgruparLab
 {
-    static readonly string[] Escenas = { "Assets/NanoLab/Scenes/Laboratorio.unity", "Assets/NanoLab/Scenes/Microbiologia.unity" };
+    static readonly string[] Escenas = { "Assets/NanoLab/Scenes/Microbiologia.unity" };
     static readonly string[] PropiosNanoLab = { "Microbiologia", "Props_Descargados", "Portal" };
 
     [MenuItem("NanoLab/Agrupar las dos salas (un objeto por sala)", false, 20)]

@@ -67,6 +67,7 @@ public static class MontarSalaAltoRiesgo
         ML.ConfigurarLuces("Microbiologia_Lighting");
         MC.LucesTiempoReal();
         ML.CrearSondas(ML.BoundsEscena(), suelo);
+        AsegurarColisiones.Aplicar(scene);
         AgruparLab.Agrupar(scene);
         EditorSceneManager.SaveScene(scene);
         if (!Application.isBatchMode || !System.Environment.GetCommandLineArgs().Contains("-sinBake"))
@@ -298,112 +299,260 @@ public static class MontarSalaAltoRiesgo
         MC.CabinaBioseguridad(g, V(X1 - 0.45f, 0f, paredZ1 + 6.2f), -90f);
     }
 
-    // Cabina de desinfección en la sala principal, delante de la puerta.
+    // ================================================================== cámara de descontaminación
+
+    // Esclusa delante de la puerta (CamaraDescontaminacion): dos puertas correderas herméticas
+    // (exterior hacia la sala principal, interior en el vidrio del BSL-3), boquillas de niebla, luz
+    // UV-C, pantallas de estado y semáforos. Fondo desde la cara sur de la pared hacia la sala.
+    const float FondoCamara = 1.3f;
+    const float AltoCamara = 2.3f;
+
+    [MenuItem("NanoLab/Montar cámara de descontaminación (BSL-3)", false, 4)]
+    public static void MontarCamara()
+    {
+        var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        MM.CrearMateriales();
+        MM.suelo = ML.AlturaSuelo(ML.BoundsEscena());
+        var raiz = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == NombreRaiz);
+        if (raiz == null) { Debug.LogError("[BSL] No está la sala de alto riesgo: ejecuta 'NanoLab/Reconstruir solo la sala de alto riesgo'."); return; }
+        MedirPuerta(raiz);
+        var vieja = raiz.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "CabinaDesinfeccion");
+        var padre = vieja != null ? vieja.parent : raiz;
+        if (vieja != null) Object.DestroyImmediate(vieja.gameObject);
+        CabinaDesinfeccion(MM.Grupo(padre, "CabinaDesinfeccion"));
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log($"[BSL] Cámara de descontaminación montada delante de la puerta (vidrio en z {ZV:F2}, pared {paredZ0:F2}..{paredZ1:F2}).");
+    }
+
+    // Plano del vidrio y grosor de la pared a partir del umbral de la puerta (sin volver a medir la pared).
+    static void MedirPuerta(Transform raiz)
+    {
+        var umbral = raiz.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Umbral");
+        if (umbral == null)
+        {
+            Debug.LogWarning("[BSL] No se encontró el umbral de la puerta: se usan las medidas por defecto.");
+            paredZ0 = ParedZ0Defecto; paredZ1 = ParedZ1Defecto;
+            return;
+        }
+        float zv = umbral.position.z, grosor = Mathf.Max(0.05f, Mathf.Abs(umbral.lossyScale.z) - 0.1f);
+        paredZ0 = zv - grosor / 2f;
+        paredZ1 = zv + grosor / 2f;
+    }
+
     static void CabinaDesinfeccion(Transform padre)
     {
-        float cx = (PuertaX0 + PuertaX1) / 2f;
-        float z0 = paredZ0 - 1.15f, z1 = paredZ0 - 0.04f, zc = (z0 + z1) / 2f;
-        float ancho = PuertaX1 - PuertaX0, alto = 2.3f;
-        foreach (var x in new[] { PuertaX0 - 0.03f, PuertaX1 + 0.03f })
-        {
-            MM.Caja(padre, "Lateral", V(x, suelo + alto / 2f, zc), V(0.06f, alto, z1 - z0), M["Blanco"], true);
-            float dentro = x < cx ? 0.035f : -0.035f;
-            for (int i = 0; i < 3; i++)
-                MM.Caja(padre, "Boquilla", V(x + dentro, suelo + 0.6f + i * 0.55f, zc), V(0.012f, 0.04f, z1 - z0 - 0.2f), M["EmisivoAzul"], false);
-        }
-        MM.Caja(padre, "Techo", V(cx, suelo + alto + 0.08f, zc), V(ancho + 0.14f, 0.16f, z1 - z0), M["Blanco"], true);
-        MM.Caja(padre, "Rejilla", V(cx, suelo + 0.006f, zc), V(ancho - 0.05f, 0.012f, z1 - z0 - 0.05f), M["Oscuro"], false);
-        MM.Caja(padre, "BordeRejilla", V(cx, suelo + 0.004f, zc), V(ancho, 0.006f, z1 - z0), M["EmisivoAzul"], false);
-        var luz = new GameObject("LuzAzul").AddComponent<Light>();
-        luz.transform.SetParent(padre, false);
-        luz.transform.position = V(cx, suelo + 2.1f, zc);
-        luz.type = LightType.Point; luz.color = new Color(0.35f, 0.65f, 1f); luz.range = 2.6f; luz.intensity = 1.8f;
-        luz.lightmapBakeType = LightmapBakeType.Baked;
+        float cx = (PuertaX0 + PuertaX1) / 2f, ancho = PuertaX1 - PuertaX0;
+        float z0 = paredZ0 - FondoCamara, fondo = ZV - z0, zc = (z0 + ZV) / 2f;
+        const float alto = AltoCamara;
+        MM.Emisivo("EmisivoVerde", new Color(0.3f, 1f, 0.45f), 2f);
+        MM.Emisivo("EmisivoRojo", new Color(1f, 0.22f, 0.18f), 2f);
 
-        // Puerta de vidrio corredera (dos hojas) y niebla de las boquillas: la sala solo se abre
-        // tras la descontaminación (CabinaDescontaminacion).
-        var cab = padre.gameObject.AddComponent<CabinaDescontaminacion>();
-        cab.puerta = V(cx, suelo, ZV);
-        cab.zona = new Bounds(V(cx, suelo + 1f, zc), V(ancho - 0.1f, 2f, z1 - z0));
-        cab.haciaDentro = Vector3.forward;
-        cab.apertura = ancho / 2f - 0.04f;
-        cab.hojaIzq = HojaPuerta(padre, "HojaIzq", V(cx - ancho / 4f, suelo, ZV - 0.05f), ancho / 2f);
-        cab.hojaDer = HojaPuerta(padre, "HojaDer", V(cx + ancho / 4f, suelo, ZV - 0.05f), ancho / 2f);
-        cab.humo = new[]
+        // Raíz en el suelo, en el centro de la cámara; +z hacia el BSL-3.
+        var c = new GameObject("Camara").transform;
+        c.SetParent(padre, false);
+        c.position = V(cx, suelo, zc);
+        var cam = c.gameObject.AddComponent<CamaraDescontaminacion>();
+        cam.ancho = ancho;
+        cam.fondo = fondo;
+
+        // Paredes laterales hasta el vidrio (cámara estanca), techo, difusor y suelo de rejilla.
+        foreach (var lado in new[] { -1f, 1f })
         {
-            Niebla(padre, V(PuertaX0 + 0.04f, suelo, zc), 90f, z1 - z0 - 0.2f),
-            Niebla(padre, V(PuertaX1 - 0.04f, suelo, zc), -90f, z1 - z0 - 0.2f),
+            float x = lado * (ancho / 2f + 0.03f);
+            MM.Caja(c, "Lateral", V(x, alto / 2f, 0f), V(0.06f, alto, fondo), M["Blanco"], true);
+            for (int i = 0; i < 3; i++)
+                MM.Caja(c, "Boquilla", V(x - lado * 0.035f, 0.6f + i * 0.55f, 0f), V(0.012f, 0.04f, fondo - 0.25f), M["EmisivoAzul"], false);
+        }
+        MM.Caja(c, "Techo", V(0f, alto + 0.08f, 0f), V(ancho + 0.14f, 0.16f, fondo), M["Blanco"], true);
+        MM.Caja(c, "Difusor", V(0f, alto - 0.005f, 0f), V(0.5f, 0.01f, 0.5f), M["EmisivoAzul"], false);
+        MM.Caja(c, "Rejilla", V(0f, 0.006f, 0f), V(ancho - 0.05f, 0.012f, fondo - 0.05f), M["Oscuro"], false);
+        MM.Caja(c, "BordeRejilla", V(0f, 0.004f, 0f), V(ancho, 0.006f, fondo), M["EmisivoAzul"], false);
+        // Dintel de la puerta exterior (la interior usa el dintel del vidrio).
+        MM.Caja(c, "DintelExterior", V(0f, (AltoPuerta + alto) / 2f, -fondo / 2f), V(ancho + 0.12f, alto - AltoPuerta + 0.02f, 0.06f), M["Blanco"], true);
+
+        // Puertas: las dos hojas se deslizan hacia el este (al oeste el vidrio del BSL-3 está muy cerca).
+        cam.exterior = Puerta(c, "PuertaExterior", -fondo / 2f - 0.06f, ancho);
+        cam.interior = Puerta(c, "PuertaInterior", fondo / 2f + 0.06f, ancho);
+
+        // Niebla desinfectante: dos cortinas laterales y una del techo.
+        var matNiebla = MaterialNiebla();
+        cam.niebla = new[]
+        {
+            Niebla(c, "NieblaOeste", V(-ancho / 2f + 0.04f, 1.15f, 0f), Quaternion.LookRotation(Vector3.right), V(fondo - 0.3f, 1.3f, 0.02f), matNiebla),
+            Niebla(c, "NieblaEste", V(ancho / 2f - 0.04f, 1.15f, 0f), Quaternion.LookRotation(Vector3.left), V(fondo - 0.3f, 1.3f, 0.02f), matNiebla),
+            Niebla(c, "NieblaTecho", V(0f, alto - 0.05f, 0f), Quaternion.LookRotation(Vector3.down, Vector3.forward), V(ancho - 0.3f, fondo - 0.3f, 0.02f), matNiebla),
         };
 
-        // Fuera, encima de la cabina; dentro, sobre la puerta (delante del dintel).
-        foreach (var (z, y, rotY, texto, fondo) in new[]
+        // Luces: azul tenue fija (horneada) y, solo durante el ciclo, la del ciclo y la UV-C (tiempo real).
+        var azul = new GameObject("LuzAzul").AddComponent<Light>();
+        azul.transform.SetParent(c, false);
+        azul.transform.localPosition = V(0f, 2.1f, 0f);
+        azul.type = LightType.Point; azul.color = new Color(0.35f, 0.65f, 1f); azul.range = 2.6f; azul.intensity = 1.8f;
+        azul.lightmapBakeType = LightmapBakeType.Baked;
+        cam.luzCiclo = LuzCamara(c, "LuzCiclo", new Color(0.65f, 0.88f, 1f));
+        cam.luzUV = LuzCamara(c, "LuzUV", new Color(0.55f, 0.2f, 1f));
+
+        var audio = c.gameObject.AddComponent<AudioSource>();
+        audio.playOnAwake = false;
+        audio.spatialBlend = 1f;
+        audio.rolloffMode = AudioRolloffMode.Linear;
+        audio.minDistance = 1f; audio.maxDistance = 8f;
+        cam.aire = audio;
+
+        // Pantalla interior (pared este, mirando hacia dentro) con barra de progreso.
+        float w = Mathf.Min(0.9f, fondo - 0.3f);
+        var pi = new GameObject("PantallaInterior").transform;
+        pi.SetParent(c, false);
+        pi.localPosition = V(ancho / 2f - 0.005f, 1.5f, 0f);
+        pi.localRotation = Quaternion.LookRotation(Vector3.right);
+        MM.Caja(pi, "Fondo", V(0f, 0f, 0.005f), V(w, 0.36f, 0.01f), M["PanelHUD"], false);
+        MM.Caja(pi, "Borde", V(0f, 0f, 0.008f), V(w + 0.02f, 0.38f, 0.008f), M["EmisivoCian"], false);
+        cam.pantallaInterior = MM.Texto3D(pi, "<b>LISTO</b>", V(0f, 0.04f, -0.003f), Quaternion.identity, 0.32f, Color.white, w - 0.06f);
+        cam.pantallaInterior.alignment = TextAlignmentOptions.Center;
+        cam.pantallaInterior.rectTransform.sizeDelta = new Vector2(w - 0.06f, 0.24f);
+        float lb = w - 0.08f;
+        MM.Caja(pi, "BarraFondo", V(0f, -0.135f, -0.002f), V(lb, 0.025f, 0.004f), M["Oscuro"], false);
+        var barra = new GameObject("Barra").transform;
+        barra.SetParent(pi, false);
+        barra.localPosition = V(-lb / 2f, -0.135f, -0.004f);
+        MM.Caja(barra, "Relleno", V(lb / 2f, 0f, 0f), V(lb, 0.025f, 0.004f), M["EmisivoCian"], false);
+        barra.localScale = V(0.001f, 1f, 1f);
+        cam.barra = barra;
+
+        // Estado visible desde fuera (sobre la puerta exterior) y desde el BSL-3 (sobre la interior).
+        cam.pantallaExterior = Rotulo(c, "EstadoExterior", V(0f, alto + 0.07f, -fondo / 2f - 0.045f), 0f, ancho + 0.1f);
+        cam.pantallaBSL = Rotulo(c, "EstadoBSL", V(0f, AltoPuerta + 0.08f, fondo / 2f + 0.05f), 180f, ancho + 0.1f);
+
+        // Carteles: fuera, encima de la cámara; dentro del BSL-3, sobre la puerta.
+        foreach (var (pos, rotY, texto, fondoCartel) in new[]
                  {
-                     (z0 - 0.02f, suelo + alto + 0.36f, 0f, "ENTRADA\nÁREA BSL-3", "Amarillo"),
-                     (ZV + 0.07f, suelo + AltoPuerta + 0.35f, 180f, "DESINFECCIÓN\nANTES DE SALIR", "BlancoMate"),
+                     (V(0f, alto + 0.4f, -fondo / 2f - 0.02f), 0f, "ENTRADA\nÁREA BSL-3", "Amarillo"),
+                     (V(0f, AltoPuerta + 0.42f, fondo / 2f + 0.07f), 180f, "DESCONTAMINACIÓN\nANTES DE SALIR", "BlancoMate"),
                  })
         {
             var cartel = new GameObject("Cartel").transform;
-            cartel.SetParent(padre, false);
-            cartel.position = V(cx, y, z);
-            cartel.rotation = Quaternion.Euler(0f, rotY, 0f);
-            MM.Caja(cartel, "Placa", V(0f, 0f, 0.012f), V(ancho + 0.2f, 0.42f, 0.02f), M[fondo], false);
-            var t = MM.Texto3D(cartel, texto, V(0f, 0f, -0.002f), Quaternion.identity, 0.85f, Color.black, ancho + 0.15f);
+            cartel.SetParent(c, false);
+            cartel.localPosition = pos;
+            cartel.localRotation = Quaternion.Euler(0f, rotY, 0f);
+            MM.Caja(cartel, "Placa", V(0f, 0f, 0.012f), V(ancho + 0.2f, 0.42f, 0.02f), M[fondoCartel], false);
+            var t = MM.Texto3D(cartel, texto, V(0f, 0f, -0.002f), Quaternion.identity, 0.8f, Color.black, ancho + 0.15f);
             t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
         }
     }
 
-    // Hoja de la puerta corredera: vidrio con marco y franja rosa (el collider del vidrio bloquea el paso).
-    static Transform HojaPuerta(Transform padre, string nombre, Vector3 pos, float ancho)
+    // Puerta corredera: hoja de vidrio con marco (Rigidbody cinemático + collider sólido) y semáforo al oeste.
+    static PuertaCorrediza Puerta(Transform c, string nombre, float z, float ancho)
     {
-        var h = new GameObject(nombre).transform;
-        h.SetParent(padre, false);
-        h.position = pos;
-        MM.Caja(h, "Vidrio", V(0f, AltoPuerta / 2f, 0f), V(ancho - 0.04f, AltoPuerta - 0.06f, 0.02f), M["Vidrio"], true);
-        MM.Caja(h, "MarcoI", V(-ancho / 2f + 0.02f, AltoPuerta / 2f, 0f), V(0.04f, AltoPuerta, 0.04f), M["Marco"], true);
-        MM.Caja(h, "MarcoD", V(ancho / 2f - 0.02f, AltoPuerta / 2f, 0f), V(0.04f, AltoPuerta, 0.04f), M["Marco"], true);
-        MM.Caja(h, "MarcoS", V(0f, AltoPuerta - 0.03f, 0f), V(ancho, 0.06f, 0.04f), M["Marco"], false);
-        MM.Caja(h, "MarcoInf", V(0f, 0.04f, 0f), V(ancho, 0.08f, 0.04f), M["Marco"], false);
-        MM.Caja(h, "Franja", V(0f, 1.15f, -0.015f), V(ancho - 0.08f, 0.04f, 0.01f), M["EmisivoRosa"], false);
-        return h;
+        var p = new GameObject(nombre).transform;
+        p.SetParent(c, false);
+        p.localPosition = V(0f, 0f, z);
+        var pc = p.gameObject.AddComponent<PuertaCorrediza>();
+        var hoja = new GameObject("Hoja").transform;
+        hoja.SetParent(p, false);
+        float w = ancho + 0.1f, h = AltoPuerta - 0.01f;
+        MM.Caja(hoja, "Vidrio", V(0f, h / 2f, 0f), V(w, h, 0.03f), M["VidrioPared"], true);
+        MM.Caja(hoja, "MarcoSup", V(0f, h - 0.03f, 0f), V(w, 0.06f, 0.045f), M["Marco"], false);
+        MM.Caja(hoja, "MarcoInf", V(0f, 0.06f, 0f), V(w, 0.12f, 0.045f), M["Marco"], false);
+        foreach (var x in new[] { -w / 2f + 0.03f, w / 2f - 0.03f })
+            MM.Caja(hoja, "MarcoLado", V(x, h / 2f, 0f), V(0.06f, h, 0.045f), M["Marco"], false);
+        MM.Caja(hoja, "Franja", V(0f, 1.05f, 0f), V(w - 0.12f, 0.05f, 0.046f), M["EmisivoRosa"], false);
+        MM.Caja(hoja, "Junta", V(-w / 2f + 0.065f, h / 2f, 0f), V(0.012f, h - 0.2f, 0.05f), M["Oscuro"], false);
+        var rb = hoja.gameObject.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        pc.hoja = hoja;
+        pc.cerrada = Vector3.zero;
+        pc.abierta = V(w + 0.04f, 0f, 0f);
+
+        var sem = new GameObject("Semaforo").transform;
+        sem.SetParent(p, false);
+        sem.localPosition = V(-ancho / 2f - 0.14f, 1.9f, 0f);
+        MM.Caja(sem, "Caja", Vector3.zero, V(0.08f, 0.2f, 0.05f), M["Oscuro"], false);
+        var rojo = MM.Caja(sem, "Rojo", V(0f, 0.05f, 0f), V(0.05f, 0.05f, 0.07f), M["EmisivoRojo"], false);
+        var verde = MM.Caja(sem, "Verde", V(0f, -0.05f, 0f), V(0.05f, 0.05f, 0.07f), M["EmisivoVerde"], false);
+        pc.luzRoja = new[] { rojo };
+        pc.luzVerde = new[] { verde };
+        verde.SetActive(false);
+        return pc;
     }
 
-    // Niebla que sale de una fila de boquillas hacia el centro de la cabina ('yaw' apunta hacia dentro).
-    static ParticleSystem Niebla(Transform padre, Vector3 pos, float yaw, float largo)
+    static TMP_Text Rotulo(Transform c, string nombre, Vector3 pos, float rotY, float ancho)
     {
-        var go = new GameObject("Niebla");
+        var r = new GameObject(nombre).transform;
+        r.SetParent(c, false);
+        r.localPosition = pos;
+        r.localRotation = Quaternion.Euler(0f, rotY, 0f);
+        MM.Caja(r, "Fondo", V(0f, 0f, 0.008f), V(ancho, 0.14f, 0.01f), M["PanelHUD"], false);
+        var t = MM.Texto3D(r, "<color=#7CF29A><b>CÁMARA LIBRE</b></color> · acércate a la puerta", V(0f, 0f, -0.002f), Quaternion.identity, 0.42f, Color.white, ancho - 0.06f);
+        t.alignment = TextAlignmentOptions.Center;
+        return t;
+    }
+
+    static Light LuzCamara(Transform c, string nombre, Color color)
+    {
+        var l = new GameObject(nombre).AddComponent<Light>();
+        l.transform.SetParent(c, false);
+        l.transform.localPosition = V(0f, AltoCamara - 0.25f, 0f);
+        l.type = LightType.Point; l.color = color; l.range = 2.8f; l.intensity = 1f;
+        l.shadows = LightShadows.None;
+        l.lightmapBakeType = LightmapBakeType.Realtime;
+        l.enabled = false;
+        return l;
+    }
+
+    // Material de partículas por defecto de Unity (se incluye en la build al usarlo en la escena).
+    static Material MaterialNiebla()
+    {
+        var m = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        if (m != null) return m;
+        m = MM.MatEn("Assets/NanoLab/Materiales/Micro", "NieblaDescontaminacion", Shader.Find("Particles/Standard Unlit"));
+        m.mainTexture = AssetDatabase.GetBuiltinExtraResource<Texture2D>("Default-Particle.psd");
+        return m;
+    }
+
+    // Cortina de niebla: caja emisora que lanza partículas a lo largo de su z local; se frenan
+    // enseguida y quedan flotando, crecen y se desvanecen. CamaraDescontaminacion cambia la emisión.
+    static ParticleSystem Niebla(Transform padre, string nombre, Vector3 pos, Quaternion rot, Vector3 caja, Material mat)
+    {
+        var go = new GameObject(nombre);
         go.transform.SetParent(padre, false);
-        go.transform.SetPositionAndRotation(pos + Vector3.up * 1.15f, Quaternion.Euler(0f, yaw, 0f));
+        go.transform.localPosition = pos;
+        go.transform.localRotation = rot;
         var ps = go.AddComponent<ParticleSystem>();
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         var main = ps.main;
-        main.playOnAwake = false;
-        main.loop = true;
         main.duration = 1f;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(1.4f, 2.0f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0.7f, 1.1f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.6f);
-        main.startColor = new Color(0.92f, 0.96f, 1f, 0.45f);
+        main.loop = true;
+        main.playOnAwake = false;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(1.6f, 2.4f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.6f, 1.2f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.2f, 0.45f);
+        main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.92f, 0.96f, 1f, 0.22f), new Color(0.8f, 0.9f, 1f, 0.32f));
         main.gravityModifier = -0.02f;
         main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.maxParticles = 250;
+        main.maxParticles = 140;
         var em = ps.emission;
-        em.rateOverTime = 55f;
+        em.rateOverTime = 0f;
         var sh = ps.shape;
         sh.shapeType = ParticleSystemShapeType.Box;
-        sh.scale = V(largo, 1.3f, 0.02f);   // a lo largo de la cabina, a la altura de las boquillas
-        var lim = ps.limitVelocityOverLifetime;   // frena: se queda flotando como una nube
-        lim.enabled = true; lim.limit = 0.15f; lim.dampen = 0.12f;
+        sh.scale = caja;
+        var lim = ps.limitVelocityOverLifetime;
+        lim.enabled = true; lim.limit = 0.25f; lim.dampen = 0.12f;
+        var sol = ps.sizeOverLifetime;
+        sol.enabled = true;
+        sol.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.7f));
         var col = ps.colorOverLifetime;
         col.enabled = true;
-        var g = new Gradient();
-        g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                  new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.55f, 0.2f), new GradientAlphaKey(0f, 1f) });
-        col.color = g;
-        var size = ps.sizeOverLifetime;
-        size.enabled = true;
-        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.8f));
+        var gr = new Gradient();
+        gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                   new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.15f), new GradientAlphaKey(0.8f, 0.6f), new GradientAlphaKey(0f, 1f) });
+        col.color = gr;
         var r = go.GetComponent<ParticleSystemRenderer>();
-        r.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        r.sharedMaterial = mat;
+        r.renderMode = ParticleSystemRenderMode.Billboard;
+        r.sortMode = ParticleSystemSortMode.Distance;
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         r.receiveShadows = false;
         return ps;

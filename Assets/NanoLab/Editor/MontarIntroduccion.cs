@@ -18,7 +18,6 @@ using ML = MontarLaboratorio;
 public static class MontarIntroduccion
 {
     const string Microbiologia = "Assets/NanoLab/Scenes/Microbiologia.unity";
-    const string Quimica = "Assets/NanoLab/Scenes/Laboratorio.unity";
     static readonly Vector3 Spawn = new Vector3(-3.3f, 0f, 2.24f);
     static readonly Vector3 PosIntro = new Vector3(-2.2f, 0f, 3.35f);
     public static readonly Vector3 PosTutorial = new Vector3(-0.6f, 0f, 3.6f);
@@ -171,7 +170,6 @@ public static class MontarIntroduccion
         ("CEPARIO", "Muestras de bacterias", 5.2f, 10.3f, new Color(0.45f, 0.65f, 1f)),
         ("SALA DE ALTO RIESGO", "Muestras de virus · BSL-3", -9.2f, 14.7f, new Color(1f, 0.5f, 0.65f)),
         ("CENTRO DE EXPERIMENTACIÓN", "Caso 01", 5.9f, 8.1f, new Color(1f, 0.82f, 0.35f)),
-        ("LABORATORIO DE QUÍMICA", "Portal", -5.9f, 1.9f, new Color(0.4f, 1f, 0.6f)),
     };
 
     static void Areas(Transform padre)
@@ -278,12 +276,11 @@ public static class MontarIntroduccion
         return t;
     }
 
-    // La experiencia empieza en Microbiología; Química queda como sala secundaria y sin escenas de ejemplo.
+    // La experiencia es solo la escena de Microbiología (la sala de Química y su portal se quitaron).
     public static void OrdenarEscenas()
     {
         EditorBuildSettingsScene Escena(string ruta) => new EditorBuildSettingsScene(new GUID(AssetDatabase.AssetPathToGUID(ruta)), true);
         var lista = new System.Collections.Generic.List<EditorBuildSettingsScene> { Escena(Microbiologia) };
-        if (System.IO.File.Exists(Quimica)) lista.Add(Escena(Quimica));
         // Se vacía antes para que Unity reescriba los GUID aunque las rutas no hayan cambiado.
         EditorBuildSettings.scenes = new EditorBuildSettingsScene[0];
         EditorBuildSettings.scenes = lista.ToArray();

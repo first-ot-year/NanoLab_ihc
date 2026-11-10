@@ -123,7 +123,7 @@ public class JugadorNanoLab : MonoBehaviour
         puntero.alcance = alcanceRayo;
         if (GetComponent<ProteccionCabeza>() == null) gameObject.AddComponent<ProteccionCabeza>();   // no ver dentro de los muebles
         if (GetComponent<GestorPartida>() == null) gameObject.AddComponent<GestorPartida>();         // guardar y continuar la partida
-        if (GetComponent<AdaptadorEscena>() == null) gameObject.AddComponent<AdaptadorEscena>();     // puerta del centro, tableros, cajones y el reto de vacuna
+        if (GetComponent<AdaptadorEscena>() == null) gameObject.AddComponent<AdaptadorEscena>();     // sin química, puerta del centro, tableros de cristal
         if (GetComponent<AvisoInicio>() == null) gameObject.AddComponent<AvisoInicio>();             // aviso cuadrado + tutorial corto (X para continuar)
         ConfigurarGrupos();
         ConfigurarLocomotor();

@@ -60,15 +60,15 @@ public static class ContenidoVacuna
         { this.id = id; this.nombre = nombre; this.sub = sub; this.color = color; this.correcta = correcta; this.explica = explica; }
     }
 
-    // ------------------------------------------------------------------ 1 · antígeno (apuntar a la parte del virus)
+    // ------------------------------------------------------------------ 1 · antígeno (tocar la parte del virus holográfico)
 
     public static readonly Pregunta Antigeno = new Pregunta
     {
         titulo = "ELIGE EL ANTÍGENO",
         enunciado = "Una vacuna enseña al sistema inmune a reconocer una pieza del virus (el <b>antígeno</b>) sin causar la enfermedad. " +
                     "Los anticuerpos útiles son los que <b>neutralizan</b>: impiden que el virus entre en nuestras células.\n" +
-                    "<color=#FFD25A>Apunta con el rayo de la mano vacía al rótulo de una parte del virus (pantalla derecha) y aprieta el gatillo.</color>",
-        visual = "Apunta a un rótulo: la parte se ilumina en el modelo.",
+                    "<color=#FFD25A>Toca con la mano una parte del VIRUS HOLOGRÁFICO del mostrador (o apúntala con el rayo + gatillo). Grip junto al virus para girarlo y ver por dentro.</color>",
+        visual = "La parte que tocas se ilumina en el holograma. La pantalla muestra la clave de colores.",
         opciones = new[]
         {
             new Opcion("ARN (genoma)", "El ARN, el material genético del virus.", false,
@@ -159,7 +159,7 @@ public static class ContenidoVacuna
             "MOLDE DE ADN: tu diseño del paso 2, fabricado en bacterias y cortado justo después de la cola poli(A). La enzima lo usa como guía."),
         new Pieza("t7", "T7 ARN POL", "enzima", new UnityEngine.Color(0.75f, 0.45f, 1f), true,
             "ARN POLIMERASA T7: la enzima que lee el ADN y va uniendo nucleótidos para fabricar ARN."),
-        new Pieza("ntp", "NUCLEÓTIDOS", "A G C Ψ + cap", new UnityEngine.Color(1f, 0.85f, 0.35f), true,
+        new Pieza("ntp", "NUCLEÓTIDOS", "A G C U* + cap", new UnityEngine.Color(1f, 0.85f, 0.35f), true,
             "NUCLEÓTIDOS: los ladrillos del ARN (A, G, C y una U modificada, la N1-metilpseudouridina, más el análogo de caperuza). La U modificada evita que la célula confunda el ARNm con un virus y lo destruya."),
         new Pieza("adnpol", "ADN POL", "enzima", new UnityEngine.Color(0.55f, 0.85f, 0.85f), false,
             "La ADN POLIMERASA copia ADN en más ADN (es la enzima de la PCR). Tú necesitas fabricar ARN."),
@@ -391,33 +391,89 @@ public static class ContenidoVacuna
         "Después de la fase III viene la revisión de la agencia reguladora, y la vigilancia continúa cuando la vacuna ya se usa.",
     };
 
-    // ------------------------------------------------------------------ 9 · eficacia (pregunta con botones)
+    // ------------------------------------------------------------------ 9 · eficacia (4 preguntas sencillas con botones)
 
     public const int Voluntarios = 15000, CasosVacuna = 15, CasosPlacebo = 150;
 
+    // Datos del ensayo y conclusión. Las preguntas se responden mirando las barras, sin fórmulas: primero comparar,
+    // luego "de cada 10", luego el porcentaje y por último la decisión.
     public static readonly Pregunta Eficacia = new Pregunta
     {
-        titulo = "ANALIZA LA FASE III: EFICACIA",
-        enunciado = "30 000 voluntarios, repartidos por sorteo y con doble ciego. Tras 3 meses se abre el ciego: de 15 000 vacunados enfermaron <b>15</b>; de 15 000 con placebo enfermaron <b>150</b>.\n" +
-                    "<b>Eficacia = (1 - riesgo en vacunados / riesgo en placebo) x 100.</b> ¿Cuál es la eficacia de tu vacuna?",
-        visual = "Casos de COVID-19 sintomática en cada grupo.",
-        opciones = new[]
-        {
-            new Opcion("10 %", "10 %", false,
-                "10 % es el cociente 15 / 150 = 0,10: los vacunados tuvieron el 10 % del riesgo del grupo placebo. La eficacia es lo que la vacuna EVITA: 1 - 0,10."),
-            new Opcion("90 %", "90 %", true,
-                "Riesgo vacunados = 15 / 15 000 = 0,1 %. Riesgo placebo = 150 / 15 000 = 1 %. Eficacia = (1 - 0,1 / 1) x 100 = 90 %: la vacuna evitó 9 de cada 10 casos que habrían ocurrido sin ella."),
-            new Opcion("99,9 %", "99,9 %", false,
-                "99,9 % es la proporción de vacunados que NO enfermó, pero en el grupo placebo también se libró el 99 %: casi nadie enferma en 3 meses. La eficacia compara ambos grupos."),
-            new Opcion("135", "135 casos", false,
-                "135 es la diferencia de casos (150 - 15). Depende de cuánta gente participa y de cuánto circula el virus. La eficacia es una proporción: compara los riesgos de los dos grupos."),
-        },
-        pistas = new[]
-        {
-            "Primero calcula el riesgo de cada grupo: casos / personas. Luego divide el de vacunados entre el de placebo.",
-            "15/15 000 dividido entre 150/15 000 = 0,1. La eficacia es (1 - 0,1) x 100.",
-        },
+        titulo = "ANALIZA LA FASE III: ¿FUNCIONA TU VACUNA?",
+        enunciado = "30 000 voluntarios, repartidos por sorteo y con doble ciego. Tras 3 meses se abre el ciego: de 15 000 <b>vacunados</b> enfermaron <b>15</b>; de 15 000 con <b>placebo</b> enfermaron <b>150</b>.\n" +
+                    "<color=#FFD25A>Mira las barras y responde 4 preguntas sencillas.</color>",
+        visual = "Casos de COVID-19 sintomática en cada grupo (los dos grupos tienen 15 000 personas).",
         concepto = "Con 90 % de eficacia y efectos graves iguales que con placebo, la agencia reguladora APRUEBA tu vacuna… y la sigue vigilando (fase IV).",
+    };
+
+    public static readonly Pregunta[] PreguntasEficacia =
+    {
+        new Pregunta
+        {
+            titulo = "¿Qué grupo enfermó menos?",
+            enunciado = "Mira las barras: ¿qué grupo tuvo MENOS enfermos?",
+            opciones = new[]
+            {
+                new Opcion("Placebo", "Placebo", false, "El grupo PLACEBO tuvo 150 enfermos: es la barra naranja, la más alta."),
+                new Opcion("Vacuna", "Vacuna", true, "El grupo VACUNA tuvo solo 15 enfermos: 10 veces menos que el placebo (150)."),
+                new Opcion("Igual", "Los dos igual", false, "Las barras no miden lo mismo: 15 enfermos frente a 150."),
+            },
+            pistas = new[]
+            {
+                "Compara la altura de las barras: la más baja es la que tuvo menos enfermos.",
+                "La barra azul (VACUNA) llega a 15; la naranja (PLACEBO), a 150.",
+            },
+        },
+        new Pregunta
+        {
+            titulo = "¿Cuántos de cada 10 se salvan?",
+            enunciado = "Sin vacuna enfermaron 150; con vacuna, 15. De cada 10 que habrían enfermado, ¿cuántos se SALVARON gracias a la vacuna?",
+            opciones = new[]
+            {
+                new Opcion("1", "1 de cada 10", false, "Al revés: 1 de cada 10 SÍ enfermó (15 es la décima parte de 150)."),
+                new Opcion("5", "5 de cada 10", false, "Eso sería la mitad (75 enfermos). Aquí enfermaron muchos menos: 15."),
+                new Opcion("9", "9 de cada 10", true, "150 bajó a 15: de cada 10 que habrían enfermado, solo 1 enfermó y 9 se salvaron."),
+                new Opcion("10", "10 de cada 10", false, "Casi, pero 15 vacunados sí enfermaron: 1 de cada 10."),
+            },
+            pistas = new[]
+            {
+                "15 es la décima parte de 150. Si de cada 10 enferma 1, ¿cuántos se libran?",
+                "De cada 10: enferma 1 y se salvan 9.",
+            },
+        },
+        new Pregunta
+        {
+            titulo = "¿Cuál es la eficacia?",
+            enunciado = "Si se salvan 9 de cada 10, ¿cuál es la EFICACIA de tu vacuna?",
+            opciones = new[]
+            {
+                new Opcion("10 %", "10 %", false, "10 % son los que SÍ enfermaron (1 de cada 10). La eficacia cuenta los que se SALVAN."),
+                new Opcion("90 %", "90 %", true, "9 de cada 10 = 90 de cada 100 = 90 %. Es lo mismo que (1 - 15/150) x 100."),
+                new Opcion("99,9 %", "99,9 %", false, "El 99,9 % de los vacunados no enfermó, pero con placebo tampoco enfermó el 99 %: en 3 meses casi nadie enferma. La eficacia compara los dos grupos."),
+                new Opcion("135", "135", false, "135 es una resta de casos (150 - 15), no un porcentaje."),
+            },
+            pistas = new[]
+            {
+                "9 de cada 10 es lo mismo que 90 de cada 100.",
+                "9/10 = 90 %.",
+            },
+        },
+        new Pregunta
+        {
+            titulo = "¿Aprobamos la vacuna?",
+            enunciado = "90 % de eficacia, y los efectos GRAVES son igual de raros que con placebo (tabla de SEGURIDAD). ¿Qué decide la agencia?",
+            opciones = new[]
+            {
+                new Opcion("Aprobar", "Aprobarla", true, "Protege mucho y es segura: se APRUEBA… y se sigue vigilando en millones de personas (fase IV)."),
+                new Opcion("Rechazar", "Rechazarla", false, "Con 90 % de eficacia y sin más efectos graves que el placebo, no hay motivo para rechazarla."),
+                new Opcion("Repetir", "Repetir el ensayo", false, "Los datos ya son claros: miles de personas, sorteo, placebo y doble ciego. Repetirlo retrasaría una vacuna que salva vidas."),
+            },
+            pistas = new[]
+            {
+                "Mira la tabla de SEGURIDAD: los efectos graves son iguales con vacuna y con placebo.",
+                "Beneficio alto y riesgo igual que el placebo = se aprueba.",
+            },
+        },
     };
 
     public const string Seguridad =

@@ -132,8 +132,7 @@ NanoLab_ihc/
 ├── Assets/
 │   ├── NanoLab/                     # Código y contenido propio del proyecto
 │   │   ├── Scenes/
-│   │   │   ├── Laboratorio.unity    # Sala de Química (laboratorio base)
-│   │   │   └── Microbiologia.unity  # Sala de Microbiología + Centro de Experimentación
+│   │   │   └── Microbiologia.unity  # Sala de Microbiología + Centro de Experimentación (única escena)
 │   │   ├── Scripts/
 │   │   │   ├── Centro/              # Lógica del reto (RetoManager, cámara, prensa, fichas…)
 │   │   │   └── Microbiologia/       # Microscopio, portaobjetos, HUD, avatar Baymax, jugador…
@@ -173,7 +172,7 @@ git lfs pull
 
 1. En Unity Hub: **Add → Add project from disk** y seleccionar la carpeta clonada.
 2. Esperar la importación inicial (puede tardar varios minutos).
-3. Abrir `Assets/NanoLab/Scenes/Microbiologia.unity` o `Assets/NanoLab/Scenes/Laboratorio.unity`.
+3. Abrir `Assets/NanoLab/Scenes/Microbiologia.unity` (la sala de Química y su portal se quitaron).
 
 ### Herramientas del menú `NanoLab`
 
@@ -181,10 +180,11 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 
 | Menú | Acción |
 |---|---|
-| `NanoLab/Montar TODO (Química + Microbiología)` | Convierte modelos, crea fichas de muestras y regenera ambas salas (sobrescribe cambios manuales y vuelve a hornear la luz) |
+| `NanoLab/Montar TODO (Microbiología)` | Convierte modelos, crea fichas de muestras y regenera la sala (sobrescribe cambios manuales y vuelve a hornear la luz) |
 | `NanoLab/Aplicar E4 (terminal de hipótesis y estrategia)` | Sobre la escena guardada y sin hornear: rehace la terminal (5) con las dos filas de botones, el tablero de agentes de la prensa (con la estrategia de cada agente) y el reto `Caso01` (estrategias y pistas). No toca el resto de Microbiología |
-| `NanoLab/Aplicar novedades (puertas, compuerta, colisiones, panel ☰)` | Sobre las escenas guardadas y sin hornear: en Microbiología pone la puerta corredera automática del Centro, la compuerta de la cámara experimental y la ventana de introducción paso a paso; en las dos salas rehace el panel ☰ (con el checkpoint) y los bloqueos de los muebles |
+| `NanoLab/Aplicar novedades (puertas, compuerta, colisiones, panel ☰)` | Sobre la escena guardada y sin hornear: pone la puerta corredera automática del Centro, la compuerta de la cámara experimental y la ventana de introducción paso a paso; rehace el panel ☰ (con el checkpoint) y los bloqueos de los muebles |
 | `NanoLab/Reconstruir solo el centro de experimentación` | Regenera únicamente el Centro de Experimentación |
+| `NanoLab/Montar cámara de descontaminación (BSL-3)` | Cambia la cabina de la puerta del BSL-3 por una esclusa con dos puertas correderas y ciclo de descontaminación (niebla, luz UV-C, extracción), sin volver a hornear la luz |
 | `NanoLab/Probar reto completo (play mode)` | Prueba del reto anterior de bacterias (hoy oculto: ya no aplica mientras `MontajeVacuna.OcultarRetoAnterior` esté activo) |
 | `NanoLab/Probar reto de vacuna (play mode)` | Ejecuta el Caso 01 (crea la vacuna) de extremo a extremo sin visor, con las mismas acciones del estudiante y un error típico por paso: informe en `Logs/prueba_vacuna.txt` y capturas `Logs/Capturas/vacuna_*.png`. No recarga la escena si ya está abierta |
 | `NanoLab/Configurar interacción Meta (…)` | Configura los componentes del Meta Interaction SDK en las salas |
@@ -205,7 +205,7 @@ En Play Mode, desde el teclado:
 ### Compilar para Meta Quest
 
 1. **File → Build Settings → Android → Switch Platform.**
-2. Verificar que `Microbiologia.unity` sea la **primera** escena de la lista (la experiencia empieza ahí) y `Laboratorio.unity` la segunda. `NanoLab/Montar introducción Baymax` las deja en ese orden.
+2. Verificar que `Microbiologia.unity` sea la **única** escena de la lista. `NanoLab/Montar introducción Baymax` la deja así.
 3. Conectar el visor por USB y usar **Build And Run**.
 
 ## Arquitectura del código
@@ -223,14 +223,16 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `VialAgente` / `PrensaCapsulas` / `Capsula` | Preparación de la intervención (RF-06): la pantalla de la prensa muestra la hipótesis y la estrategia y dice si el vial encajado COINCIDE con ella; si no coincide, FORMULAR avisa y hay que pulsarlo otra vez para probarlo igual |
 | `CamaraExperimental` | Activación de la prueba con feedback multicanal (RF-07); compuerta de guillotina que se abre para que pase la bandeja y sella la cámara durante la incubación |
 | `PanelResumen` | Informe final, conocimiento recuperado y repetición del caso |
-| `RetoVacuna` / `ContenidoVacuna` / `MontajeVacuna` / `InteraccionVacuna` / `DiagramasVacuna` / `VisualesVacuna` / `KitVacuna` | CASO 01 · *Laboratorio de vacunas*, único reto: al empezar oculta el reto anterior de bacterias (`OcultarRetoAnterior`) y se monta en el centro de la sala (sin hornear); mostrador con 4 mesas y piezas agarrables creadas por código (Meta Interaction SDK inyectado en tiempo de ejecución), pipeta, termobloque, mezclador, analizador y almacenes; lógica de los 9 pasos, textos educativos y diagramas ([Docs/Reto_Vacuna.md](Docs/Reto_Vacuna.md)) |
+| `RetoVacuna` / `ContenidoVacuna` / `MontajeVacuna` / `InteraccionVacuna` / `DiagramasVacuna` / `VisualesVacuna` / `KitVacuna` | CASO 01 · *Laboratorio de vacunas*, único reto: al empezar oculta el reto anterior de bacterias (`OcultarRetoAnterior`) y se monta en el centro de la sala (sin hornear); mostrador con 4 mesas y piezas agarrables creadas por código (Meta Interaction SDK inyectado en tiempo de ejecución), pipeta, termobloque, mezclador, analizador y almacenes; lógica de los 9 pasos, textos educativos y diagramas ([Docs/Reto_Vacuna.md](Docs/Reto_Vacuna.md)). El mobiliario del Centro (`Estaciones`) se mantiene; solo se ocultan los carteles del caso viejo. Botones **poke** de Meta (A–E, AYUDA, CONTINUAR verde al resolver, REPETIR, máquinas y **PASO A PASO**, que repite sin parar la animación de la acción actual con frases sencillas); ultracongelador y nevera con **puerta animada** (`AlmacenFrio`); **EFICACIA** con 4 preguntas sencillas sobre las barras; **virus holográfico** en el mostrador para el paso ANTÍGENO (se toca con la mano o el rayo y se gira con el grip) |
+| `GuiaVacuna` | Apartado fijo **AHORA** en la estación (PASO n/9 · acción actual con el icono del mando), animación guiada de **AYUDA** y **PASO A PASO** (copia fantasma del objeto, "COGE ESTO > PONLO AQUÍ") y `VirusHolograma` (tocar y girar el virus) |
+| `EstiloNanoLab` | Letra **Nunito SemiBold** para todos los textos 3D, iconos del mando (gatillo, grip, botón, rayo, pulsar, siguiente, repetir) y botones poke de Meta creados por código a partir de un botón de la escena |
 | `Partida` / `GestorPartida` | Partida guardada en el visor (autoguardado) y **checkpoint** al terminar cada reto: el botón VOLVER AL CHECKPOINT del panel ☰ restaura ese avance y lleva al jugador a ese punto. Cada guardado deja la versión anterior en `partida.json.bak`: si `partida.json` se daña, se aparta y se carga el respaldo. Las pruebas usan `Logs/partida_prueba.json` y el menú `NanoLab/Partida` borra o abre la partida del Editor |
 | `GuiaReto` | Guía del reto en el Centro: tarjeta de objetivo (caso, paso n de 9, qué hacer y a qué estación ir) que aparece al entrar, en cada paso y al llegar, y con **Y**; flechas en el suelo que fluyen hasta la estación y un anillo con su número y nombre. Sustituye al panel de la mano (`ObjetivoMuneca`) y a la baliza |
-| `Compartimento` / `Hueco` / `Guardable` | Cajones, vitrinas y tapas que se abren con el rayo (gatillo o A/X); los objetos se sacan y se guardan en sus huecos y vuelven a su sitio si caen al suelo (RNF-04) |
+| `Compartimento` | Cajones, vitrinas y tapas: se abren con el rayo (gatillo o A/X) y los cajones también se **jalan con la mano** (grip junto al frente): siguen a la mano y se quedan donde se sueltan |
 | `PuertaAutomatica` / `PuertaCorrediza` | Puerta corredera de dos hojas en la entrada del Centro de Experimentación: se abre al acercarse (o al llegar con un objeto en la mano) y se esconde en el muro; franja verde encima cuando está abierta |
-| `CabinaDescontaminacion` | Cabina de la entrada de la BSL-3: con la puerta de vidrio cerrada, el usuario espera en el centro mientras sale la niebla de las boquillas; al terminar suena un aviso y se abre. Al salir se rocía de nuevo sin bloquear |
-| `AdaptadorEscena` | Al empezar (lo añade `JugadorNanoLab`): monta la puerta del Centro y la compuerta de la cámara si la escena guardada no las tiene, deja los tableros en azul pizarra con el texto contorneado y siempre por delante del panel, convierte en interactivos los cajones de las mesas que el montaje no convirtió y monta el reto de vacuna (`MontajeVacuna.Asegurar`). La sala de Química y su cristalería se conservan |
-| `AvisoInicio` | Aviso cuadrado delante de la vista: al iniciar la partida (aviso de casco + tutorial corto de 6 tarjetas) y cada vez que se pone el visor; se avanza con X. Sustituye a la ventana grande de introducción y al tótem del tutorial (`VentanaIntro` queda solo como insignia que reabre el tutorial) |
+| `AdaptadorEscena` | Al empezar (lo añade `JugadorNanoLab`): quita la cristalería de química y el portal (pone placas de Petri en los huecos), monta la puerta del Centro y la compuerta de la cámara si la escena guardada no las tiene, pone Nunito en todos los textos, deja los tableros azules con borde fino (3 mm) y el texto contorneado, y quita los tableros informativos sueltos de la sala principal (rótulos de áreas y tótems de la bienvenida) manteniendo los paneles de los equipos (autoclave, portal, incubadora…); convierte en interactivos los cajones de todas las mesas que el montaje no convirtió. Los rótulos de las balizas numeradas de las áreas se mantienen (orientación, RF-01) |
+| `CabinaDescontaminacion` | Esclusa con dos puertas de vidrio (la exterior se crea al empezar si falta): nunca abiertas a la vez; al quedarte dentro se cierran las dos y hay una desinfección completa de 11 s en 4 fases (ducha de aire, nebulización, UV-C, extracción) con una pantalla fija en cada pared lateral (fase, explicación, barra, % y segundos); al terminar se abre la otra puerta. Igual al salir de la BSL-3 |
+| `AvisoInicio` | Aviso cuadrado delante de la vista: al iniciar la partida (aviso de casco + tutorial corto de 6 tarjetas) y cada vez que se pone el visor; botones poke de Meta con etiquetas que dicen lo que pasa («Ya lo veo bien ›», «Siguiente ›», «Empezar a jugar») y «‹ Atrás» para volver (criterio IHC: acción clara y control del usuario); atajos X/A = siguiente, Y/B = atrás. Sustituye a la ventana grande de introducción y al tótem del tutorial (`VentanaIntro` queda solo como insignia que reabre el tutorial) |
 | `Encajable` / `ZonaEncaje` | Objetos agarrables con encaje y retorno automático (RNF-04) |
 | `MetricsLogger` | Registro JSON de la sesión para HEART (RF-10) |
 | `AvatarBaymaxBebe` / `ConvertirBaymaxBebe` (Editor) | Baymax Bebé v4.2 (modelo con esqueleto hecho en Blender por un compañero) como avatar del jugador: escala a la altura del jugador, cabeza al visor, brazos al mando con IK (codo ≤ 65°), dedos con grip y gatillo, Idle/Walk y piernas dobladas al sentarse. En primera persona solo se ven las manos (malla recortada en la muñeca) |
@@ -242,7 +244,7 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | `MontarSalaAltoRiesgo` / `EstacionAnalisis3D` / `VisorVirus` | Sala de vidrio BSL-3 con los criotubos de virus y la estación holográfica 3D |
 | `Utileria` / `MontarMusica` / `Realismo` (Editor) | Utilería realista (portaobjetos, bandejas, criotubos, frasco lavador), música ambiental y ajustes de realismo |
 | `AjustesNanoLab` / `MenuAjustes` / `BotonMenu` / `MontarAjustes` (Editor) | Panel ☰ (botón menú del mando izquierdo): volumen de música y efectos, modo sentado y recalibrar la altura (RNF-07); guardar, nueva partida y volver al checkpoint |
-| `Silla` / `MontarSillas` / `MontarSillaLaboratorio` (Editor) | Taburete de laboratorio de Blender (asiento a 0.65 m, aro reposapiés, base de 5 radios) frente a cada microscopio de puesto y en Química: se sienta con el rayo y se levanta con el joystick; no bloquean al jugador. Prefab en `Assets/NanoLab/Silla_Laboratorio_Interactuable/Prefabs/` |
+| `Silla` / `MontarSillas` / `MontarSillaLaboratorio` (Editor) | Taburete de laboratorio de Blender (asiento a 0.65 m, aro reposapiés, base de 5 radios) frente a cada microscopio de puesto: se sienta con el rayo y se levanta con el joystick; no bloquean al jugador. Prefab en `Assets/NanoLab/Silla_Laboratorio_Interactuable/Prefabs/` |
 | `Apuntable` | Base de lo que se usa con el rayo de la mano vacía (fichas, botones del panel, sillas) |
 
 Las métricas de sesión se guardan como JSON en `Application.persistentDataPath/NanoLab/`.
@@ -265,6 +267,7 @@ Detalle completo en [`Assets/NanoLab/CREDITOS.md`](Assets/NanoLab/CREDITOS.md). 
 | — | Modelos de virus (Influenza, VIH, VPH, Hepatitis B, SARS-CoV-2) | NIH 3D / NIAID | CC BY 4.0 |
 | — | Free Laboratory Pack — StormBringer Studios | Unity Asset Store | Standard Unity Asset Store EULA |
 | — | Meta XR SDK | Meta | Meta Platforms Technologies SDK License |
+| — | Nunito (SemiBold) — The Nunito Project Authors | Google Fonts | SIL OFL 1.1 |
 
 Baymax es un personaje de Disney; su uso en este proyecto es exclusivamente académico.
 

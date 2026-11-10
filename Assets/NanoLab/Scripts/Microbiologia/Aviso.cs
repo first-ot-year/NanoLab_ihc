@@ -32,6 +32,9 @@ public static class Aviso
         var go = new GameObject("Aviso");
         go.transform.SetParent(raiz, false);
         var t = go.AddComponent<TextMeshPro>();
+        var f = EstiloNanoLab.Fuente;   // Nunito; si no carga, la letra por defecto de TMP
+        if (f != null) t.font = f;
+        t.sortingOrder = AdaptadorEscena.OrdenTexto + 2;   // por encima de paneles y textos
         t.fontSize = 0.3f;
         t.alignment = TextAlignmentOptions.Center;
         t.enableWordWrapping = true;
@@ -61,7 +64,7 @@ public static class Aviso
             {
                 case Tipo.Ok: color = new Color(0.35f, 1f, 0.55f); prefijo = "BIEN · "; break;
                 case Tipo.Error: color = new Color(1f, 0.5f, 0.4f); prefijo = "ATENCIÓN · "; break;
-                case Tipo.Pista: color = new Color(1f, 0.85f, 0.35f); prefijo = "PISTA · "; break;
+                case Tipo.Pista: color = new Color(1f, 0.85f, 0.35f); prefijo = "AYUDA · "; break;
                 default: color = new Color(0.6f, 0.9f, 1f); prefijo = ""; break;
             }
             texto.text = prefijo + s;

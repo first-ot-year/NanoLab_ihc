@@ -39,6 +39,23 @@ public class VirusVacuna : MonoBehaviour
     float tAnticuerpos = -1f;
     Vector3 posObjetivo;
     float escalaObjetivo = 1f;
+    bool holo;
+
+    // Modo HOLOGRAMA (mostrador del paso ANTÍGENO): envoltura cortada por delante para ver el interior, cada parte
+    // con su collider y su selector (orden ARN, Espiga, Envoltura, Proteína N), sin rótulos y sin giro automático.
+    public SelectorVacuna[] selectores = new SelectorVacuna[4];
+    public bool Holograma => holo;
+    public Vector3 Centro => modelo != null ? modelo.position : transform.position;
+    public void Girar(Quaternion delta) { if (modelo != null) modelo.rotation = delta * modelo.rotation; }
+
+    public static VirusVacuna CrearHolograma(Transform padre, Vector3 pos, Quaternion rot)
+    {
+        var g = K.Grupo(padre, "VirusHolograma", pos, rot);
+        var v = g.gameObject.AddComponent<VirusVacuna>();
+        v.holo = true;
+        v.Montar();
+        return v;
+    }
 
     public static VirusVacuna Crear(Transform padre, Vector3 pos)
     {
@@ -52,16 +69,22 @@ public class VirusVacuna : MonoBehaviour
     {
         posBase = posObjetivo = transform.localPosition;
         colores = new[] { ColorArn, ColorEspiga, ColorEnvoltura, ColorN };
-        modelo = K.Grupo(transform, "Modelo", new Vector3(0f, 0f, -0.28f));
+        modelo = K.Grupo(transform, "Modelo", holo ? Vector3.zero : new Vector3(0f, 0f, -0.28f));
         modelo.localRotation = Quaternion.Euler(15f, 0f, 0f);
         const float r = 0.2f;
 
-        envoltura = K.Esfera(modelo, "Envoltura", Vector3.zero, r * 2f, K.Vidrio(new Color(0.55f, 0.8f, 1f, 0.28f)));
+        if (holo)
+        {
+            // Media envoltura (la mitad de -z, la que mira al usuario, se corta) con las dos caras visibles.
+            envoltura = K.Pieza(modelo, "Envoltura", PrimitiveType.Cube, Vector3.zero, Vector3.one * r, K.Vidrio(new Color(0.55f, 0.8f, 1f, 0.28f)));
+            envoltura.GetComponent<MeshFilter>().sharedMesh = MediaEsfera();
+        }
+        else envoltura = K.Esfera(modelo, "Envoltura", Vector3.zero, r * 2f, K.Vidrio(new Color(0.55f, 0.8f, 1f, 0.28f)));
         partes[(int)Parte.Envoltura].Add(envoltura);
         // Proteínas M de la membrana (puntos oscuros en la envoltura).
         var puntos = Fibonacci(40);
         for (int i = 0; i < puntos.Length; i += 2)
-            partes[(int)Parte.Envoltura].Add(K.Esfera(modelo, "ProteinaM", puntos[i] * r * 0.99f, 0.018f, K.Plano(new Color(0.35f, 0.55f, 0.8f))));
+            if (!holo || puntos[i].z > 0f) partes[(int)Parte.Envoltura].Add(K.Esfera(modelo, "ProteinaM", puntos[i] * r * 0.99f, 0.018f, K.Plano(new Color(0.35f, 0.55f, 0.8f))));
 
         // Espigas S (tallo + cabeza): en la superficie, la "llave" del virus.
         var dirs = Fibonacci(22);
@@ -108,6 +131,27 @@ public class VirusVacuna : MonoBehaviour
             anticuerpos[i] = a;
         }
 
+        if (holo)
+        {
+            // Cada parte se toca con su forma real (mano) o se apunta con el rayo + gatillo.
+            var rb = modelo.gameObject.AddComponent<Rigidbody>();   // cinemático: el modelo gira sin mover colliders estáticos
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            string[] acciones = { "elegir ARN", "elegir espiga S", "elegir envoltura", "elegir proteína N" };
+            for (int i = 0; i < partes.Length; i++)
+            {
+                Renderer pieza = i == (int)Parte.Envoltura ? envoltura : partes[i].Find(x => x != envoltura);
+                if (pieza == null) continue;
+                pieza.gameObject.AddComponent<MeshCollider>().sharedMesh = pieza.GetComponent<MeshFilter>().sharedMesh;
+                var s = pieza.gameObject.AddComponent<SelectorVacuna>();
+                s.accion = acciones[i];
+                s.tactil = false;   // el toque lo detecta VirusHolograma con la forma de cada parte
+                s.alcanceRayo = 2.6f;
+                selectores[i] = s;
+            }
+            return;   // sin rótulos: la clave de colores va en la pantalla derecha
+        }
+
         // Rótulos con el color de cada parte (y un cuadrado del mismo color, para no depender solo del texto).
         etiquetas = K.Grupo(transform, "Etiquetas", Vector3.zero);
         string[] nombres = { "ARN (genoma)", "Espiga S", "Envoltura lipídica", "Proteína N" };
@@ -118,6 +162,45 @@ public class VirusVacuna : MonoBehaviour
             rotulos[i] = K.Texto(etiquetas, nombres[i], pos[i], 0.24f, colores[i], 0.3f, 0.06f, i == 0 || i == 3 ? TextAlignmentOptions.Right : TextAlignmentOptions.Left, true);
             rotulos[i].rectTransform.localPosition = pos[i] + new Vector3(i == 0 || i == 3 ? -0.03f : 0.03f, 0f, 0f);
         }
+    }
+
+    // Semiesfera de radio 1 (z >= 0) con caras por fuera y por dentro (se ve el interior por el corte).
+    static Mesh mediaEsfera;
+    static Mesh MediaEsfera()
+    {
+        if (mediaEsfera != null) return mediaEsfera;
+        const int lat = 12, lon = 24;
+        var v = new System.Collections.Generic.List<Vector3>();
+        var nor = new System.Collections.Generic.List<Vector3>();
+        var tri = new System.Collections.Generic.List<int>();
+        for (int cara = 0; cara < 2; cara++)
+        {
+            int b = v.Count;
+            for (int i = 0; i <= lat; i++)
+            {
+                float a = Mathf.PI * 0.5f * i / lat;   // 0 = polo (+z), PI/2 = borde del corte
+                for (int j = 0; j <= lon; j++)
+                {
+                    float ph = 2f * Mathf.PI * j / lon;
+                    var p = new Vector3(Mathf.Sin(a) * Mathf.Cos(ph), Mathf.Sin(a) * Mathf.Sin(ph), Mathf.Cos(a));
+                    v.Add(p);
+                    nor.Add(cara == 0 ? p : -p);
+                }
+            }
+            for (int i = 0; i < lat; i++)
+                for (int j = 0; j < lon; j++)
+                {
+                    int a0 = b + i * (lon + 1) + j, a1 = a0 + 1, b0 = a0 + lon + 1, b1 = b0 + 1;
+                    if (cara == 0) tri.AddRange(new[] { a0, a1, b0, a1, b1, b0 });
+                    else tri.AddRange(new[] { a0, b0, a1, a1, b0, b1 });
+                }
+        }
+        mediaEsfera = new Mesh { name = "MediaEsfera" };
+        mediaEsfera.SetVertices(v);
+        mediaEsfera.SetNormals(nor);
+        mediaEsfera.SetTriangles(tri, 0);
+        mediaEsfera.RecalculateBounds();
+        return mediaEsfera;
     }
 
     static Vector3[] Fibonacci(int n)
@@ -136,13 +219,14 @@ public class VirusVacuna : MonoBehaviour
     {
         posObjetivo = posBase + desplazamiento;
         escalaObjetivo = escala;
-        etiquetas.gameObject.SetActive(conEtiquetas);
+        if (holo) escalaBase = escala;   // el holograma no se anima al colocarlo
+        if (etiquetas != null) etiquetas.gameObject.SetActive(conEtiquetas);
     }
 
     public void Resaltar(Parte p) => resaltada = p;
 
     // Rótulo de una parte (para ponerle el selector del paso ANTÍGENO).
-    public Transform Rotulo(int i) => rotulos[i].transform;
+    public Transform Rotulo(int i) => rotulos[i] != null ? rotulos[i].transform : transform;
 
     public void Anticuerpos(bool si)
     {
@@ -153,7 +237,7 @@ public class VirusVacuna : MonoBehaviour
 
     void Update()
     {
-        modelo.Rotate(0f, 18f * Time.deltaTime, 0f, Space.Self);
+        if (!holo) modelo.Rotate(0f, 18f * Time.deltaTime, 0f, Space.Self);   // el holograma lo gira el usuario
         transform.localPosition = Vector3.Lerp(transform.localPosition, posObjetivo, Time.deltaTime * 4f);
         escalaBase = Mathf.Lerp(escalaBase, escalaObjetivo, Time.deltaTime * 4f);
         transform.localScale = Vector3.one * escalaBase;
@@ -170,6 +254,7 @@ public class VirusVacuna : MonoBehaviour
             var col = si ? Color.Lerp(c, Color.white, 0.25f + 0.45f * pulso) : otra ? Color.Lerp(c, new Color(0.2f, 0.25f, 0.3f), 0.55f) : c;
             foreach (var r in partes[i])
                 K.Pintar(r, r == envoltura ? new Color(col.r, col.g, col.b, si ? 0.45f : 0.28f) : new Color(col.r, col.g, col.b, 1f));
+            if (rotulos[i] == null) continue;
             rotulos[i].fontSize = si ? 0.3f : 0.24f;
             rotulos[i].color = otra ? new Color(c.r, c.g, c.b, 0.5f) : c;
         }
@@ -461,12 +546,15 @@ public class LineaFases : MonoBehaviour
 
 // ---------------------------------------------------------------------------------------------- eficacia
 
-// Barras de casos por grupo, tabla de seguridad y la fórmula de la eficacia (tras responder).
+// Barras de casos por grupo y tabla de seguridad. Cada respuesta correcta del paso EFICACIA revela algo más:
+// 1 "10 veces menos" entre las barras · 2 diez personas (9 se salvan, 1 enferma) · 3 el 90 % · 4 el sello APROBADA.
 public class GraficaEficacia : MonoBehaviour
 {
-    Transform barraV, barraP;
-    TMP_Text numV, numP, formula;
-    float t = -1f;
+    static readonly Color Naranja = new Color(1f, 0.6f, 0.2f);
+    Transform barraV, barraP, comparacion, personas, sello;
+    TMP_Text numV, numP, formula, rotuloPersonas;
+    Renderer[] cuerpos;
+    float t = -1f, tPersonas = -1f, tSello = -1f;
     const float Alto = 0.5f, Base = -0.28f;
 
     public static GraficaEficacia Crear(Transform padre, Vector3 pos)
@@ -481,11 +569,34 @@ public class GraficaEficacia : MonoBehaviour
     {
         K.Caja(transform, "Eje", new Vector3(-0.3f, Base, -0.004f), new Vector3(0.62f, 0.006f, 0.002f), K.Plano(K.Gris));
         barraV = Barra("Vacuna", -0.46f, new Color(0.35f, 0.62f, 1f), "VACUNA\n<size=80%>15 000 personas</size>", out numV);
-        barraP = Barra("Placebo", -0.14f, new Color(1f, 0.6f, 0.2f), "PLACEBO\n<size=80%>15 000 personas</size>", out numP);
-        K.Texto(transform, "Casos de COVID-19 sintomática", new Vector3(-0.3f, 0.31f, -0.005f), 0.2f, K.Gris, 0.62f, 0.05f, TextAlignmentOptions.Center, true);
+        barraP = Barra("Placebo", -0.14f, Naranja, "PLACEBO\n<size=80%>15 000 personas</size>", out numP);
+        K.Texto(transform, "Enfermos de COVID-19 en cada grupo", new Vector3(-0.3f, 0.31f, -0.005f), 0.2f, K.Gris, 0.62f, 0.05f, TextAlignmentOptions.Center, true);
         var seg = K.Texto(transform, ContenidoVacuna.Seguridad, new Vector3(0.36f, 0.3f, -0.005f), 0.19f, Color.white, 0.6f, 0.4f, TextAlignmentOptions.TopLeft, false, true);
         seg.lineSpacing = 8f;
-        formula = K.Texto(transform, "", new Vector3(0.36f, -0.06f, -0.005f), 0.22f, K.Verde, 0.62f, 0.3f, TextAlignmentOptions.TopLeft, true, true);
+
+        // 1 · Comparación entre las barras.
+        // Encima de la barra corta (VACUNA), sin tapar la naranja.
+        comparacion = K.Grupo(transform, "Comparacion", new Vector3(-0.46f, -0.04f, -0.008f));
+        K.Texto(comparacion, "<b>10 veces\nMENOS</b>", Vector3.zero, 0.24f, K.Verde, 0.2f, 0.1f, TextAlignmentOptions.Center, true);
+
+        // 2 · Diez personas: las que se salvan se ponen verdes.
+        personas = K.Grupo(transform, "Personas", new Vector3(0.36f, 0.06f, -0.006f));
+        cuerpos = new Renderer[10];
+        for (int i = 0; i < 10; i++)
+        {
+            var f = K.Grupo(personas, "Persona", new Vector3(-0.25f + i * 0.055f, 0f, 0f));
+            cuerpos[i] = K.Pieza(f, "Cuerpo", PrimitiveType.Capsule, new Vector3(0f, -0.012f, 0f), new Vector3(0.026f, 0.022f, 0.01f), K.Plano(Color.white));
+            K.Esfera(f, "Cabeza", new Vector3(0f, 0.027f, 0f), 0.02f, K.Plano(new Color(0.95f, 0.85f, 0.75f)));
+        }
+        rotuloPersonas = K.Texto(personas, "", new Vector3(0f, -0.06f, 0f), 0.17f, Color.white, 0.62f, 0.04f, TextAlignmentOptions.Center, true);
+
+        // 3 · El porcentaje.
+        formula = K.Texto(transform, "", new Vector3(0.36f, -0.06f, -0.005f), 0.24f, K.Verde, 0.62f, 0.14f, TextAlignmentOptions.Top, true, true);
+
+        // 4 · Sello de la agencia.
+        sello = K.Grupo(transform, "Sello", new Vector3(0.36f, -0.27f, -0.01f), Quaternion.Euler(0f, 0f, 8f));
+        K.Panel(sello, "Fondo", Vector3.zero, 0.42f, 0.1f, new Color(0.05f, 0.25f, 0.12f, 0.95f), K.Verde, 0.003f);
+        K.Texto(sello, "<b>APROBADA</b>  <size=60%>· fase IV la vigila</size>", new Vector3(0f, 0f, -0.003f), 0.3f, K.Verde, 0.4f, 0.08f, TextAlignmentOptions.Center, true);
         Reiniciar();
     }
 
@@ -500,30 +611,65 @@ public class GraficaEficacia : MonoBehaviour
 
     public void Reiniciar()
     {
-        t = -1f;
+        t = tPersonas = tSello = -1f;
         barraV.localScale = barraP.localScale = new Vector3(1f, 0.001f, 1f);
         numV.text = numP.text = "";
         formula.text = "";
+        comparacion.gameObject.SetActive(false);
+        personas.gameObject.SetActive(false);
+        sello.gameObject.SetActive(false);
+        foreach (var c in cuerpos) K.Pintar(c, Naranja);
+        rotuloPersonas.text = "";
     }
 
     public void Mostrar() { if (t < 0f) t = 0f; }
 
+    // Revela lo que corresponde a la pregunta k (1..4) recién acertada.
+    public void Revelar(int k)
+    {
+        switch (k)
+        {
+            case 1: comparacion.gameObject.SetActive(true); comparacion.localScale = Vector3.one * 0.2f; break;
+            case 2: personas.gameObject.SetActive(true); tPersonas = 0f; break;
+            case 3: MostrarFormula(); break;
+            case 4: sello.gameObject.SetActive(true); tSello = 0f; break;
+        }
+    }
+
     public void MostrarFormula()
     {
-        formula.text = "Riesgo vacuna = 15 / 15 000 = 0,1 %\nRiesgo placebo = 150 / 15 000 = 1 %\n<size=125%>Eficacia = (1 - 0,1/1) x 100 = 90 %</size>";
+        formula.text = "<size=130%>Eficacia = 9 de cada 10 = 90 %</size>\n<size=75%><color=#A9BED2>es lo mismo que (1 - 15/150) x 100</color></size>";
     }
 
     void Update()
     {
+        if (comparacion.gameObject.activeSelf && comparacion.localScale.x < 1f)
+            comparacion.localScale = Vector3.one * Mathf.MoveTowards(comparacion.localScale.x, 1f, Time.deltaTime * 3f);
+        if (tPersonas >= 0f)
+        {
+            // De una en una, 9 personas pasan de naranja (habría enfermado) a verde (se salvó); la última sigue roja.
+            tPersonas += Time.deltaTime;
+            int verdes = Mathf.Min(9, Mathf.FloorToInt(tPersonas / 0.15f));
+            for (int i = 0; i < 10; i++) K.Pintar(cuerpos[i], i < verdes ? K.Verde : i == 9 && tPersonas > 1.5f ? K.Rojo : Naranja);
+            if (tPersonas > 1.5f) { rotuloPersonas.text = "De cada 10: <color=#39FF88>9 se salvan</color> · <color=#FF7A6B>1 enferma</color>"; tPersonas = -1f; }
+        }
+        if (tSello >= 0f)
+        {
+            tSello += Time.deltaTime;
+            float k = Mathf.Clamp01(tSello / 0.35f);
+            sello.localScale = Vector3.one * Mathf.Lerp(1.8f, 1f, k);   // cae como un sello
+            if (k >= 1f) tSello = -1f;
+        }
         if (t < 0f) return;
         t += Time.deltaTime;
-        float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 1.5f));
+        float s = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 1.5f));
         float hv = Alto * ContenidoVacuna.CasosVacuna / ContenidoVacuna.CasosPlacebo, hp = Alto;
-        barraV.localScale = new Vector3(1f, Mathf.Max(0.001f, hv * k), 1f);
-        barraP.localScale = new Vector3(1f, Mathf.Max(0.001f, hp * k), 1f);
-        numV.text = $"{Mathf.RoundToInt(ContenidoVacuna.CasosVacuna * k)} casos";
-        numP.text = $"{Mathf.RoundToInt(ContenidoVacuna.CasosPlacebo * k)} casos";
-        numV.rectTransform.localPosition = new Vector3(-0.46f, Base + hv * k + 0.04f, -0.008f);
-        numP.rectTransform.localPosition = new Vector3(-0.14f, Base + hp * k + 0.04f, -0.008f);
+        barraV.localScale = new Vector3(1f, Mathf.Max(0.001f, hv * s), 1f);
+        barraP.localScale = new Vector3(1f, Mathf.Max(0.001f, hp * s), 1f);
+        numV.text = $"{Mathf.RoundToInt(ContenidoVacuna.CasosVacuna * s)} enfermos";
+        numP.text = $"{Mathf.RoundToInt(ContenidoVacuna.CasosPlacebo * s)} enfermos";
+        numV.rectTransform.localPosition = new Vector3(-0.46f, Base + hv * s + 0.04f, -0.008f);
+        numP.rectTransform.localPosition = new Vector3(-0.14f, Base + hp * s + 0.04f, -0.008f);
+        if (s >= 1f) t = -2f;   // terminada: deja de recalcular
     }
 }

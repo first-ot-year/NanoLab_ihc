@@ -66,6 +66,7 @@ public static class AplicarNovedades
         MontarMicrobiologia.CrearMateriales();
         MontarMicrobiologia.suelo = MontarLaboratorio.AlturaSuelo(MontarLaboratorio.BoundsEscena());
         if (!MontarCentroExperimentacion.AplicarE4()) return;
+        Panel();   // panel ☰ al día (con GUARDAR, NUEVA PARTIDA y CHECKPOINT)
         AsegurarColisiones.Aplicar(s);
         EditorSceneManager.MarkSceneDirty(s);
         EditorSceneManager.SaveScene(s);

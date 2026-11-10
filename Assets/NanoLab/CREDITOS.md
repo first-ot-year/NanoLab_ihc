@@ -38,6 +38,7 @@ Reducidos de polígonos y recoloreados para usarlos en Meta Quest.
 
 ## Tipografía (SIL Open Font License 1.1)
 - Atkinson Hyperlegible — Braille Institute of America (https://fonts.google.com/specimen/Atkinson+Hyperlegible). Licencia en `Assets/NanoLab/Fuentes/OFL.txt`. Usada en la introducción por su legibilidad.
+- Nunito (SemiBold) — The Nunito Project Authors (https://fonts.google.com/specimen/Nunito). Licencia en `Assets/NanoLab/Fuentes/OFL_Nunito.txt`. Letra de toda la interfaz 3D (`EstiloNanoLab`); el archivo de `Resources/NanoLab/Fuentes` es una instancia estática SemiBold de la fuente variable, hecha con fontTools.
 
 ## Meta
 - Meta XR SDK (Meta Platforms Technologies SDK License)

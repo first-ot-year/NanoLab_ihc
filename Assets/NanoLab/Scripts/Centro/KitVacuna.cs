@@ -22,6 +22,9 @@ public static class KitVacuna
     public static readonly Color Amarillo = new Color(1f, 0.82f, 0.35f);
     public static readonly Color Gris = new Color(0.66f, 0.75f, 0.85f);
 
+    // Todas las letras de la estación un poco más grandes que el tamaño de diseño (legibilidad en el visor).
+    public const float EscalaTexto = 1.12f;
+
     public static void Indexar()
     {
         if (indexado) return;
@@ -40,7 +43,9 @@ public static class KitVacuna
             var sh = Shader.Find("Interaction/RoundedBoxUnlit");
             if (sh != null) matPanel = new Material(sh);
         }
-        foreach (var tx in Object.FindObjectsOfType<TextMeshPro>(true)) if (tx.font != null) { fuente = tx.font; break; }
+        fuente = EstiloNanoLab.Fuente;   // Nunito SemiBold; si no carga, la letra de la escena
+        if (fuente == null)
+            foreach (var tx in Object.FindObjectsOfType<TextMeshPro>(true)) if (tx.font != null) { fuente = tx.font; break; }
     }
 
     public static Material Escena(string nombre, Color respaldo)
@@ -161,7 +166,7 @@ public static class KitVacuna
         if (fuente != null) t.font = fuente;
         t.richText = true;
         t.text = s;
-        t.fontSize = tam;
+        t.fontSize = tam * EscalaTexto;   // AutoTam usa este tamaño como máximo
         t.color = c;
         t.alignment = al;
         t.enableWordWrapping = true;
@@ -185,9 +190,12 @@ public static class KitVacuna
     }
 
     // Panel redondeado con borde (estilo de los paneles de Quest). Se ve desde -z local.
-    public static Renderer Panel(Transform padre, string nombre, Vector3 pos, float ancho, float alto, Color color, Color borde, float grosor = 0.006f, float radio = 0.03f)
+    // Borde fino (máx. 3 mm) y radio proporcional al lado corto, para que las esquinas sean simétricas.
+    public static Renderer Panel(Transform padre, string nombre, Vector3 pos, float ancho, float alto, Color color, Color borde, float grosor = 0.003f, float radio = 0.03f)
     {
         Indexar();
+        grosor = Mathf.Min(grosor, 0.003f);
+        radio = Mathf.Min(0.03f, Mathf.Min(ancho, alto) * 0.22f);
         if (matPanel != null)
         {
             var r = Pieza(padre, nombre, PrimitiveType.Quad, pos, Vector3.one, matPanel);

@@ -92,18 +92,18 @@ public static class MontarAlmacenamiento
     }
 
     // Como en un laboratorio real, los muebles guardan material, no muestras (esas van al ultracongelador
-    // y al criotanque): vitrina con cristalería y cajones con portaobjetos, placas estériles y tubos.
+    // y al criotanque): vitrina y cajones con portaobjetos y placas de Petri estériles.
     internal static void Llenar(MesaConvertida m, GameObject slide)
     {
-        foreach (var v in m.vitrina) Llenar(Huecos(v, PasoVidrio, 10), JuegoCristaleria());
-        string[] rotulos = { "PORTAOBJETOS", "PLACAS DE PETRI", "TUBOS DE ENSAYO" };
+        foreach (var v in m.vitrina) Llenar(Huecos(v, PasoPlaca, 10), Varios(8, PlacaVacia));   // microbiología: placas, no cristalería de química
+        string[] rotulos = { "PORTAOBJETOS", "PLACAS DE PETRI", "PLACAS DE RESERVA" };
         for (int i = 0; i < m.cajones.Count; i++)
         {
             var c = m.cajones[i];
             RotuloCajon(c, rotulos[Mathf.Min(i, rotulos.Length - 1)]);
             if (i == 0) Llenar(Huecos(c, PasoPorta, 16), Varios(8, () => Portaobjetos(slide)));
             else if (i == 1) Llenar(Huecos(c, PasoPlaca, 12), Varios(6, PlacaVacia));
-            else Llenar(Huecos(c, PasoTubo, 24), Varios(8, () => Cristaleria("Glass_Lab_test_tube", 0.15f)));
+            else Llenar(Huecos(c, PasoPlaca, 12), Varios(6, PlacaVacia));
         }
     }
 
@@ -156,7 +156,7 @@ public static class MontarAlmacenamiento
                 comp.eje = Vector3.up;
                 comp.angulo = izq ? -100f : 100f;   // se abre hacia fuera (+z)
                 comp.nombre = "la vitrina";
-                comp.avisoAlAbrir = "Vitrina de cristalería: vasos, matraces y probetas.\nSuelta un objeto sobre una silueta azul para guardarlo.";
+                comp.avisoAlAbrir = "Vitrina de material estéril: placas de Petri.\nSuelta un objeto sobre una silueta azul para guardarlo.";
 
                 // Baldas: superficies horizontales del armazón detrás del vidrio.
                 float zc = frente - 0.26f;
@@ -355,17 +355,17 @@ public static class MontarAlmacenamiento
             comp.eje = Vector3.up;
             comp.angulo = -100f * (exteriorEnMin ? 1f : -1f) * sz;   // la hoja gira hacia fuera
             comp.nombre = "el armario";
-            comp.avisoAlAbrir = "Armario de material: cristalería, tubos de ensayo y placas estériles.\nSuelta un objeto sobre una silueta azul para guardarlo.";
+            comp.avisoAlAbrir = "Armario de material: placas de Petri estériles y un microscopio de repuesto.\nSuelta un objeto sobre una silueta azul para guardarlo.";
             puertas++;
 
-            // Baldas de arriba: cristalería (vasos, matraces, probetas) y tubos de ensayo.
+            // Baldas de arriba: placas de Petri estériles (sin cristalería de química: NanoLab es de microbiología).
             // Balda de abajo: microscopio de repuesto tras la primera hoja; placas estériles tras la otra.
             bool primera = puertas == 1;
             for (int i = 0; i < ys.Count; i++)
             {
                 var e = new Espacio { padre = t, comp = comp, centro = new Vector3(hb.center.x, ys[i] + 0.001f / s, zc), area = new Vector2(ancho * s - 0.12f, 0.3f) };
                 bool ultima = i == ys.Count - 1 && ys.Count > 1;
-                if (!ultima) Llenar(Huecos(e, PasoVidrio, 12), primera ? JuegoCristaleria() : Varios(6, () => Cristaleria("Glass_Lab_test_tube", 0.15f)));
+                if (!ultima) Llenar(Huecos(e, PasoPlaca, 12), Varios(primera ? 8 : 6, PlacaVacia));
                 else if (primera) MicroscopioGuardado(t, e.centro, Quaternion.Euler(0f, sz > 0 ? 180f : 0f, 0f));
                 else Llenar(Huecos(e, PasoPlaca, 8), Varios(6, PlacaVacia));
             }
@@ -584,13 +584,6 @@ public static class MontarAlmacenamiento
     }
 
     static IEnumerable<GameObject> Varios(int n, System.Func<GameObject> crear) => Enumerable.Range(0, n).Select(_ => crear()).ToList();
-
-    // Vasos, matraces y probetas para una balda de cristalería.
-    static IEnumerable<GameObject> JuegoCristaleria() => new[]
-    {
-        Cristaleria("Beaker", 0.09f), Cristaleria("Beaker", 0.09f), Cristaleria("Erlenmeyer_flask", 0.14f),
-        Cristaleria("Erlenmeyer_flask", 0.14f), Cristaleria("florence_flask", 0.15f), Cristaleria("Graduated_Cylinder", 0.22f),
-    };
 
     // Microscopio de repuesto guardado (solo se ve: no tiene platina ni ocular activos).
     static void MicroscopioGuardado(Transform padre, Vector3 posLocal, Quaternion rotLocal)
