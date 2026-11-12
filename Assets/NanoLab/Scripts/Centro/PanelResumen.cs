@@ -20,8 +20,10 @@ public class PanelResumen : MonoBehaviour
     public void Pendiente(RetoData reto)
     {
         if (titulo != null) titulo.text = "ARCHIVO DE RECUERDOS DE BAYMAX";
-        if (izquierda != null) izquierda.text = $"<color=#8FD8FF><b>{reto.codigo} · {reto.titulo.ToUpper()}</b></color>\n\n{reto.historia}";
-        if (derecha != null) derecha.text = "<color=#A9BED2>El informe del caso aparecerá aquí cuando lo resuelvas: lo que observaste, lo que decidiste y lo que cambió en la muestra.</color>";
+        if (izquierda != null) izquierda.text = $"<color=#8FD8FF><b>{Misiones.Codigo1} · {Misiones.Titulo1.ToUpper()}</b></color>\nCompara 3 muestras (herida, moho y nariz) al microscopio y clasifícalas.\n\n" +
+                                              $"<color=#8FD8FF><b>{Misiones.Codigo2} · {Misiones.Titulo2.ToUpper()}</b></color>\nPrueba qué detiene a la bacteria de la herida y compara ANTES | DESPUÉS.\n\n" +
+                                              $"<color=#8FD8FF><b>{Misiones.Codigo3} · {ContenidoVacuna.Titulo.ToUpper()}</b></color>\nSe desbloquea al terminar la misión 2.";
+        if (derecha != null) derecha.text = "<color=#A9BED2>El informe de las misiones 1 y 2 aparecerá aquí cuando las completes: lo que observaste, lo que decidiste y lo que cambió en la muestra.</color>";
         if (fragmentoTxt != null) fragmentoTxt.text = $"Recuerdos científicos recuperados: {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}";
         Encender(false);
     }

@@ -3,11 +3,12 @@
 // ni el montaje (MontajeVacuna). Modelo educativo simplificado: no es un protocolo real de fabricación.
 public static class ContenidoVacuna
 {
-    public const string Codigo = "CASO 01";
+    public const string Codigo = "MISIÓN 3";
     public const string Titulo = "Crea la vacuna";
 
     public const string Historia =
-        "Un coronavirus respiratorio se extiende por la ciudad (modelo educativo basado en el SARS-CoV-2). " +
+        "Un coronavirus respiratorio se extiende por la ciudad (modelo educativo basado en el SARS-CoV-2). En las misiones 1 y 2 viste que no se ve al microscopio " +
+        "y que los antibióticos no le hacen nada: hay que prevenirlo. " +
         "NanoLab te encarga <b>crear una vacuna de ARN mensajero</b>: elegir el antígeno, diseñar el ARNm, fabricarlo, " +
         "envolverlo en nanopartículas de lípidos, controlar su calidad y comprobar en el laboratorio que genera anticuerpos " +
         "que neutralizan al virus. Al final verás cómo se prueba en personas.";
@@ -22,7 +23,7 @@ public static class ContenidoVacuna
     public static readonly string[] Donde =
     {
         "Pantalla derecha", "Mesa de DISEÑO (izquierda)", "Mesa de SÍNTESIS", "MEZCLADOR de nanopartículas", "Mesa de CALIDAD Y FRÍO (derecha)",
-        "Placa de cultivo (izquierda)", "Pantalla derecha", "Botones A-E", "Botones A-D",
+        "Placa de cultivo (izquierda)", "Microscopio (izquierda) y pantalla derecha", "Botones A-E", "Botones A-D",
     };
 
     public class Opcion
@@ -329,11 +330,63 @@ public static class ContenidoVacuna
 
     // ------------------------------------------------------------------ 7 · lectura del título (apuntar a la columna)
 
-    public const string TituloTitulo = "LEE LA PLACA: TÍTULO DE ANTICUERPOS";
+    public const string TituloTitulo = "MIRA AL MICROSCOPIO Y LEE EL TÍTULO";
     public const string TituloEnunciado =
-        "VIOLETA = células vivas (el virus fue neutralizado); TRANSPARENTE con X = células destruidas. " +
+        "Primero lleva la PLACA al <b>MICROSCOPIO</b> y compara en su monitor las células ANTES (CONTROL, sin virus) y DESPUÉS (PLACEBO, con virus). " +
+        "Luego lee la placa: VIOLETA = células vivas (el virus fue neutralizado); TRANSPARENTE con X = células destruidas. " +
         "El <b>título</b> es la dilución MÁS ALTA del suero que todavía protege a las células.\n" +
-        "<color=#FFD25A>Apunta con el rayo a la dilución del título (los números de arriba de la placa, pantalla derecha) y aprieta el gatillo.</color>";
+        "<color=#FFD25A>Al final, apunta con el rayo a la dilución del título (los números de arriba de la placa, pantalla derecha) y aprieta el gatillo.</color>";
+
+    // Microscopio invertido con cámara (como en un laboratorio de cultivo celular): el estudiante pone la placa en la
+    // platina y compara en el monitor un pocillo CONTROL (ANTES: células sanas, sin virus) con uno PLACEBO (DESPUÉS: el
+    // virus las destruyó). Así se conecta la microscopía (RF-03 / RF-08) con el reto: el virus no se ve, su efecto sí.
+    public const string MicroAntes = "ANTES · CONTROL (sin virus)";
+    public const string MicroDespues = "DESPUÉS · PLACEBO (con virus)";
+    public const string MicroSanas = "Células sanas: pegadas al fondo, forman una capa continua.";
+    public const string MicroDestruidas = "Células destruidas: redondas, sueltas y con huecos (efecto citopático).";
+    public const string MicroPie = "El virus (~100 nm) NO se ve con este microscopio: se ve lo que les hace a las células.";
+
+    public static readonly string[] PistasMicroPlaca =
+    {
+        "Coge la PLACA de la mesa de DISEÑO con el grip y suéltala sobre la silueta de la platina del MICROSCOPIO (a su lado).",
+        "La platina es la bandeja plana del microscopio. Al soltar la placa cerca, encaja sola y el monitor se enciende.",
+    };
+
+    public static readonly Pregunta[] PreguntasMicroscopio =
+    {
+        new Pregunta
+        {
+            titulo = "¿Qué les pasó a las células del PLACEBO?",
+            enunciado = "Compara en el monitor del microscopio: izquierda = CONTROL (sin virus), derecha = PLACEBO (suero sin anticuerpos + virus).",
+            opciones = new[]
+            {
+                new Opcion("Igual que el control", "Están igual que las del CONTROL", false, "Mira otra vez: en el CONTROL forman una capa continua; en el PLACEBO hay huecos y células redondas sueltas."),
+                new Opcion("Destruidas por el virus", "El virus las destruyó", true, "Sin anticuerpos, el virus entró y destruyó las células: se redondean, se sueltan y quedan huecos. Es el EFECTO CITOPÁTICO."),
+                new Opcion("Se ven los virus", "Se ven los virus encima de las células", false, "Los virus miden unos 100 nm: este microscopio no puede verlos. Lo que ves es el daño que hicieron."),
+            },
+            pistas = new[]
+            {
+                "La imagen de la izquierda es cómo se ven unas células sanas. ¿La de la derecha se parece?",
+                "Las manchas claras y las células redondas sueltas son células muertas: el virus las destruyó.",
+            },
+        },
+        new Pregunta
+        {
+            titulo = "¿Por qué no ves el virus?",
+            enunciado = "En el monitor ves células, pero ningún virus. ¿Por qué?",
+            opciones = new[]
+            {
+                new Opcion("Es muy pequeño", "Es demasiado pequeño para este microscopio", true, "El virus mide unos 100 nm y un microscopio óptico solo distingue cosas de más de unos 200 nm. Para verlo hace falta un microscopio electrónico; aquí miramos su EFECTO en las células."),
+                new Opcion("Ya se murió", "Porque el virus ya se murió", false, "Aunque estuviera activo no se vería: el límite es el TAMAÑO, no si está activo."),
+                new Opcion("Es transparente", "Porque el virus es transparente", false, "Teñirlo no bastaría: es demasiado pequeño para la luz visible."),
+            },
+            pistas = new[]
+            {
+                "Recuerda el tamaño del virus de la pantalla del paso 1: mil veces más pequeño que el grosor de un cabello.",
+                "La luz no puede mostrar detalles más pequeños que unos 200 nm. El virus mide unos 100 nm.",
+            },
+        },
+    };
 
     public static string RespuestaColumna(int c, out bool correcta)
     {
@@ -500,8 +553,79 @@ public static class ContenidoVacuna
         "• Las NANOPARTÍCULAS LIPÍDICAS protegen el ARNm y lo meten en las células.\n" +
         "• Cada lote pasa CONTROL DE CALIDAD y viaja en CADENA DE FRÍO.\n" +
         "• El ensayo de NEUTRALIZACIÓN mide si los anticuerpos impiden la infección; el TÍTULO es la dilución más alta que protege.\n" +
+        "• Al MICROSCOPIO no se ve el virus (es demasiado pequeño), pero sí lo que hace a las células: comparar CONTROL y PLACEBO.\n" +
         "• FASES I > II > III > aprobación > IV: de pocas a millones de personas.\n" +
         "• EFICACIA = (1 - riesgo vacunados / riesgo placebo) x 100.";
+
+    // Mientras no se terminen las misiones 1 y 2 (orden fijo), la estación muestra esto y no deja empezar.
+    public const string Bloqueada =
+        "<color=#FFD25A><b>MISIÓN BLOQUEADA</b></color>\nPrimero completa en este centro la <b>MISIÓN 1 · ¿Qué hay en las muestras?</b> y la <b>MISIÓN 2 · ¿Qué la detiene?</b>: " +
+        "descubrirás que el virus del brote no se ve al microscopio y que los antibióticos no le hacen nada. Entonces fabricarás aquí la vacuna.\n" +
+        "<color=#8FD8FF>Sigue las flechas del suelo hasta el BANCO DE MUESTRAS (1).</color>";
+
+    // ------------------------------------------------------------------ preguntas de comprensión (HEART · Retention)
+    // Las mismas 4 preguntas ANTES de empezar (sin corregir: para saber qué sabía el estudiante) y AL TERMINAR (con
+    // explicación). No cuentan como errores del reto. Se guardan en las métricas (preAciertos / postAciertos).
+    public const string ComprensionPre =
+        "No cuenta como error ni te corregimos ahora: queremos saber qué sabes ANTES de empezar. Elige la que te parezca con las letras del mostrador.";
+    public const string ComprensionPost =
+        "Las mismas preguntas del principio. Ahora sí verás si acertaste y por qué. No cuentan como errores.";
+
+    public static readonly Pregunta[] PreguntasComprension =
+    {
+        new Pregunta
+        {
+            titulo = "¿Qué es un antígeno?",
+            enunciado = "¿Qué es un ANTÍGENO?",
+            opciones = new[]
+            {
+                new Opcion("Un medicamento", "Un medicamento que mata al virus", false, "Un antígeno no mata nada: es la pieza que el sistema inmune aprende a reconocer."),
+                new Opcion("Pieza que se reconoce", "La parte del virus que el sistema inmune reconoce", true, "Correcto: el antígeno (aquí, la espiga S) es lo que el sistema inmune aprende a reconocer."),
+                new Opcion("Un tipo de bacteria", "Un tipo de bacteria", false, "No: puede venir de un virus, de una bacteria o de otro microbio, pero es una molécula, no un ser vivo."),
+                new Opcion("Un anticuerpo", "Un anticuerpo que fabrica el cuerpo", false, "Al revés: el cuerpo fabrica ANTICUERPOS contra el ANTÍGENO."),
+            },
+            pistas = new string[0],
+        },
+        new Pregunta
+        {
+            titulo = "¿Qué lleva una vacuna de ARNm?",
+            enunciado = "¿Qué lleva dentro una vacuna de ARNm?",
+            opciones = new[]
+            {
+                new Opcion("El virus vivo", "El virus vivo, pero debilitado", false, "No lleva virus: lleva solo el mensaje (ARNm) para fabricar una pieza del virus."),
+                new Opcion("Instrucciones", "Instrucciones para que tus células fabriquen la espiga", true, "Correcto: el ARNm es el mensaje; tus células fabrican la espiga y el sistema inmune aprende a reconocerla."),
+                new Opcion("Antibióticos", "Antibióticos", false, "Los antibióticos actúan contra bacterias y no sirven contra los virus."),
+                new Opcion("Anticuerpos", "Anticuerpos ya fabricados", false, "Los anticuerpos los fabrica tu cuerpo después de vacunarte."),
+            },
+            pistas = new string[0],
+        },
+        new Pregunta
+        {
+            titulo = "¿Se ve el virus al microscopio?",
+            enunciado = "¿Por qué un microscopio óptico (como el del colegio) no deja ver un virus?",
+            opciones = new[]
+            {
+                new Opcion("Transparente", "Porque los virus son transparentes", false, "Teñirlo no ayudaría: el problema es el tamaño."),
+                new Opcion("Muy pequeño", "Porque es demasiado pequeño (unos 100 nm)", true, "Correcto: el microscopio óptico distingue hasta unos 200 nm y el virus mide unos 100 nm. Se ve su efecto en las células."),
+                new Opcion("Se mueve rápido", "Porque se mueve muy rápido", false, "No es por moverse: es demasiado pequeño para la luz visible."),
+                new Opcion("Sí se ve", "Sí se ve si se aumenta lo suficiente", false, "Con luz visible hay un límite (~200 nm) que no se supera aumentando más."),
+            },
+            pistas = new string[0],
+        },
+        new Pregunta
+        {
+            titulo = "¿Qué significa 90 % de eficacia?",
+            enunciado = "Una vacuna tiene 90 % de eficacia. ¿Qué significa?",
+            opciones = new[]
+            {
+                new Opcion("90 de 100 enferman", "Que 90 de cada 100 vacunados se enferman", false, "Al revés: los vacunados enferman MUCHO menos que los que no se vacunan."),
+                new Opcion("9 de cada 10 se salvan", "Que de cada 10 que enfermarían sin vacuna, 9 no enferman", true, "Correcto: comparado con el placebo, enferman 90 % menos personas."),
+                new Opcion("Dura 90 días", "Que protege durante 90 días", false, "La eficacia no mide el tiempo, sino cuánto baja el riesgo de enfermar."),
+                new Opcion("Protege al 100 %", "Que nadie vacunado enferma", false, "Eso sería 100 %. Con 90 %, algunos vacunados (pocos) sí enferman."),
+            },
+            pistas = new string[0],
+        },
+    };
 
     // ------------------------------------------------------------------ tableros
 

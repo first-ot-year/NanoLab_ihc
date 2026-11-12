@@ -45,8 +45,9 @@ public class TerminalHipotesis : MonoBehaviour
         var rm = RetoManager.Instancia;
         if (rm == null) return;
         if (!rm.PuedeHipotesis(out var motivo)) { Rechazar(motivo); return; }
-        rm.RegistrarHipotesis(opciones[i]);
-        Sonidos.Encaje(transform.position);
+        // Misión 1: la identificación se comprueba; si no encaja con las evidencias, RetoManager explica por qué.
+        if (rm.RegistrarHipotesis(opciones[i])) Sonidos.Encaje(transform.position);
+        else Sonidos.Error(transform.position);
         Refrescar();
     }
 
@@ -77,25 +78,24 @@ public class TerminalHipotesis : MonoBehaviour
         if (pantalla == null) return;
 
         var sb = new StringBuilder();
-        string caso = rm != null ? rm.reto.codigo : "CASO 01";
         // Lo observado, para decidir a partir de las evidencias y no de memoria.
         if (rm != null && rm.Evidencias.Any(x => x))
         {
             var ev = rm.reto.evidencias.Select((e, k) => rm.Evidencias[k] ? e.valor : "???");
-            sb.AppendLine($"<size=72%><color=#8FD8FF>TUS EVIDENCIAS:</color> {string.Join("  ·  ", ev)}</size>");
+            sb.AppendLine($"<size=72%><color=#8FD8FF>TUS EVIDENCIAS (MUESTRA A):</color> {string.Join("  ·  ", ev)}</size>");
         }
-        else sb.AppendLine($"<size=72%><color=#8FD8FF>TUS EVIDENCIAS:</color> <color=#FFD25A>aún ninguna: observa la muestra al microscopio (3)</color></size>");
+        else sb.AppendLine($"<size=72%><color=#8FD8FF>TUS EVIDENCIAS (MUESTRA A):</color> <color=#FFD25A>aún ninguna: observa la muestra al microscopio (3)</color></size>");
 
         sb.AppendLine(h == null
-            ? $"<b>1) ¿Qué microorganismo es la muestra del {caso}?</b>  <color=#FFD25A>[ PENDIENTE ]</color>"
-            : $"1) Hipótesis: <b><color=#FFD25A>{h.nombre}</color></b>  <color=#39FF88>[ ELEGIDA ]</color>");
+            ? $"<b>MISIÓN 1 · ¿Qué bacteria es la MUESTRA A?</b>  <color=#FFD25A>[ PENDIENTE ]</color>"
+            : $"MISIÓN 1 · La MUESTRA A es <b><color=#FFD25A>{h.nombre}</color></b>  <color=#39FF88>[ IDENTIFICADA ]</color>");
         sb.AppendLine(s == null
-            ? (h == null ? "<color=#8FA6BC>2) ¿Qué estructura atacarás?  (después de la 1)</color>" : "<b>2) ¿Qué estructura atacarás?</b>  <color=#FFD25A>[ PENDIENTE ]</color>")
-            : $"2) Estrategia: <b><color=#FFD25A>{s.nombre}</color></b>  <color=#39FF88>[ ELEGIDA ]</color>");
+            ? (h == null ? "<color=#8FA6BC>MISIÓN 2 · ¿Qué estructura atacarás?  (después de identificarla)</color>" : "<b>MISIÓN 2 · ¿Qué estructura atacarás?</b>  <color=#FFD25A>[ PENDIENTE ]</color>")
+            : $"MISIÓN 2 · Estrategia: <b><color=#FFD25A>{s.nombre}</color></b>  <color=#39FF88>[ ELEGIDA ]</color>");
         sb.Append("<size=70%><color=#A9BED2>");
         sb.Append(h != null && s != null
             ? "Ahora busca en la PRENSA (6) el vial que hace lo que decidiste y formula la cápsula. Puedes cambiar de idea antes de experimentar."
-            : "Elige según tus evidencias y las fichas de la BIBLIOTECA (4). Puedes cambiar de idea antes de experimentar.");
+            : "Elige según tus evidencias y las fichas de la BIBLIOTECA (4). La estrategia la puedes cambiar antes de experimentar.");
         sb.Append($"</color>\n<color=#7F93A8><i>{AvisoSimplificado}</i></color></size>");
         pantalla.text = sb.ToString();
     }

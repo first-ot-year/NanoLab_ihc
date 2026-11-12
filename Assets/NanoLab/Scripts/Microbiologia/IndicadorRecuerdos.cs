@@ -5,7 +5,7 @@ using UnityEngine;
 // Recuerdos científicos que Baymax recupera al resolver casos (hilo narrativo, RF-01 / RF-09).
 public static class RecuerdosBaymax
 {
-    public const int Total = 1;   // un solo reto: CASO 01 · Crea la vacuna
+    public const int Total = 3;   // uno por misión: OBSERVAR (1), EXPERIMENTAR (2) y CREAR la vacuna (3); ver Misiones
     static readonly HashSet<string> recuperados = new HashSet<string>();
 
     public static int Cantidad => recuperados.Count;
@@ -17,7 +17,8 @@ public static class RecuerdosBaymax
     {
         if (casos == null) return;
         bool cambio = false;
-        foreach (var c in casos) if (!string.IsNullOrEmpty(c)) cambio |= recuperados.Add(c);
+        // Solo los recuerdos que existen hoy (las partidas antiguas guardaban otros nombres).
+        foreach (var c in casos) { var id = Misiones.Normalizar(c); if (id != null) cambio |= recuperados.Add(id); }
         if (cambio) Cambiado?.Invoke();
     }
 
@@ -42,7 +43,26 @@ public class IndicadorRecuerdos : MonoBehaviour
 
     MaterialPropertyBlock mpb;
 
-    void OnEnable() { RecuerdosBaymax.Cambiado += Refrescar; Refrescar(); }
+    void OnEnable() { AsegurarRanuras(); RecuerdosBaymax.Cambiado += Refrescar; Refrescar(); }
+
+    // La escena se guardó cuando el caso daba 1 recuerdo (una sola ranura): se crean las que falten copiando la
+    // primera, con la misma separación que usa MontarIntroduccion (4,5 cm).
+    void AsegurarRanuras()
+    {
+        if (ranuras == null || ranuras.Length == 0 || ranuras[0] == null || ranuras.Length >= RecuerdosBaymax.Total) return;
+        var lista = new List<Renderer>(ranuras);
+        var b = ranuras[0].transform;
+        for (int i = ranuras.Length; i < RecuerdosBaymax.Total; i++)
+        {
+            var c = Instantiate(b.gameObject, b.parent);
+            c.name = "Recuerdo" + i;
+            c.transform.localPosition = b.localPosition + new Vector3(0.045f * i, 0f, 0f);
+            c.transform.localRotation = b.localRotation;
+            c.transform.localScale = b.localScale;
+            lista.Add(c.GetComponent<Renderer>());
+        }
+        ranuras = lista.ToArray();
+    }
     void OnDisable() { RecuerdosBaymax.Cambiado -= Refrescar; }
 
     void Refrescar()

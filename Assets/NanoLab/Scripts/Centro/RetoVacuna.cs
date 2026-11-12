@@ -72,6 +72,9 @@ public class RetoVacuna : MonoBehaviour
     public Renderer canalMezcla;
     public Renderer[] pocillos;
     public Bounds zona;
+    // Paso 7: la placa se lleva al microscopio invertido y su monitor compara CONTROL (antes) y PLACEBO (después).
+    public PiezaVacuna placaCultivo;
+    public MicroscopioVacuna microscopio;
 
     public EtapaVacuna Actual { get; private set; }
     public bool Resuelta { get; private set; }
@@ -110,6 +113,16 @@ public class RetoVacuna : MonoBehaviour
     string tituloPasoVisual = "", piePasoVisual = "";
     Transform marcador, flecha;
     TMP_Text marcadorTxt;
+    // Microscopio (paso 7): placa observada y preguntas del monitor acertadas.
+    bool vistoMicro;
+    int microOk;
+    // Preguntas de comprensión (HEART · R): las mismas ANTES de empezar (sin corregir) y AL TERMINAR (con explicación).
+    enum Cuestionario { Ninguno, Antes, Despues }
+    Cuestionario cuestionario;
+    int preguntaQuiz;
+    bool quizTerminado, preHecho;
+    int aciertosPre = -1, aciertosPost = -1;
+    public bool EnCuestionario => cuestionario != Cuestionario.Ninguno;
 
     // ------------------------------------------------------------------ ciclo de vida
 
@@ -153,6 +166,7 @@ public class RetoVacuna : MonoBehaviour
         for (int i = 0; i < huecosAlmacen.Length; i++) { int k = i; huecosAlmacen[i].Cambio += e => AlGuardar(k, e); }
         puntoTubo.recibir = AlDispensarTubo;
         puntoPlaca.recibir = AlDispensarPlaca;
+        if (microscopio != null) microscopio.platina.Cambio += AlCambiarMicroscopio;
         metricas = new MetricsLogger(C.Codigo);
         RecuerdosBaymax.Cambiado += Refrescar;
         PintarPlacaFisica(0);
@@ -167,18 +181,23 @@ public class RetoVacuna : MonoBehaviour
     {
         var cab = ManosRig.Cabeza;
         bool ahora = cab != null && zona.Contains(new Vector3(cab.position.x, zona.center.y, cab.position.z));
-        if (ahora && !dentro && !saludado && Actual == EtapaVacuna.Intro)
+        if (ahora && !dentro && !saludado && Actual == EtapaVacuna.Intro && !EnCuestionario)
         {
             // Primera vez junto a la estación: bienvenida y el cronómetro del caso empieza aquí.
             saludado = true;
             metricas = new MetricsLogger(C.Codigo);
             metricas.Etapa(Actual.ToString());
             var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-            Aviso.Mostrar($"{C.Codigo} · {C.Titulo.ToUpper()}: vas a fabricar una vacuna de ARNm. Pulsa el botón verde CONTINUAR para empezar.",
+            Aviso.Mostrar(Misiones.VacunaDesbloqueada
+                    ? $"{C.Codigo} · {C.Titulo.ToUpper()}: vas a fabricar una vacuna de ARNm. Pulsa el botón verde CONTINUAR para empezar."
+                    : $"{C.Codigo} · {C.Titulo.ToUpper()}: se desbloquea al terminar las misiones 1 y 2. Empieza en el BANCO DE MUESTRAS (1).",
                 cab.position + frente * 0.9f + Vector3.down * 0.15f, Aviso.Tipo.Info, 7f);
             Sonidos.Etapa(cab.position);
         }
         dentro = ahora;
+        // Actividad del estudiante mientras el caso está en marcha (Engagement: tiempo inactivo).
+        if (metricas != null && (EnCuestionario || (Actual >= EtapaVacuna.Antigeno && Actual <= EtapaVacuna.Eficacia)))
+            metricas.Muestrear(cab, ManosRig.ManoIzq, ManosRig.ManoDer, Time.deltaTime);
 
         // Franja de la mesa del paso actual: late suavemente.
         var mesas = MesasDe(Actual);
@@ -222,6 +241,9 @@ public class RetoVacuna : MonoBehaviour
         progreso = 0;
         mensaje = null;
         metricas?.Etapa(e.ToString());
+        if (e == EtapaVacuna.Antigeno) metricas?.Empezar();
+        if (e == EtapaVacuna.Neutralizacion) StartCoroutine(MicrografiasCultivo.Preparar());   // las imágenes del microscopio, sin tirones
+        if (e == EtapaVacuna.Titulo) { vistoMicro = false; microOk = 0; if (microscopio != null) microscopio.Apagar(); }
         if (demo != null) demo.Detener();   // el gesto de AYUDA es del paso anterior
         PrepararVisual(e);
         PrepararMesa(e);
@@ -282,7 +304,7 @@ public class RetoVacuna : MonoBehaviour
                 break;
             case EtapaVacuna.Titulo:
                 tituloVisual.text = "LECTURA DE LA PLACA";
-                pieVisual.text = "<color=#B07CFF>VIOLETA</color> = células vivas (virus neutralizado)   ·   <color=#D6DEE8>TRANSPARENTE con X</color> = células destruidas";
+                pieVisual.text = "Primero mira las células en el MONITOR del MICROSCOPIO (mesa de la izquierda).\n<color=#B07CFF>VIOLETA</color> = células vivas (virus neutralizado)   ·   <color=#D6DEE8>TRANSPARENTE con X</color> = células destruidas";
                 break;
             case EtapaVacuna.Fases:
                 fases.Reiniciar();
@@ -365,7 +387,16 @@ public class RetoVacuna : MonoBehaviour
         Ver(vial, mezclado && e >= EtapaVacuna.Encapsulado);
         if (vial.gameObject.activeSelf) vial.Encajable.Bloquear(e > EtapaVacuna.Calidad);
 
-        grupoPlaca.SetActive(e == EtapaVacuna.Neutralizacion || e == EtapaVacuna.Titulo);
+        bool conPlaca = e == EtapaVacuna.Neutralizacion || e == EtapaVacuna.Titulo;
+        grupoPlaca.SetActive(conPlaca);
+        if (placaCultivo != null)
+        {
+            // La placa empieza cada paso en su sitio de la mesa; solo se puede agarrar en el paso 7 (al microscopio).
+            if (conPlaca && placaCultivo.Encajable.Encajada != placaCultivo.Encajable.casa) A.Recolocar(placaCultivo.Encajable);
+            Ver(placaCultivo, conPlaca);
+            if (conPlaca) placaCultivo.Encajable.Bloquear(e != EtapaVacuna.Titulo);
+        }
+        if (microscopio != null) microscopio.gameObject.SetActive(e == EtapaVacuna.Titulo);
         grupoIncubarTubo.SetActive(e == EtapaVacuna.Sintesis);
         grupoMezclar.SetActive(e == EtapaVacuna.Encapsulado);
         grupoIncubarPlaca.SetActive(e == EtapaVacuna.Neutralizacion);
@@ -391,6 +422,7 @@ public class RetoVacuna : MonoBehaviour
         var o = p.opciones[i];
         seleccion = i;
         var pos = holograma != null ? holograma.Centro + Vector3.up * 0.3f : selectoresVirus[i].transform.position + Vector3.up * 0.12f;
+        metricas?.Indagacion($"Virus: {o.corto}");
         virus.Resaltar((VirusVacuna.Parte)i);   // se aprende viendo: también las incorrectas se iluminan
         if (holograma != null) holograma.Resaltar((VirusVacuna.Parte)i);
         if (o.correcta)
@@ -802,14 +834,97 @@ public class RetoVacuna : MonoBehaviour
             }
     }
 
-    // ------------------------------------------------------------------ 7 · título
+    // ------------------------------------------------------------------ 7 · microscopio y título
+
+    int PreguntasMicro => C.PreguntasMicroscopio.Length;
+    bool MicroHecho => vistoMicro && microOk >= PreguntasMicro;
+    ContenidoVacuna.Pregunta PreguntaMicro() => C.PreguntasMicroscopio[Mathf.Min(microOk, PreguntasMicro - 1)];
+
+    // La placa llega a la platina del microscopio: el monitor compara CONTROL (antes) y PLACEBO (después).
+    // Al quitarla, el monitor conserva la última imagen (como una captura de la cámara).
+    void AlCambiarMicroscopio(Encajable e)
+    {
+        if (silencio || microscopio == null || e == null) return;
+        var pos = microscopio.platina.transform.position + Vector3.up * 0.3f;
+        if (Actual != EtapaVacuna.Titulo || placaCultivo == null || e != placaCultivo.Encajable)
+        {
+            Aviso.Mostrar("Ahora no hace falta el microscopio.", pos, Aviso.Tipo.Info, 2.5f);
+            StartCoroutine(SacarDelMicroscopio(e, 1.2f));
+            return;
+        }
+        TerminarPresentacion();
+        microscopio.MostrarComparacion();
+        if (metricas != null) { metricas.Datos.observacionesMicroscopio++; metricas.Indagacion("Microscopio: placa en la platina"); }
+        Sonidos.Carga(pos);
+        ManosRig.Vibrar(pos, 0.4f, 0.08f);
+        if (!vistoMicro)
+        {
+            vistoMicro = true;
+            Registrar("Microscopio: CONTROL (antes) frente a PLACEBO (después)", true);
+            nivelPista[Actual] = 0;
+            mensaje = "<color=#39FF88><b>MONITOR ENCENDIDO.</b></color> Compara ANTES (CONTROL, sin virus) y DESPUÉS (PLACEBO, con virus).\n" +
+                      $"<color=#FFD25A>Pregunta 1/{PreguntasMicro}: {C.PreguntasMicroscopio[0].enunciado}</color>";
+        }
+        Refrescar();
+    }
+
+    IEnumerator SacarDelMicroscopio(Encajable e, float espera)
+    {
+        yield return new WaitForSeconds(espera);
+        if (e != null && microscopio != null && e.Encajada == microscopio.platina) e.VolverACasa();
+    }
+
+    // Preguntas sobre lo que se ve en el monitor (con los botones A-C), antes de leer el título.
+    void ResponderMicro(int i)
+    {
+        var pos = opciones[Mathf.Clamp(i, 0, opciones.Length - 1)].transform.position + Vector3.up * 0.3f;
+        if (!vistoMicro) { mensaje = "<color=#A9BED2>Primero pon la PLACA en el MICROSCOPIO.</color>"; Sonidos.Clic(pos); Refrescar(); return; }
+        if (microOk >= PreguntasMicro) { mensaje = "<color=#A9BED2>Ya respondiste lo del microscopio: ahora apunta con el rayo a la dilución del título.</color>"; Sonidos.Clic(pos); Refrescar(); return; }
+        var q = PreguntaMicro();
+        if (i < 0 || i >= q.opciones.Length) return;
+        var o = q.opciones[i];
+        seleccion = i;
+        if (o.correcta)
+        {
+            Registrar($"Microscopio {microOk + 1}/{PreguntasMicro}: {o.corto}", true);
+            microOk++;
+            seleccion = -1;
+            nivelPista[Actual] = 0;
+            Sonidos.Carga(pos);
+            if (microOk == PreguntasMicro)
+            {
+                if (metricas != null) metricas.Datos.comparacionAntesDespues = true;
+                ManosRig.Vibrar(pos, 0.4f, 0.08f);
+                mensaje = $"<color=#39FF88><b>¡BIEN! {microOk}/{PreguntasMicro}.</b></color> {o.respuesta}\n<color=#FFD25A>Ahora lee la placa: apunta con el rayo a la dilución del TÍTULO (pantalla derecha).</color>";
+            }
+            else
+                mensaje = $"<color=#39FF88><b>¡BIEN! {microOk}/{PreguntasMicro}.</b></color> {o.respuesta}\n<color=#FFD25A>Siguiente: {PreguntaMicro().enunciado}</color>";
+        }
+        else
+        {
+            Fallo($"Microscopio {microOk + 1}/{PreguntasMicro}: {o.corto}", pos);
+            mensaje = $"<color=#FF8A70><b>AÚN NO.</b></color> {o.respuesta}\n<color=#A9BED2>Mira otra vez el monitor y prueba otra letra.</color>";
+        }
+        Refrescar();
+    }
 
     public void ElegirColumna(int c)
     {
         if (Actual != EtapaVacuna.Titulo) return;
         TerminarPresentacion();
-        string r = C.RespuestaColumna(c, out bool ok);
         var pos = selectoresColumna[c].transform.position + Vector3.up * 0.1f;
+        if (!MicroHecho)
+        {
+            // No es un error: falta el paso del microscopio (una meta a la vez).
+            mensaje = vistoMicro ? "<color=#A9BED2>Antes de leer el título, responde lo que ves en el monitor del microscopio (letras del mostrador).</color>"
+                                 : "<color=#A9BED2>Antes de leer el título, lleva la PLACA al MICROSCOPIO (mesa de la izquierda) y mira las células.</color>";
+            Sonidos.Clic(pos);
+            Refrescar();
+            return;
+        }
+        string r = C.RespuestaColumna(c, out bool ok);
+        metricas?.Indagacion($"Placa: dilución {PlacaNeutralizacion.Diluciones[c]}");
+        if (microscopio != null && microscopio.gameObject.activeInHierarchy) microscopio.MostrarColumna(c);
         if (ok)
         {
             if (!Resuelta)
@@ -835,8 +950,78 @@ public class RetoVacuna : MonoBehaviour
     void AlPulsarOpcion(int boton)
     {
         TerminarPresentacion();
-        if (Actual == EtapaVacuna.Fases) PasoFases(boton);
+        if (EnCuestionario) ResponderCuestionario(boton);
+        else if (Actual == EtapaVacuna.Titulo) ResponderMicro(boton);
+        else if (Actual == EtapaVacuna.Fases) PasoFases(boton);
         else if (Actual == EtapaVacuna.Eficacia) ResponderEficacia(boton);
+    }
+
+    // ------------------------------------------------------------------ preguntas de comprensión (antes / después)
+
+    ContenidoVacuna.Pregunta PreguntaQuiz() => C.PreguntasComprension[Mathf.Min(preguntaQuiz, C.PreguntasComprension.Length - 1)];
+
+    void EmpezarCuestionario(Cuestionario c)
+    {
+        cuestionario = c;
+        preguntaQuiz = 0;
+        quizTerminado = false;
+        seleccion = -1;
+        mensaje = null;
+        plan = new SubPaso[0];
+        presentando = false;
+        siguiente.Ocultar();
+        if (demo != null) demo.Detener();
+        if (c == Cuestionario.Antes) { aciertosPre = 0; metricas?.Empezar(); } else aciertosPost = 0;
+        metricas?.Etapa(c == Cuestionario.Antes ? "PreguntasAntes" : "PreguntasDespues");
+        var cab = ManosRig.Cabeza;
+        if (cab != null)
+        {
+            var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
+            Aviso.Mostrar(c == Cuestionario.Antes ? "ANTES DE EMPEZAR: 4 preguntas rápidas.\n<size=75%>No cuentan como error.</size>"
+                                                  : "PARA TERMINAR: las mismas 4 preguntas.\n<size=75%>¿Qué aprendiste?</size>",
+                cab.position + frente * 0.85f + Vector3.down * 0.05f, Aviso.Tipo.Info, 3.5f);
+        }
+        Sonidos.Etapa(transform.position + Vector3.up * 1.2f);
+        tVentana = 0f;
+        Refrescar();
+    }
+
+    void ResponderCuestionario(int i)
+    {
+        var qs = C.PreguntasComprension;
+        var pos = opciones[Mathf.Clamp(i, 0, opciones.Length - 1)].transform.position + Vector3.up * 0.3f;
+        if (quizTerminado) { mensaje = "<color=#A9BED2>Ya respondiste todo: pulsa CONTINUAR (verde).</color>"; Sonidos.Clic(pos); Refrescar(); return; }
+        var q = PreguntaQuiz();
+        if (i < 0 || i >= q.opciones.Length) return;
+        var o = q.opciones[i];
+        bool antes = cuestionario == Cuestionario.Antes;
+        metricas?.Comprension(antes, preguntaQuiz, o.corto, o.correcta, qs.Length);
+        if (o.correcta) { if (antes) aciertosPre++; else aciertosPost++; }
+        Sonidos.Carga(pos);
+        // ANTES no se corrige (no se enseña antes de empezar); DESPUÉS se explica cada respuesta.
+        mensaje = antes ? $"<color=#A9BED2>Respuesta {preguntaQuiz + 1}/{qs.Length} guardada.</color>"
+                        : (o.correcta ? "<color=#39FF88><b>¡BIEN!</b></color> " : "<color=#FF8A70><b>NO ERA ESA.</b></color> ") +
+                          (o.correcta ? o.respuesta : q.opciones.First(x => x.correcta).respuesta);
+        preguntaQuiz++;
+        if (preguntaQuiz >= qs.Length)
+        {
+            quizTerminado = true;
+            if (antes) preHecho = true;
+            if (antes) mensaje += "\n<color=#39FF88><b>¡Gracias!</b> Pulsa CONTINUAR (verde) para empezar el caso.</color>";
+            else mensaje += aciertosPre >= 0
+                ? $"\n<color=#39FF88><b>Al principio acertaste {aciertosPre}/{qs.Length}; ahora, {aciertosPost}/{qs.Length}.</b> Pulsa CONTINUAR para ver tu informe.</color>"
+                : $"\n<color=#39FF88><b>Acertaste {aciertosPost}/{qs.Length}.</b> Pulsa CONTINUAR para ver tu informe.</color>";
+        }
+        seleccion = -1;
+        Refrescar();
+    }
+
+    void TerminarCuestionario()
+    {
+        var c = cuestionario;
+        cuestionario = Cuestionario.Ninguno;
+        if (c == Cuestionario.Antes) Poner(EtapaVacuna.Antigeno);
+        else Completar();
     }
 
     void PasoFases(int boton)
@@ -1011,6 +1196,16 @@ public class RetoVacuna : MonoBehaviour
                     .Nino("Sigue el orden: suero, virus, INCUBAR, células y tinte", "DEL FRASCO…", "A LA PLACA + GATILLO"));
                 break;
             case EtapaVacuna.Titulo:
+                System.Func<Transform> platina = () => microscopio != null ? T(microscopio.platina) : null;
+                System.Func<Transform> monitor = () => microscopio != null && microscopio.antes != null && microscopio.gameObject.activeInHierarchy ? microscopio.antes.canvas.transform : null;
+                l.Add(new SubPaso("Coge la PLACA y ponla en la platina del MICROSCOPIO", platina, () => vistoMicro || Resuelta)
+                    .Con(I.Grip, () => T(placaCultivo), platina).Nino("COGE la placa y PONLA en el microscopio", "COGE LA PLACA", "PONLA AQUÍ"));
+                for (int k = 0; k < C.PreguntasMicroscopio.Length; k++)
+                {
+                    int q = k;
+                    l.Add(new SubPaso($"Monitor {q + 1}: {C.PreguntasMicroscopio[q].titulo} (letras)", null, () => microOk > q || Resuelta).Con(I.Ninguno, monitor)
+                        .Nino($"MIRA el monitor y PULSA una letra: {C.PreguntasMicroscopio[q].titulo}", "MIRA EL MONITOR"));
+                }
                 l.Add(new SubPaso("Mira la fila VACUNADO de la placa ampliada (pantalla derecha)", null, () => Resuelta).Con(I.Ninguno, () => Mirar(placa))
                     .Nino("MIRA la fila VACUNADO de la pantalla", "MIRA LA FILA VACUNADO"));
                 l.Add(new SubPaso("Apunta con el rayo a la dilución del título y aprieta el gatillo", null, () => Resuelta).Con(I.Rayo, () => Mirar(placa))
@@ -1224,9 +1419,17 @@ public class RetoVacuna : MonoBehaviour
     {
         if (ventana == null || Time.time < tVentana) return;
         tVentana = Time.time + 0.2f;
+        if (EnCuestionario)
+        {
+            ventana.Mostrar(true, cuestionario == Cuestionario.Antes ? "ANTES DE EMPEZAR" : "PARA TERMINAR",
+                quizTerminado ? "Pulsa CONTINUAR (verde)" : $"Pregunta {preguntaQuiz + 1}/{C.PreguntasComprension.Length}: responde con una letra", I.Pulsar);
+            return;
+        }
         switch (Actual)
         {
-            case EtapaVacuna.Intro: ventana.Mostrar(true, $"{C.Codigo} · {C.Titulo.ToUpper()}", "Pulsa CONTINUAR (verde) para empezar", I.Pulsar); return;
+            case EtapaVacuna.Intro:
+                ventana.Mostrar(true, $"{C.Codigo} · {C.Titulo.ToUpper()}", Misiones.VacunaDesbloqueada ? "Pulsa CONTINUAR (verde) para empezar" : "Bloqueada: primero las misiones 1 y 2", Misiones.VacunaDesbloqueada ? I.Pulsar : I.Ninguno);
+                return;
             case EtapaVacuna.Cierre: ventana.Mostrar(true, "¡CASO RESUELTO!", "Mira tu informe o pulsa REPETIR para volver a jugar", I.Ninguno); return;
         }
         if (plan.Length == 0) { ventana.Mostrar(false, "", "", I.Ninguno); return; }
@@ -1281,12 +1484,13 @@ public class RetoVacuna : MonoBehaviour
     {
         PasoAPaso = !PasoAPaso;
         pasoAPaso.MarcarActivo(PasoAPaso);
+        if (metricas != null) { if (PasoAPaso) metricas.Datos.pasoAPasoUsado = true; metricas.Actividad(); }
         var pos = pasoAPaso.transform.position + Vector3.up * 0.3f;
         Sonidos.Clic(pos);
         Aviso.Mostrar(PasoAPaso ? "PASO A PASO: te enseño cada acción con una animación. ¡Copia lo que hace!" : "Modo normal: vuelve el plan completo.", pos, Aviso.Tipo.Info, 3f);
         tVentana = 0f;
         claveGuia = -1;
-        if (Actual >= EtapaVacuna.Antigeno && Actual <= EtapaVacuna.Eficacia)
+        if (Actual >= EtapaVacuna.Antigeno && Actual <= EtapaVacuna.Eficacia && !EnCuestionario)
         {
             plan = Plan(Actual);
             indicePlan = -1;
@@ -1343,6 +1547,7 @@ public class RetoVacuna : MonoBehaviour
         erroresEtapa.TryGetValue(Actual, out int n);
         erroresEtapa[Actual] = n + 1;
         Registrar(que, false);
+        metricas?.Error(Actual.ToString());
         Sonidos.Error(pos);
         ManosRig.Vibrar(pos, 0.3f, 0.1f);
         // Tras dos fallos en el mismo paso, se ofrece la pista (no se da sola: el estudiante decide).
@@ -1353,6 +1558,8 @@ public class RetoVacuna : MonoBehaviour
     {
         decisiones.Add((bien ? "<color=#39FF88>[OK]</color> " : "<color=#FF7A6B>[X]</color> ") + que);
         if (metricas == null) return;
+        metricas.Actividad();
+        if (bien) metricas.PrimerExito();
         metricas.Datos.hipotesis.Add(que);
         metricas.Datos.intentos.Add(new MetricsLogger.Intento
         {
@@ -1366,7 +1573,25 @@ public class RetoVacuna : MonoBehaviour
     void Continuar()
     {
         var pos = continuar.transform.position + Vector3.up * 0.3f;
+        metricas?.Actividad();
+        if (EnCuestionario)
+        {
+            if (quizTerminado) { TerminarCuestionario(); return; }
+            Aviso.Mostrar("Responde la pregunta con las letras del mostrador (no cuenta como error).", pos, Aviso.Tipo.Info, 3f);
+            Sonidos.Clic(pos);
+            EnsenarGesto();
+            return;
+        }
         if (Actual == EtapaVacuna.Cierre) return;
+        // Orden fijo de las misiones: la vacuna (MISIÓN 3) se desbloquea al terminar la MISIÓN 2.
+        if (Actual == EtapaVacuna.Intro && !Misiones.VacunaDesbloqueada)
+        {
+            Aviso.Mostrar("MISIÓN BLOQUEADA: primero completa las misiones 1 y 2 de este centro (empieza en el BANCO DE MUESTRAS, 1).", pos, Aviso.Tipo.Info, 5f);
+            Sonidos.Clic(pos);
+            return;
+        }
+        // Antes del paso 1, las preguntas de comprensión (una vez por partida; al REPETIR no se vuelven a hacer).
+        if (Actual == EtapaVacuna.Intro && !preHecho) { EmpezarCuestionario(Cuestionario.Antes); return; }
         if (Animando) { Aviso.Mostrar("Espera a que termine la máquina.", pos, Aviso.Tipo.Info, 2f); return; }
         if (!Resuelta)
         {
@@ -1376,7 +1601,7 @@ public class RetoVacuna : MonoBehaviour
             EnsenarGesto();
             return;
         }
-        if (Actual == EtapaVacuna.Eficacia) { Completar(); return; }
+        if (Actual == EtapaVacuna.Eficacia) { EmpezarCuestionario(Cuestionario.Despues); return; }
         Poner(Actual + 1);
     }
 
@@ -1390,7 +1615,10 @@ public class RetoVacuna : MonoBehaviour
             case EtapaVacuna.Encapsulado: return "Primero formula la vacuna: 4 lípidos y el tubo en el mezclador, y pulsa MEZCLAR.";
             case EtapaVacuna.Calidad: return "Primero analiza el vial y guárdalo en el sitio correcto.";
             case EtapaVacuna.Neutralizacion: return "Primero completa los 5 pasos del ensayo en orden.";
-            case EtapaVacuna.Titulo: return "Primero apunta a la dilución del título (pantalla derecha).";
+            case EtapaVacuna.Titulo:
+                return !vistoMicro ? "Primero lleva la PLACA al MICROSCOPIO (mesa de la izquierda)."
+                     : microOk < PreguntasMicro ? "Primero responde lo que ves en el monitor del microscopio (letras del mostrador)."
+                     : "Primero apunta a la dilución del título (pantalla derecha).";
             case EtapaVacuna.Fases: return "Primero ordena las fases con los botones A-E.";
             default: return "Primero responde las preguntas mirando las barras (botones del mostrador).";
         }
@@ -1398,6 +1626,14 @@ public class RetoVacuna : MonoBehaviour
 
     void PedirPista()
     {
+        if (EnCuestionario)
+        {
+            mensaje = "<color=#FFD25A><b>AYUDA.</b></color> Aquí no hay pistas: elige la que te parezca. No cuenta como error.";
+            Sonidos.Pista(pista.transform.position);
+            EnsenarGesto();
+            Refrescar();
+            return;
+        }
         string[] lista;
         switch (Actual)
         {
@@ -1407,7 +1643,7 @@ public class RetoVacuna : MonoBehaviour
             case EtapaVacuna.Encapsulado: lista = C.PistasEncapsulado; break;
             case EtapaVacuna.Calidad: lista = C.PistasCalidad; break;
             case EtapaVacuna.Neutralizacion: lista = C.PistasNeutralizacion; break;
-            case EtapaVacuna.Titulo: lista = C.PistasTitulo; break;
+            case EtapaVacuna.Titulo: lista = !vistoMicro ? C.PistasMicroPlaca : microOk < PreguntasMicro ? PreguntaMicro().pistas : C.PistasTitulo; break;
             case EtapaVacuna.Fases: lista = C.PistasFases; break;
             case EtapaVacuna.Eficacia: lista = PreguntaEficacia().pistas; break;
             default: lista = new[] { Actual == EtapaVacuna.Intro ? "Pulsa el botón verde CONTINUAR para empezar el caso." : "Caso resuelto: lee tu informe o pulsa REPETIR." }; break;
@@ -1416,7 +1652,7 @@ public class RetoVacuna : MonoBehaviour
         string p = lista[Mathf.Min(n, lista.Length - 1)];
         nivelPista[Actual] = n + 1;
         Pistas++;
-        if (metricas != null) { metricas.Datos.pistasPedidas++; metricas.Datos.pistas.Add($"{Actual}: {p}"); }
+        if (metricas != null) { metricas.Datos.pistasPedidas++; metricas.Datos.pistas.Add($"{Actual}: {p}"); metricas.Actividad(); }
         mensaje = $"<color=#FFD25A><b>AYUDA {Mathf.Min(n + 1, lista.Length)}/{lista.Length}.</b></color> {p}";
         Sonidos.Pista(pista.transform.position);
         EnsenarGesto();
@@ -1429,7 +1665,8 @@ public class RetoVacuna : MonoBehaviour
         TerminarPresentacion();
         guiando = false;   // la demostración de AYUDA tiene prioridad; PASO A PASO la retoma al terminar
         if (demo == null) return;
-        if (Actual == EtapaVacuna.Intro) demo.Reproducir(continuar.transform, null, I.Pulsar, 3, "PULSA CONTINUAR");
+        if (EnCuestionario) demo.Reproducir(quizTerminado ? continuar.transform : opciones[0].transform, null, I.Pulsar, 3, quizTerminado ? "PULSA CONTINUAR" : "PULSA UNA LETRA");
+        else if (Actual == EtapaVacuna.Intro) demo.Reproducir(continuar.transform, null, I.Pulsar, 3, "PULSA CONTINUAR");
         else if (Actual == EtapaVacuna.Cierre) demo.Reproducir(repetir.transform, null, I.Pulsar, 3, "PULSA REPETIR");
         else if (plan.Length > 0) ReproducirGesto(plan[PasoActualDelPlan()], 3);
     }
@@ -1440,7 +1677,8 @@ public class RetoVacuna : MonoBehaviour
         var cab = ManosRig.Cabeza;
         var pos = cab != null ? cab.position : transform.position + Vector3.up * 1.5f;
         Sonidos.Logro(pos);
-        RecuerdosBaymax.Recuperar(C.Codigo);
+        // Tercer recuerdo de Baymax (MISIÓN 3 · CREAR); los dos primeros los dan las misiones 1 y 2.
+        RecuerdosBaymax.Recuperar(Misiones.Recuerdo3);
         if (!guardado) { metricas?.Guardar(true); guardado = true; }
         bool cp = Partida.GuardarCheckpoint(C.Codigo);
         if (cab != null)
@@ -1460,6 +1698,9 @@ public class RetoVacuna : MonoBehaviour
         guardado = false;
         Errores = 0; Pistas = 0;
         erroresEtapa.Clear(); nivelPista.Clear(); decisiones.Clear();
+        cuestionario = Cuestionario.Ninguno;
+        quizTerminado = false;
+        aciertosPost = -1;
         ReiniciarMesa();
         Poner(EtapaVacuna.Antigeno);
     }
@@ -1469,9 +1710,13 @@ public class RetoVacuna : MonoBehaviour
         silencio = true;
         incubando = mezclando = analizando = analizado = mezclado = tuboConsumido = false;
         progreso = 0;
+        vistoMicro = false;
+        microOk = 0;
+        if (microscopio != null) microscopio.Apagar();
         // Primero se sacan todos de donde estén y luego cada uno vuelve a su sitio (así ningún sitio queda ocupado).
         var todas = new List<PiezaVacuna>(bloques) { tubo, vial };
         todas.AddRange(cartuchos);
+        if (placaCultivo != null) todas.Add(placaCultivo);
         foreach (var p in todas) { if (!p.gameObject.activeSelf) p.gameObject.SetActive(true); p.Encajable.Bloquear(false); p.Encajable.Desencajar(); }
         if (!pipeta.gameObject.activeSelf) pipeta.gameObject.SetActive(true);
         pipeta.Encajable.Desencajar();
@@ -1593,6 +1838,21 @@ public class RetoVacuna : MonoBehaviour
                 sb.AppendLine($"<color=#A9BED2>Pipeta: {(pipeta.Contenido != null ? "cargada con " + pipeta.Contenido.nombre : "vacía")}</color>");
                 break;
             case EtapaVacuna.Titulo:
+                sb.AppendLine(Ok(vistoMicro, "Placa en el MICROSCOPIO (monitor encendido)"));
+                if (vistoMicro && microOk < PreguntasMicro)
+                {
+                    var q = PreguntaMicro();
+                    sb.AppendLine($"<b><color=#FFD25A>MONITOR {microOk + 1}/{PreguntasMicro}</color></b>  {q.enunciado}");
+                    for (int i = 0; i < q.opciones.Length; i++)
+                    {
+                        var o = q.opciones[i];
+                        string linea = $"<b>{Letras[i]}</b>  {o.texto}";
+                        if (i == seleccion) linea = $"<color={(o.correcta ? "#39FF88" : "#FF8A70")}>> {linea}</color>";
+                        sb.AppendLine(linea);
+                    }
+                    break;
+                }
+                sb.AppendLine(Ok(MicroHecho, $"Lo que se ve en el monitor ({microOk}/{PreguntasMicro})"));
                 sb.AppendLine("Filas: <color=#73BFFF>VACUNADO</color> · <color=#FFB359>PLACEBO</color> · CONTROL (sin virus)");
                 sb.AppendLine("Diluciones: 1:10  1:20  1:40  1:80  1:160  1:320  1:640  1:1280");
                 break;
@@ -1632,7 +1892,10 @@ public class RetoVacuna : MonoBehaviour
             case EtapaVacuna.Encapsulado: return "Mesa NANOPARTÍCULAS: lleva los cartuchos a las entradas de LÍPIDOS y el tubo a la entrada de ARNm.";
             case EtapaVacuna.Calidad: return "Mesa CALIDAD Y FRÍO: lleva el VIAL de la salida del mezclador al ANALIZADOR.";
             case EtapaVacuna.Neutralizacion: return "Carga la pipeta en los frascos de SÍNTESIS y descarga en la PLACA (mesa izquierda). Usa INCUBAR 1 h cuando toque.";
-            case EtapaVacuna.Titulo: return "Apunta con el rayo a una dilución (arriba de la placa ampliada) y aprieta el gatillo.";
+            case EtapaVacuna.Titulo:
+                return !vistoMicro ? "Coge la PLACA de la mesa de la izquierda (grip) y suéltala sobre la platina del MICROSCOPIO: su monitor compara las células."
+                     : microOk < PreguntasMicro ? "Mira el MONITOR del microscopio y responde con las letras del mostrador."
+                     : "Apunta con el rayo a una dilución (arriba de la placa ampliada) y aprieta el gatillo.";
             case EtapaVacuna.Fases: return "Pulsa los botones A-E en el orden en que se hacen.";
             default: return "Mira las barras de la pantalla derecha y responde con las letras del mostrador.";
         }
@@ -1652,8 +1915,11 @@ public class RetoVacuna : MonoBehaviour
             etiquetasSegmento[i].color = i + 1 == paso ? Color.white : i + 1 < paso || fin ? K.Verde : K.Gris;
         }
 
-        // Botones A-E: solo en FASES (5) y EFICACIA (4).
-        int n = Actual == EtapaVacuna.Fases ? C.Fases.Length : Actual == EtapaVacuna.Eficacia ? PreguntaEficacia().opciones.Length : 0;
+        // Botones A-E: en FASES (5), EFICACIA (4), las preguntas del MICROSCOPIO (3) y las de comprensión (4).
+        bool micro = !EnCuestionario && Actual == EtapaVacuna.Titulo && vistoMicro && microOk < PreguntasMicro;
+        int n = EnCuestionario ? (quizTerminado ? 0 : PreguntaQuiz().opciones.Length)
+              : micro ? PreguntaMicro().opciones.Length
+              : Actual == EtapaVacuna.Fases ? C.Fases.Length : Actual == EtapaVacuna.Eficacia ? PreguntaEficacia().opciones.Length : 0;
         for (int i = 0; i < opciones.Length; i++)
         {
             bool ver = i < n;
@@ -1661,16 +1927,25 @@ public class RetoVacuna : MonoBehaviour
             cartelesOpcion[i].SetActive(ver);
             if (!ver) continue;
             opciones[i].etiqueta.text = Letras[i];
-            textosCartel[i].text = Actual == EtapaVacuna.Fases ? $"<b>{Letras[i]}</b> · {C.Fases[C.OrdenBotonesFases[i]].corto}" : $"<b>{Letras[i]}</b> · {PreguntaEficacia().opciones[i].corto}";
+            string corto = EnCuestionario ? PreguntaQuiz().opciones[i].corto
+                         : micro ? PreguntaMicro().opciones[i].corto
+                         : Actual == EtapaVacuna.Fases ? C.Fases[C.OrdenBotonesFases[i]].corto : PreguntaEficacia().opciones[i].corto;
+            textosCartel[i].text = $"<b>{Letras[i]}</b> · {corto}";
         }
         pista.gameObject.SetActive(!fin); cartelPista.SetActive(!fin);
         continuar.gameObject.SetActive(!fin); cartelContinuar.SetActive(!fin);
         repetir.gameObject.SetActive(fin); cartelRepetir.SetActive(fin);
-        continuar.MarcarActivo(Resuelta && !fin);
+        continuar.MarcarActivo(EnCuestionario ? quizTerminado : Resuelta && !fin);
 
         // En el informe final, "Lo que aprendiste" ocupa también el hueco de las opciones.
         if (altoEnunciado <= 0f) altoEnunciado = enunciado.rectTransform.sizeDelta.y;
         enunciado.rectTransform.sizeDelta = new Vector2(enunciado.rectTransform.sizeDelta.x, fin ? 0.6f : altoEnunciado);
+
+        if (EnCuestionario)
+        {
+            RefrescarCuestionario();
+            return;
+        }
 
         switch (Actual)
         {
@@ -1685,7 +1960,8 @@ public class RetoVacuna : MonoBehaviour
                 sb.AppendLine("• <b>Botones y rótulos</b>: acerca la mano o apúntalos con el rayo de la mano vacía y aprieta el gatillo.");
                 sb.AppendLine("• Los errores no penalizan. <color=#FFD25A>AYUDA</color> te enseña el gesto · <color=#B07CFF>PASO A PASO</color> = una acción a la vez · <color=#39FF88>CONTINUAR</color> avanza.");
                 opcionesTxt.text = sb.ToString();
-                respuesta.text = (RecuerdosBaymax.Lista.Contains(C.Codigo) ? "<color=#39FF88>Ya resolviste este caso antes: puedes repetirlo para repasar.</color>\n" : "") +
+                if (!Misiones.VacunaDesbloqueada) { respuesta.text = C.Bloqueada + "\n\n<size=85%><color=#A9BED2>" + C.Aviso + "</color></size>"; break; }
+                respuesta.text = (Misiones.Tiene(Misiones.Recuerdo3) ? "<color=#39FF88>Ya resolviste esta misión antes: puedes repetirla para repasar.</color>\n" : "") +
                                  "Pulsa <color=#39FF88><b>CONTINUAR</b></color> para empezar.\n\n<size=85%><color=#A9BED2>" + C.Aviso + "</color></size>";
                 break;
             }
@@ -1696,6 +1972,9 @@ public class RetoVacuna : MonoBehaviour
                 opcionesTxt.text = "";
                 var sb = new StringBuilder();
                 sb.AppendLine($"<color=#8FD8FF><b>Tu recorrido</b></color>   <size=85%>Errores: {Errores}   ·   Ayudas: {Pistas}   ·   Tiempo: {Tiempo()}</size>");
+                if (aciertosPost >= 0)
+                    sb.AppendLine($"<size=85%><color=#FFD25A>Preguntas: " + (aciertosPre >= 0 ? $"al principio {aciertosPre}/{C.PreguntasComprension.Length} > " : "") +
+                                  $"al final {aciertosPost}/{C.PreguntasComprension.Length}</color></size>");
                 foreach (var d in decisiones.Skip(Mathf.Max(0, decisiones.Count - 8))) sb.AppendLine($"<size=78%>{d}</size>");
                 respuesta.text = sb.ToString();
                 cierreTxt.text = $"<b>{C.Fragmento} recuperado · Baymax recuerda {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}</b>\n<size=85%>{C.TextoFragmento}</size>";
@@ -1707,7 +1986,7 @@ public class RetoVacuna : MonoBehaviour
                     int ia = PasoActualDelPlan();
                     titulo.text = $"PASO {paso}/{NumPasos} · {C.Pasos[paso - 1]}";
                     enunciado.text = "";
-                    opcionesTxt.text = Actual == EtapaVacuna.Fases || Actual == EtapaVacuna.Eficacia ? Estado() : "";
+                    opcionesTxt.text = ConEstado ? Estado() : "";
                     accionGrande.text = $"<size=55%><color=#FFD25A>ACCIÓN {ia + 1} DE {plan.Length}</color></size>\n{plan[ia].Sencillo()}";
                     EstiloNanoLab.Poner(iconoPaso, plan[ia].icono);
                     respuesta.text = mensaje != null ? PrimeraFrase(mensaje) : $"<color=#A9BED2>{C.Donde[paso - 1].ToUpper()}</color>";
@@ -1715,7 +1994,7 @@ public class RetoVacuna : MonoBehaviour
                 }
                 titulo.text = $"PASO {paso}/{NumPasos} · {TituloEtapa()}";
                 enunciado.text = EnunciadoEtapa();
-                opcionesTxt.text = PlanTexto() + (Actual == EtapaVacuna.Fases || Actual == EtapaVacuna.Eficacia ? "\n" + Estado() : "");
+                opcionesTxt.text = PlanTexto() + (ConEstado ? "\n" + Estado() : "");
                 respuesta.text = mensaje ?? $"<color=#A9BED2>{C.Donde[paso - 1].ToUpper()}.</color> {Indicacion()}";
                 break;
         }
@@ -1727,6 +2006,34 @@ public class RetoVacuna : MonoBehaviour
             : $"Errores: {Errores}   ·   Ayudas: {Pistas}   ·   " + (Resuelta
                 ? $"<color=#39FF88><b>¡Hecho! Siguiente: {(paso < NumPasos ? C.Pasos[paso] : "INFORME FINAL")} > pulsa CONTINUAR (verde)</b></color>"
                 : "<color=#FFD25A>AYUDA (amarillo) si te atascas</color>");
+    }
+
+    // Pasos en los que el panel también lista las opciones de los botones A-E.
+    bool ConEstado => Actual == EtapaVacuna.Fases || Actual == EtapaVacuna.Eficacia || (Actual == EtapaVacuna.Titulo && vistoMicro && microOk < PreguntasMicro);
+
+    void RefrescarCuestionario()
+    {
+        var qs = C.PreguntasComprension;
+        bool antes = cuestionario == Cuestionario.Antes;
+        titulo.text = antes ? $"ANTES DE EMPEZAR · {qs.Length} PREGUNTAS RÁPIDAS" : $"PARA TERMINAR · LAS MISMAS {qs.Length} PREGUNTAS";
+        if (quizTerminado)
+        {
+            enunciado.text = antes ? "¡Listo! Ahora vas a fabricar la vacuna." : "¡Listo! Mira lo que aprendiste en tu informe.";
+            opcionesTxt.text = "";
+        }
+        else
+        {
+            var q = PreguntaQuiz();
+            enunciado.text = $"<color=#FFD25A><b>PREGUNTA {preguntaQuiz + 1}/{qs.Length}</b></color>  {q.enunciado}";
+            var sb = new StringBuilder();
+            for (int i = 0; i < q.opciones.Length; i++) sb.AppendLine($"<b>{Letras[i]}</b>  {q.opciones[i].texto}");
+            opcionesTxt.text = sb.ToString();
+        }
+        respuesta.text = (mensaje != null ? mensaje + "\n\n" : "") + $"<size=85%><color=#A9BED2>{(antes ? C.ComprensionPre : C.ComprensionPost)}</color></size>";
+        if (accionGrande != null) accionGrande.gameObject.SetActive(false);
+        if (iconoPaso != null) iconoPaso.enabled = false;
+        if (grupoPasoAPaso != null) grupoPasoAPaso.SetActive(false);
+        estado.text = quizTerminado ? "<color=#39FF88><b>Pulsa CONTINUAR (verde)</b></color>" : "<color=#A9BED2>Responde con las letras del mostrador · no cuenta como error</color>";
     }
 
     string Tiempo()
@@ -1784,7 +2091,11 @@ public class RetoVacuna : MonoBehaviour
                 yield return new WaitForSeconds(0.2f);
                 break;
             case EtapaVacuna.Neutralizacion: Pipetear(Reactivo(C.ReactivosEnsayo, "celulas"), puntoPlaca); break;
-            case EtapaVacuna.Titulo: ElegirColumna(7); break;
+            case EtapaVacuna.Titulo:
+                if (!vistoMicro) { ColocarEn(placaCultivo, microscopio.platina); yield return null; }
+                if (microOk < PreguntasMicro) ResponderMicro(System.Array.FindIndex(PreguntaMicro().opciones, o => !o.correcta));
+                else ElegirColumna(7);
+                break;
             case EtapaVacuna.Fases: if (progreso == 0) PasoFases(System.Array.IndexOf(C.OrdenBotonesFases, 2)); break;
             case EtapaVacuna.Eficacia: ResponderEficacia(0); break;
         }
@@ -1838,7 +2149,11 @@ public class RetoVacuna : MonoBehaviour
                     yield return null;
                 }
                 break;
-            case EtapaVacuna.Titulo: ElegirColumna(PlacaNeutralizacion.ColumnaTitulo); break;
+            case EtapaVacuna.Titulo:
+                if (!vistoMicro) { ColocarEn(placaCultivo, microscopio.platina); yield return espera; }
+                while (microOk < PreguntasMicro) { ResponderMicro(System.Array.FindIndex(PreguntaMicro().opciones, o => o.correcta)); yield return espera; }
+                ElegirColumna(PlacaNeutralizacion.ColumnaTitulo);
+                break;
             case EtapaVacuna.Fases:
                 while (!Resuelta) { PasoFases(System.Array.IndexOf(C.OrdenBotonesFases, progreso)); yield return espera; }
                 break;
@@ -1857,6 +2172,16 @@ public class RetoVacuna : MonoBehaviour
     public static string Informe { get; private set; }
     public static event System.Action<string> Momento;   // para que la prueba del Editor haga capturas
 
+    // Responde las 4 preguntas de comprensión (bien o con la primera opción).
+    IEnumerator ResponderCuestionarioPrueba(bool bien)
+    {
+        while (EnCuestionario && !quizTerminado)
+        {
+            ResponderCuestionario(bien ? System.Array.FindIndex(PreguntaQuiz().opciones, o => o.correcta) : 0);
+            yield return new WaitForSeconds(0.1f);
+        }
+    }
+
     public IEnumerator Simular()
     {
         PruebaTerminada = false;
@@ -1867,17 +2192,51 @@ public class RetoVacuna : MonoBehaviour
         yield return null;
         yield return null;
         if (Actual != EtapaVacuna.Intro) { Reiniciar(); Poner(EtapaVacuna.Intro, false); }
-        Comprobar(RetoManager.Instancia == null && GameObject.Find("7_CamaraExperimental") == null && Object.FindObjectOfType<EstacionGuia>() == null,
-                  "El reto anterior (bacterias) está desactivado: la vacuna es el único reto");
+        // Orden fijo de las misiones: sin la MISIÓN 2 la vacuna está bloqueada.
+        bool desbloqueada = Misiones.VacunaDesbloqueada;
+        if (!desbloqueada)
+        {
+            Continuar();
+            Comprobar(Actual == EtapaVacuna.Intro && !EnCuestionario, "Sin la MISIÓN 2 terminada, la vacuna (MISIÓN 3) no deja empezar");
+        }
+        Misiones.ForzarDesbloqueo = true;   // la prueba recorre la vacuna sin pasar por las misiones 1 y 2
+        var rmMisiones = RetoManager.Instancia;
+        var camara = GameObject.Find("7_CamaraExperimental");
+        Comprobar(rmMisiones != null && rmMisiones.enabled && rmMisiones.conclusiones != null && camara != null && camara.activeInHierarchy &&
+                  (camara.transform.position - transform.position).sqrMagnitude > 4f,
+                  "Las misiones 1 y 2 están listas: RetoManager activo, panel CONCLUSIONES y cámara experimental reubicada fuera de la vacuna");
         Comprobar(GameObject.Find("Estaciones") != null && GameObject.Find("1_BancoMuestras") != null && GameObject.Find("3_Microscopia") != null,
                   "El mobiliario de las estaciones del centro está en su sitio");
         Comprobar(pipeta != null && pipeta.GetComponent<Oculus.Interaction.Grabbable>() != null, "La pipeta es agarrable (Grabbable del Interaction SDK)");
         Comprobar(bloques.All(b => b.Encajable.Encajada != null || !b.gameObject.activeSelf), "Los bloques están en su sitio");
         Momento?.Invoke("vacuna_0_intro");
         Continuar();
+        if (!preHecho)
+        {
+            Comprobar(EnCuestionario && Actual == EtapaVacuna.Intro, "Antes del paso 1 aparecen las preguntas de comprensión (HEART · R)");
+            Continuar();
+            Comprobar(EnCuestionario, "CONTINUAR no salta las preguntas sin responderlas");
+            yield return new WaitForSeconds(0.2f);
+            Momento?.Invoke("vacuna_0_preguntas");
+            yield return ResponderCuestionarioPrueba(false);
+            Comprobar(quizTerminado && Errores == 0, "Las preguntas de antes se responden sin contar errores");
+            Continuar();
+        }
+        Comprobar(!EnCuestionario && Actual == EtapaVacuna.Antigeno, "Tras las preguntas empieza el paso 1 (ANTÍGENO)");
         int esperados = 0, vueltas = 0;
         while (Actual != EtapaVacuna.Cierre && vueltas++ < 20)
         {
+            if (EnCuestionario)
+            {
+                // Preguntas del final (después de EFICACIA).
+                Comprobar(cuestionario == Cuestionario.Despues, "Tras EFICACIA aparecen las mismas preguntas de comprensión");
+                yield return new WaitForSeconds(0.2f);
+                Momento?.Invoke("vacuna_9_preguntas");
+                yield return ResponderCuestionarioPrueba(true);
+                Comprobar(quizTerminado && aciertosPost == C.PreguntasComprension.Length, $"Preguntas del final: {aciertosPost}/{C.PreguntasComprension.Length}");
+                Continuar();
+                continue;
+            }
             var etapa = Actual;
             yield return new WaitForSeconds(0.2f);
             Momento?.Invoke($"vacuna_{(int)etapa}_{etapa.ToString().ToLower()}_a");
@@ -1895,12 +2254,18 @@ public class RetoVacuna : MonoBehaviour
             yield return new WaitForSeconds(0.2f);
         }
         Comprobar(Actual == EtapaVacuna.Cierre, "Se llega al informe final (CIERRE)");
-        Comprobar(RecuerdosBaymax.Lista.Contains(C.Codigo), $"Baymax recupera el recuerdo del {C.Codigo}");
+        Comprobar(Misiones.Tiene(Misiones.Recuerdo3), $"Baymax recupera el recuerdo de la {C.Codigo} ({RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total})");
+        Comprobar(vistoMicro && microOk == PreguntasMicro, "La placa pasó por el microscopio y se compararon CONTROL (antes) y PLACEBO (después) (RF-03 / RF-08)");
+        Comprobar(metricas != null && metricas.Datos.comparacionAntesDespues && metricas.Datos.observacionesMicroscopio > 0, "Las métricas registran la observación y la comparación");
+        Comprobar(metricas != null && metricas.Datos.postAciertos == C.PreguntasComprension.Length && metricas.Datos.segundosHastaEmpezar >= 0f,
+                  "Las métricas guardan las preguntas de comprensión y el tiempo hasta empezar (HEART)");
+        Comprobar(placaCultivo.Encajable.Encajada == microscopio.platina || !placaCultivo.gameObject.activeSelf, "La placa se agarró y se colocó en el microscopio");
         Comprobar(Errores == esperados, $"Errores contados: {Errores} (esperados {esperados})");
         Comprobar(placa.Pasos == 5, "La placa de neutralización completó sus 5 pasos");
         Comprobar(vial.Encajable.Encajada == huecosAlmacen[0], "El vial quedó en el ultracongelador");
         yield return new WaitForSeconds(0.6f);
         Momento?.Invoke("vacuna_9_cierre");
+        Misiones.ForzarDesbloqueo = false;
         Informe = log.ToString();
         PruebaCorrecta = ok;
         PruebaTerminada = true;
@@ -1919,6 +2284,12 @@ public class RetoVacuna : MonoBehaviour
         f6 = Input.GetKeyDown(KeyCode.F6); f7 = Input.GetKeyDown(KeyCode.F7);
 #endif
         if ((!f6 && !f7) || depurando || Animando) return;
+        if (EnCuestionario)
+        {
+            if (quizTerminado) Continuar();
+            else ResponderCuestionario(f7 ? System.Array.FindIndex(PreguntaQuiz().opciones, o => o.correcta) : 0);
+            return;
+        }
         if (Actual == EtapaVacuna.Cierre) { if (f7) Reiniciar(); return; }
         if (Resuelta) { if (f7) Continuar(); return; }
         StartCoroutine(Depurar(f6 ? Fallar() : Acertar()));

@@ -232,7 +232,7 @@ public class VentanaIntro : MonoBehaviour
         {
             titulo = "PERDISTE TUS RECUERDOS",
             texto = "Baymax ha perdido sus <b>recuerdos científicos</b>. Para recuperarlos tendrás que investigar muestras " +
-                    "como un microbiólogo. Cada caso que resuelvas te devuelve un recuerdo: hay <color=#FFD25A><b>3</b></color> por recuperar.",
+                    "como un microbiólogo. Cada misión te devuelve uno: <b>1</b> OBSERVAR muestras, <b>2</b> EXPERIMENTAR qué las detiene y <b>3</b> CREAR una vacuna. Hay <color=#FFD25A><b>3</b></color> por recuperar.",
         },
         new Paso
         {
@@ -267,8 +267,8 @@ public class VentanaIntro : MonoBehaviour
         {
             titulo = "¿DÓNDE EMPIEZO?",
             texto = "Sigue las <b>balizas numeradas</b>:  <b>1</b> Microscopios · <b>2</b> Cepario · <b>3</b> Alto riesgo (virus en 3D)\n" +
-                    "Para recuperar tu recuerdo ve al <color=#FFD25A><b>4 · CENTRO DE EXPERIMENTACIÓN</b></color>: en el centro está el " +
-                    "<b>LABORATORIO DE VACUNAS</b> (CASO 01 · Crea la vacuna). Al terminarlo se guarda un <b>checkpoint</b>.\n" +
+                    "Para recuperar tus recuerdos ve al <color=#FFD25A><b>4 · CENTRO DE EXPERIMENTACIÓN</b></color> y sigue las flechas del suelo hasta el " +
+                    "BANCO DE MUESTRAS (MISIÓN 1); después vienen la MISIÓN 2 y el <b>LABORATORIO DE VACUNAS</b> (MISIÓN 3). Cada misión guarda un <b>checkpoint</b>.\n" +
                     "Para la sala de alto riesgo pasa antes por la <b>cabina de descontaminación</b> (11 s, quédate quieto). ¡Suerte, Baymax!",
         },
     };

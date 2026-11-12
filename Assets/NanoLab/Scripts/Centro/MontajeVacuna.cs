@@ -5,9 +5,9 @@ using C = ContenidoVacuna;
 using K = KitVacuna;
 using A = AgarreRuntime;
 
-// Monta, al empezar, el ÚNICO reto del Centro de Experimentación: "LABORATORIO DE VACUNAS" (CASO 01 · Crea la vacuna).
-// Antes desactiva el reto anterior de bacterias (sus estaciones quedan como mobiliario; ver OcultarRetoAnterior)
-// y pone la estación en el centro de la sala, donde estaba la cámara experimental, de cara a la puerta. Se construye en tiempo de ejecución para no tener
+// Monta, al empezar, el "LABORATORIO DE VACUNAS" (MISIÓN 3 · Crea la vacuna) del Centro de Experimentación.
+// Antes aparta la cámara experimental (MontajeMisiones.AntesDeLaVacuna) y pone la estación en el centro de la sala,
+// donde estaba la cámara, de cara a la puerta; después prepara las MISIONES 1 y 2 (MontajeMisiones.DespuesDeLaVacuna). Se construye en tiempo de ejecución para no tener
 // que volver a montar la escena ni hornear la luz: un mostrador de trabajo con cuatro mesas, de izquierda a derecha
 // en el orden del proceso:
 //   DISEÑO (molde de 5 huecos + bandeja de bloques; luego, la placa de cultivo) · SÍNTESIS (gradilla de frascos,
@@ -42,7 +42,7 @@ public static class MontajeVacuna
         if (rm == null) { Debug.Log("[Vacuna] Esta escena no tiene Centro de Experimentación: no se monta la estación de la vacuna."); return null; }
 
         float suelo = rm.zona.min.y;
-        OcultarRetoAnterior(rm);
+        MontajeMisiones.AntesDeLaVacuna(rm);   // la cámara experimental deja libre el centro de la sala
         Physics.SyncTransforms();
         int mejor = -1, menos = int.MaxValue;
         for (int i = 0; i < Candidatos.Length; i++)
@@ -66,66 +66,10 @@ public static class MontajeVacuna
         bool girada = Mathf.Abs(Mathf.Sin(Candidatos[mejor].yaw * Mathf.Deg2Rad)) > 0.5f;
         reto.zona = new Bounds(centro, girada ? new Vector3(3.4f, 2.6f, 5.6f) : new Vector3(5.6f, 2.6f, 3.4f));
         Debug.Log($"[Vacuna] LABORATORIO DE VACUNAS ({C.Codigo}) montado en {pos} (hueco {mejor + 1}).");
+        // Misiones 1 y 2 con el mobiliario del centro (si algo falla, la vacuna sigue funcionando).
+        try { MontajeMisiones.DespuesDeLaVacuna(rm); }
+        catch (System.Exception e) { Debug.LogException(e); }
         return reto;
-    }
-
-    // El reto anterior (bacterias) deja de ser un reto, pero sus estaciones VUELVEN COMO MOBILIARIO del laboratorio
-    // (banco de muestras, tinción, microscopía con sus microscopios, biblioteca de fichas, terminal, prensa y archivo).
-    // Solo se ocultan: la cámara experimental del centro (su sitio lo ocupa la vacuna), la torre de objetivos que cuelga
-    // encima, el tótem "Tu objetivo", la baliza, su prueba y la guía de flechas; y de cada estación, lo que pertenecía al
-    // caso viejo: el cartel con PISTA, la placa del caso, los rótulos "CASO 0x", la franja y el número del suelo. Su
-    // RetoManager se desactiva. No se borra nada de la escena guardada.
-    static readonly string[] GruposRetoAnterior = { "7_CamaraExperimental", "TorreObjetivo", "TuObjetivo", "Baliza", "DebugReto" };
-
-    public static void OcultarRetoAnterior(RetoManager rm)
-    {
-        var centro = rm.transform;
-        while (centro.parent != null && centro.name != "CentroExperimentacion") centro = centro.parent;
-        var ocultos = new List<string>();
-        Transform estaciones = null;
-        foreach (var t in centro.GetComponentsInChildren<Transform>(true))
-        {
-            if (t == null) continue;
-            if (t.name == "Estaciones") estaciones = t;
-            if (System.Array.IndexOf(GruposRetoAnterior, t.name) >= 0 && t.gameObject.activeSelf)
-            {
-                t.gameObject.SetActive(false);
-                ocultos.Add(t.name);
-            }
-        }
-
-        int piezas = 0;
-        if (estaciones != null)
-        {
-            if (!estaciones.gameObject.activeSelf) estaciones.gameObject.SetActive(true);
-            foreach (var g in estaciones.GetComponentsInChildren<EstacionGuia>(true)) { g.gameObject.SetActive(false); piezas++; }   // tótems con PISTA
-            foreach (var p in estaciones.GetComponentsInChildren<PlacaCaso>(true)) { p.gameObject.SetActive(false); piezas++; }      // placa del caso
-            foreach (var p in estaciones.GetComponentsInChildren<PrensaCapsulas>(true)) p.enabled = false;                          // su botón ya no formula
-            foreach (var t in estaciones.GetComponentsInChildren<TerminalHipotesis>(true))
-            {
-                t.enabled = false;
-                if (t.pantalla != null) t.pantalla.text = "TERMINAL DE DATOS DEL LABORATORIO\n<size=75%><color=#A9BED2>Consulta las fichas de la biblioteca y los microscopios de la sala.</color></size>";
-            }
-            // Franja y número de estación pintados en el suelo (eran los pasos 1-8 del caso viejo).
-            foreach (Transform est in estaciones)
-                foreach (Transform h in est)
-                    if (h.name == "FranjaSuelo" || (h.GetComponent<TMP_Text>() != null && h.localPosition.y < 0.02f)) { h.gameObject.SetActive(false); piezas++; }
-            // Rótulos que hablan del caso viejo ("CASO 01 · Herida de piel · ACTIVO", "CASO 02 · Próximamente"…).
-            foreach (var tx in estaciones.GetComponentsInChildren<TMP_Text>(true))
-                if (tx.text != null && tx.text.Contains("CASO 0")) { tx.gameObject.SetActive(false); piezas++; }
-        }
-
-        // El tótem de bienvenida de la entrada contaba el caso de bacterias: ahora presenta el de la vacuna.
-        foreach (var tx in centro.GetComponentsInChildren<TMP_Text>(true))
-            if (tx.text != null && tx.text.Contains("perdiste tus"))
-                tx.text = "<color=#FFD25A><b>BAYMAX:</b></color> perdiste tus <b>recuerdos científicos</b>. Resuelve el caso de este centro para recuperar uno.\n\n" +
-                          $"<b>{C.Codigo} · {C.Titulo.ToUpper()} DE ARNm</b>\nUn coronavirus se extiende por la ciudad. Ve al <b>LABORATORIO DE VACUNAS</b>, en el centro de la sala, " +
-                          "y fabrica una vacuna de ARN mensajero: del antígeno a las pruebas en personas.\n\n" +
-                          "<color=#8FD8FF>Joystick izq.: caminar · joystick der.: girar · grip: agarrar · gatillo: pipeta y rayo · cada paso tiene un botón AYUDA (amarillo).</color>";
-        var guia = Object.FindObjectOfType<GuiaReto>(true);
-        if (guia != null) Object.Destroy(guia.gameObject);
-        rm.enabled = false;   // deja de escuchar el microscopio y las muestras; RetoManager.Instancia pasa a null
-        Debug.Log($"[Vacuna] Reto anterior desactivado: ocultos {string.Join(", ", ocultos)}; mobiliario de las estaciones restaurado ({piezas} piezas del caso viejo quitadas). Único reto: {C.Codigo} · {C.Titulo}.");
     }
 
     static int Obstaculos(Vector3 p, float yaw, out string que)
@@ -186,6 +130,9 @@ public static class MontajeVacuna
         MesaNanoparticulas(raiz, reto);
         MesaCalidad(raiz, reto);
         PlacaCultivo(raiz, reto);
+        // Microscopio invertido (paso 7) junto a la placa, donde en los pasos 1-3 está la bandeja de bloques.
+        reto.microscopio = MicroscopioVacuna.Crear(raiz, new Vector3(Mesas[0] + 0.17f, T, -0.6f));
+        reto.microscopio.gameObject.SetActive(false);
         Guia(raiz);
         Conceptos(raiz);
         Senales(raiz);
@@ -325,7 +272,7 @@ public static class MontajeVacuna
     // escena (tapa redondeada que se hunde con la punta del dedo o del mando y cambia de color al acercarse y al
     // pulsar). En la tapa va la letra o el icono, que se hunden con ella. Si no hay plantilla en la escena, botón de
     // respaldo (se pulsa al acercar la mano). Siempre se puede pulsar también con el rayo de la mano vacía.
-    static BotonFisico Boton(Transform padre, string letra, Vector3 pos, Color color, EstiloNanoLab.Icono icono = EstiloNanoLab.Icono.Ninguno, string nombre = null, bool impreso = true)
+    internal static BotonFisico Boton(Transform padre, string letra, Vector3 pos, Color color, EstiloNanoLab.Icono icono = EstiloNanoLab.Icono.Ninguno, string nombre = null, bool impreso = true)
     {
         // Las piezas (y sobre todo el texto: TextMeshPro necesita su Awake) se crean con el objeto ACTIVO; luego se
         // desactiva para que el Awake de BotonFisico se ejecute cuando ya tiene sus referencias.
@@ -810,24 +757,31 @@ public static class MontajeVacuna
 
     static void PlacaCultivo(Transform raiz, RetoVacuna r)
     {
+        // En la mesa queda su sitio (silueta) y el rótulo; la placa es una pieza agarrable (en el paso 7 se lleva al
+        // microscopio). La pipeta la reconoce allí donde esté (el punto de descarga va con ella).
         var g = K.Grupo(raiz, "PlacaCultivo", new Vector3(Mesas[0], T, -0.36f));
         r.grupoPlaca = g.gameObject;
-        K.Caja(g, "Cuerpo", new Vector3(0f, 0.0125f, 0f), new Vector3(0.3f, 0.025f, 0.17f), K.Escena("PlasticoBlanco", new Color(0.95f, 0.95f, 0.95f)));
-        K.Caja(g, "Tapa", new Vector3(0f, 0.026f, 0f), new Vector3(0.3f, 0.002f, 0.17f), K.Vidrio(new Color(0.9f, 0.95f, 1f, 0.15f)));
+        var casa = A.Zona(g, "Sitio", "placaCultivo", Vector3.zero, Quaternion.identity,
+            Fantasma(PrimitiveType.Cube, new Vector3(0f, 0.0125f, 0f), new Vector3(0.3f, 0.025f, 0.17f)));
+        K.Texto(g, "PLACA DE CULTIVO · ENSAYO DE NEUTRALIZACIÓN", new Vector3(0f, 0.002f, 0.11f), 0.12f, K.Cian, 0.6f, 0.03f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
+
+        var pieza = Agarrable(raiz, "Placa", "placaCultivo", casa, null, new Vector3(0f, 0.0135f, 0f), new Vector3(0.3f, 0.027f, 0.17f), out var t);
+        K.Caja(t, "Cuerpo", new Vector3(0f, 0.0125f, 0f), new Vector3(0.3f, 0.025f, 0.17f), K.Escena("PlasticoBlanco", new Color(0.95f, 0.95f, 0.95f)));
+        K.Caja(t, "Tapa", new Vector3(0f, 0.026f, 0f), new Vector3(0.3f, 0.002f, 0.17f), K.Vidrio(new Color(0.9f, 0.95f, 1f, 0.15f)));
         string[] filas = { "VACUNADO", "PLACEBO", "CONTROL" };
         r.pocillos = new Renderer[PlacaNeutralizacion.Filas * PlacaNeutralizacion.Columnas];
         for (int f = 0; f < PlacaNeutralizacion.Filas; f++)
         {
-            K.Texto(g, filas[f], new Vector3(0.21f, 0.026f, -0.045f + f * 0.045f), 0.09f, K.Gris, 0.11f, 0.03f, TextAlignmentOptions.Left, true, false, Quaternion.Euler(90f, 180f, 0f));
+            K.Texto(t, filas[f], new Vector3(0.21f, 0.026f, -0.045f + f * 0.045f), 0.09f, K.Gris, 0.11f, 0.03f, TextAlignmentOptions.Left, true, false, Quaternion.Euler(90f, 180f, 0f));
             for (int c = 0; c < PlacaNeutralizacion.Columnas; c++)
-                r.pocillos[f * PlacaNeutralizacion.Columnas + c] = K.Pieza(g, "Pocillo", PrimitiveType.Cylinder,
+                r.pocillos[f * PlacaNeutralizacion.Columnas + c] = K.Pieza(t, "Pocillo", PrimitiveType.Cylinder,
                     new Vector3(0.122f - c * 0.035f, 0.0255f, -0.045f + f * 0.045f), new Vector3(0.028f, 0.001f, 0.028f), K.Plano(Color.white));
         }
-        K.Texto(g, "PLACA DE CULTIVO · ENSAYO DE NEUTRALIZACIÓN", new Vector3(0f, 0.002f, 0.11f), 0.12f, K.Cian, 0.6f, 0.03f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
-        var p = K.Grupo(g, "Boca", new Vector3(0f, 0.04f, 0f)).gameObject.AddComponent<PuntoPipeta>();
+        var p = K.Grupo(t, "Boca", new Vector3(0f, 0.04f, 0f)).gameObject.AddComponent<PuntoPipeta>();
         p.nombre = "la placa";
         p.radio = 0.13f;
         r.puntoPlaca = p;
+        r.placaCultivo = pieza;
         r.grupoIncubarPlaca = BotonMaquina(raiz, "IncubarPlaca", "INCUBAR 1 h · 37 °C", new Vector3(Mesas[0] - 0.3f, T, -0.17f), new Color(0.85f, 0.35f, 0.15f), out r.incubarPlaca);
     }
 

@@ -68,7 +68,7 @@ public class CamaraExperimental : MonoBehaviour
         var aviso = transform.position + Vector3.up * 1.4f;
         var placa = zonaPlaca.Actual != null ? zonaPlaca.Actual.GetComponent<PlacaCaso>() : null;
         var capsula = zonaCapsula.Actual != null ? zonaCapsula.Actual.GetComponent<Capsula>() : null;
-        string falta = placa == null ? "Coloca la placa del CASO 01 en la bandeja de la cámara."
+        string falta = placa == null ? "Coloca la placa de la MUESTRA A en la bandeja de la cámara."
                      : capsula == null || capsula.Agente < 0 ? "Encaja una cápsula en la ranura de la cámara (fórmala en la PRENSA)."
                      : null;
         var rm = RetoManager.Instancia;

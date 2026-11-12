@@ -4,7 +4,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using ML = MontarLaboratorio;
 
-// Prueba de punta a punta del Caso 01 en play mode (también en batchmode):
+// Prueba de punta a punta de las MISIONES 1 y 2 en play mode (también en batchmode):
 // entra en play, ejecuta DebugReto.Simular (falla una vez y luego acierta), guarda capturas del HUD
 // y de la cámara en Logs/Capturas y el informe en Logs/prueba_reto.txt. En batchmode sale con 0/1.
 [InitializeOnLoad]
@@ -22,7 +22,7 @@ public static class PruebaReto
         EditorApplication.update += Vigilar;
     }
 
-    [MenuItem("NanoLab/Probar reto completo (play mode)", false, 4)]
+    [MenuItem("NanoLab/Probar misiones 1 y 2 (play mode)", false, 4)]
     public static void Ejecutar()
     {
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);

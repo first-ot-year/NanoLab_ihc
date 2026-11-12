@@ -1,5 +1,7 @@
 # E1 (15 %) · Alcance del MVP, trazabilidad, backlog y ajustes
 
+> **Nota (E5):** este documento describe el MVP del caso de bacterias, que hoy vuelve partido en las MISIONES 1 y 2 (con las muestras B y C y el panel CONCLUSIONES), seguidas de la MISIÓN 3 · Crea la vacuna. La matriz de trazabilidad vigente y el estado de cada requisito están en [E5_avance.md](E5_avance.md). Del backlog de abajo, el n.º 9 (pregunta de comprensión) y la medición de FPS del n.º 8 ya tienen implementación; el n.º 13 (guardar los recuerdos entre sesiones) lo cubre la partida guardada.
+
 Entregable 1 del cronograma del informe del hito 1 (Cuadro 6, semana 10):
 
 > Cerrar el alcance de un reto MVP; construir la matriz de trazabilidad y los criterios de aceptación para los requisitos seleccionados; revisar el prototipo existente e identificar las pantallas que requieren adaptación microbiológica. **Salida:** backlog priorizado y lista de ajustes.
@@ -33,7 +35,7 @@ Ciclo: **EXPLORAR → OBSERVAR → INVESTIGAR → HIPÓTESIS → PREPARAR → EX
 ## 2. Matriz de trazabilidad y criterios de aceptación
 
 **Evidencia:**
-- **PR** = comprobación automática de `NanoLab/Probar reto completo` (`Logs/prueba_reto.txt`).
+- **PR** = comprobación automática de `NanoLab/Probar misiones 1 y 2` (antes "Probar reto completo"; `Logs/prueba_reto.txt`).
 - **PL** = `NanoLab/Probar locomoción` (`Logs/prueba_locomocion.txt`).
 - **REC** = `NanoLab/Probar recorrido del jugador`.
 - **CAP** = captura en `Logs/Capturas/`.

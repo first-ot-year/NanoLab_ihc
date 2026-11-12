@@ -49,6 +49,7 @@ public static class Partida
         public string hipotesis;         // MuestraData.name
         public string estrategia;        // DianaAgente de la estrategia de la terminal; vacío = sin elegir (campo aditivo de la v2)
         public List<Checkpoint> checkpoints = new List<Checkpoint>();   // uno por reto terminado, el último al final
+        public bool vistoHongo, vistoVirus;   // misión 1: muestras B y C ya observadas (campos aditivos)
     }
 
 #if UNITY_EDITOR
@@ -184,6 +185,8 @@ public static class Partida
             d.evidencias = (bool[])rm.Evidencias.Clone();
             d.hipotesis = rm.Hipotesis != null ? rm.Hipotesis.name : null;
             d.estrategia = rm.EstrategiaElegida != null ? rm.EstrategiaElegida.diana.ToString() : null;
+            d.vistoHongo = rm.VistoHongo;
+            d.vistoVirus = rm.VistoVirus;
         }
         var j = JugadorNanoLab.Instancia;
         if (j != null && j.Pies(out var pies, out var yaw))
@@ -292,8 +295,11 @@ public class GestorPartida : MonoBehaviour
             Progreso.Restaurar(d.muestras);
             RecuerdosBaymax.Restaurar(d.recuerdos);
             var rm = RetoManager.Instancia;
-            if (rm != null && rm.reto != null && d.reto == rm.reto.codigo && d.evidencias != null)
+            if (rm != null && rm.reto != null && rm.EsSuyo(d.reto) && d.evidencias != null)
+            {
                 rm.Restaurar((EtapaReto)d.etapa, d.evidencias, d.hipotesis, d.estrategia);
+                rm.RestaurarComparacion(d.vistoHongo, d.vistoVirus);
+            }
 
             if (!restauradaEnSesion)
             {
@@ -372,7 +378,7 @@ public class GestorPartida : MonoBehaviour
         Progreso.Restaurar(c.muestras);
         RecuerdosBaymax.Restaurar(c.recuerdos);
         var rm = RetoManager.Instancia;
-        if (rm != null && rm.reto != null && rm.reto.codigo == c.reto && c.evidencias != null)
+        if (rm != null && rm.reto != null && rm.EsSuyo(c.reto) && c.evidencias != null)
         {
             if (rm.Actual != EtapaReto.Exploracion) rm.Reiniciar();   // estaciones, placa y cámara como al empezar
             rm.Restaurar((EtapaReto)c.etapa, c.evidencias, c.hipotesis, c.estrategia);

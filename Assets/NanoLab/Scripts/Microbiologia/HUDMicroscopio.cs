@@ -131,7 +131,7 @@ public class HUDMicroscopio : MonoBehaviour
         RefrescarModo();
         gameObject.SetActive(true);
         var visor = VisorVirus.Obtener();
-        if (m.tipo == TipoMuestra.Virus)
+        if (m.Vista3D)
         {
             visor.Mostrar(m, holo);
             visor.Activo(true);
@@ -203,7 +203,7 @@ public class HUDMicroscopio : MonoBehaviour
     void AplicarZoom()
     {
         if (actual == null) return;
-        if (actual.tipo == TipoMuestra.Virus) VisorVirus.Obtener().Zoom(zoomActual);
+        if (actual.Vista3D) VisorVirus.Obtener().Zoom(zoomActual);
         else
         {
             AplicarRecorte(1f / zoomActual);
@@ -253,7 +253,7 @@ public class HUDMicroscopio : MonoBehaviour
     public void Mover(Vector2 eje)
     {
         if (actual == null || eje.sqrMagnitude < 0.04f) return;
-        if (actual.tipo == TipoMuestra.Virus && proveedorReto == null)
+        if (actual.Vista3D && proveedorReto == null)
         {
             VisorVirus.Obtener().Orbitar(eje * Time.deltaTime);
             return;
@@ -335,7 +335,7 @@ public class HUDMicroscopio : MonoBehaviour
         if (m == null) return;
         subtitulo.text = $"MUESTRA {m.codigo}  ·  {m.nombre.ToUpper()}" + (enFresco && proveedorReto == null ? "  ·  <color=#7CF29A>EN FRESCO: vivas, sin teñir</color>" : "");
         escalaTxt.text = m.Escalas[aumento];
-        if (m.tipo == TipoMuestra.Virus) vista.uvRect = new Rect(0, 0, 1, 1);
+        if (m.Vista3D) vista.uvRect = new Rect(0, 0, 1, 1);
         // Recorte: más aumento = trozo más pequeño de la micrografía, desplazado por 'pan' (con el zoom actual).
         AplicarZoom();
 
@@ -372,7 +372,7 @@ public class HUDMicroscopio : MonoBehaviour
         obsTxt.text = m.observaciones;
         micro.texture = m.micrografia;
         micro.uvRect = RecorteAspecto(m.micrografia, 380f / 190f);
-        microTitulo.text = m.tipo == TipoMuestra.Virus ? "MICROGRAFÍA ELECTRÓNICA REAL" : "MICROGRAFÍA ÓPTICA REAL";
+        microTitulo.text = m.Vista3D ? "MICROGRAFÍA ELECTRÓNICA REAL" : "MICROGRAFÍA ÓPTICA REAL";
         creditoTxt.text = m.creditoImagen;
 
         bool reto = proveedorReto != null;

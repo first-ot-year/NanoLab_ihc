@@ -95,7 +95,7 @@ public class RetoData : ScriptableObject
         {
             case DianaAgente.ParedPeptidoglucano: return bacteria ? (m.gramPositiva ? 0.95f : 0.2f) : 0f;
             case DianaAgente.MembranaExterna: return bacteria ? (m.gramPositiva ? 0.1f : 0.9f) : 0f;
-            case DianaAgente.Virus: return bacteria ? 0f : 0.85f;
+            case DianaAgente.Virus: return m.tipo == TipoMuestra.Virus ? 0.85f : 0f;
             default: return 0f;
         }
     }

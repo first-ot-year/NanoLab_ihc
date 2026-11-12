@@ -4,15 +4,16 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
-// Recorre el Caso 01 completo llamando a las mismas funciones que disparan las manos
+// Recorre las MISIONES 1 y 2 completas llamando a las mismas funciones que disparan las manos
 // (sin visor): sirve para probar el flujo en el Editor (F9 = acierto directo, F10 = falla primero)
-// y en las pruebas automáticas (NanoLab/Probar reto completo).
+// y en las pruebas automáticas (NanoLab/Probar misiones 1 y 2).
 public class DebugReto : MonoBehaviour
 {
     public static bool Terminado { get; private set; }
     public static bool Correcto { get; private set; }
     public static string Informe { get; private set; }
     public static event System.Action<string> Momento;     // para que las pruebas hagan capturas
+    public static bool SinPruebaPartida;                    // NanoLab/Capturas paso a paso: no toca la partida
 
     readonly StringBuilder log = new StringBuilder();
     bool fallo;
@@ -48,6 +49,10 @@ public class DebugReto : MonoBehaviour
         yield return null;
         var rm = RetoManager.Instancia;
         if (!Comprobar(rm != null, "Hay RetoManager en la escena")) { Fin(); yield break; }
+        // MontajeMisiones conecta las muestras B y C y el panel CONCLUSIONES en el Start de AdaptadorEscena.
+        for (float t = 0f; t < 5f && rm.conclusiones == null; t += Time.deltaTime) yield return null;
+        if (!Comprobar(rm.conclusiones != null && rm.muestraHongo != null && rm.muestraVirus != null && rm.enabled,
+                       "Misiones listas: RetoManager activo, MUESTRAS B y C y panel CONCLUSIONES")) { Fin(); yield break; }
         if (rm.Actual != EtapaReto.Exploracion) rm.Reiniciar();
         var zona = rm.zona;
         bool EnZona(Component c) => zona.Contains(new Vector3(c.transform.position.x, zona.center.y, c.transform.position.z));
@@ -79,9 +84,11 @@ public class DebugReto : MonoBehaviour
             Comprobar((otro.transform.position - casa).sqrMagnitude <= 0.0001f, $"Un portaobjetos caído vuelve a su sitio en {Time.time - t0:F1} s (RNF-04)");
         }
 
+        Momento?.Invoke("inicio_banco");
         // 1) Frotis y tinción (con un error de orden a propósito para probar el feedback).
         fuentePlaca.Aplicar(porta);
-        Comprobar(porta.muestra == rm.reto.muestra && rm.Actual == EtapaReto.Tincion, "Frotis del CASO 01 cargado > etapa Tinción");
+        Momento?.Invoke("banco_frotis_a");
+        Comprobar(porta.muestra == rm.reto.muestra && rm.Actual == EtapaReto.Tincion && rm.Mision == 1, "MISIÓN 1: frotis de la MUESTRA A cargado > etapa Tinción");
         Gotero(1).Aplicar(porta);
         Gotero(3).Aplicar(porta);
         Comprobar(porta.TincionErronea, "Saltarse el lugol invalida la tinción");
@@ -97,6 +104,7 @@ public class DebugReto : MonoBehaviour
         fuentePlaca.Aplicar(porta);
         for (int r = 1; r <= 4; r++) Gotero(r).Aplicar(porta);
         Comprobar(porta.TincionCompleta && rm.Actual == EtapaReto.Observacion, "Tinción de Gram completa > etapa Observación");
+        Momento?.Invoke("tincion_completa");
 
         // 2) Hipótesis antes de tiempo: debe rechazarse.
         Comprobar(!rm.PuedeHipotesis(out _), "La terminal rechaza una hipótesis sin evidencias");
@@ -111,16 +119,57 @@ public class DebugReto : MonoBehaviour
         Comprobar(hud != null, "El HUD del microscopio aparece");
         Comprobar(rm.Evidencias[0] && !rm.Evidencias[1], "A 400x se registra la forma, pero no la agrupación");
         hud.CambiarAumento(+1);
+        yield return null;
         Momento?.Invoke("hud_2_observacion_1000x");
-        Comprobar(rm.Evidencias.All(x => x) && rm.Actual == EtapaReto.Investigacion, "A 1000x se completan las evidencias > etapa Investigación");
+        Comprobar(rm.Evidencias.All(x => x) && rm.Actual == EtapaReto.Observacion, "A 1000x se completan las evidencias de la A; falta comparar con la B y la C");
         micro.DejarDeObservar();
+        Comprobar(!rm.PuedeHipotesis(out var sinComparar) && sinComparar.Contains("MUESTRA B"), "Sin comparar las 3 muestras, la terminal no acepta la identificación");
+
+        // 3b) Comparación de muestras (RF-03 / RF-08): MUESTRA B (moho) y MUESTRA C (hisopado del brote).
+        var fuenteB = fuentes.FirstOrDefault(f => f.muestra == rm.muestraHongo);
+        var fuenteC = fuentes.FirstOrDefault(f => f.muestra == rm.muestraVirus);
+        Comprobar(fuenteB != null && fuenteC != null, "El BANCO tiene la MUESTRA B (placa con moho) y la MUESTRA C (hisopado)");
+        if (fallo) { Fin(); yield break; }
+        foreach (var (fuente, letra) in new[] { (fuenteB, "B"), (fuenteC, "C") })
+        {
+            porta.ColocarEn(porta.transform.position + Vector3.up * 0.2f, Quaternion.identity);
+            desinfectante.Aplicar(porta);
+            fuente.Aplicar(porta);
+            Comprobar(porta.DeCaso && porta.Etiqueta == "MUESTRA " + letra, $"Frotis de la MUESTRA {letra} con su etiqueta (no revela qué es)");
+            porta.Encajar(micro.platina);
+            yield return null;
+            micro.ObservarAhora();
+            yield return null;
+            Momento?.Invoke("hud_comparacion_muestra_" + letra.ToLower());
+            Comprobar(letra == "B" ? rm.VistoHongo : rm.VistoVirus, $"La MUESTRA {letra} queda registrada al mirarla, con la imagen de otra muestra al lado para comparar");
+            micro.DejarDeObservar();
+        }
+        Comprobar(rm.Actual == EtapaReto.Investigacion, "Con las 3 muestras comparadas > etapa Investigación");
+
+        // 3c) Panel CONCLUSIONES: clasificar A, B y C (un error a propósito).
+        var conc = rm.conclusiones;
+        Comprobar(!rm.PuedeHipotesis(out var sinClasificar) && sinClasificar.Contains("CONCLUSIONES"), "Sin clasificar las muestras, la terminal no acepta la identificación");
+        int errores = rm.Metricas.Datos.errores;
+        conc.botones[2].Activar();   // A = virus (mal)
+        yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
+        Comprobar(rm.Clasificadas == 0 && rm.Metricas.Datos.errores == errores + 1 && conc.respuesta.text.Contains("AÚN NO"), "Clasificar la A como VIRUS se explica y cuenta como error");
+        Momento?.Invoke("conclusiones_error");
+        conc.botones[0].Activar();   // A = bacteria
+        yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
+        conc.botones[1].Activar();   // B = hongo
+        yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
+        Momento?.Invoke("conclusiones_clasificacion");
+        conc.botones[2].Activar();   // C = virus
+        yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
+        Comprobar(rm.Clasificadas == 3 && rm.Actual == EtapaReto.Investigacion, "A = BACTERIA, B = HONGO, C = VIRUS en CONCLUSIONES; falta la ficha de la biblioteca");
         // RF-05: la hipótesis se decide con las evidencias y la información consultada.
-        Comprobar(!rm.PuedeHipotesis(out var sinFicha) && sinFicha.Contains("BIBLIOTECA"), "Con las evidencias completas, la terminal pide consultar antes una ficha (RF-05)");
+        Comprobar(!rm.PuedeHipotesis(out var sinFicha) && sinFicha.Contains("BIBLIOTECA"), "Con las muestras clasificadas, la terminal pide consultar antes una ficha (RF-05)");
 
         // 4) Biblioteca.
         var ficha = rm.fichas.FirstOrDefault(f => f.id == rm.reto.muestra.nombre) ?? rm.fichas.First();
         ficha.Alternar();
         Comprobar(rm.Actual == EtapaReto.Hipotesis, "Consultar una ficha > etapa Hipótesis");
+        Momento?.Invoke("biblioteca_ficha");
         // RF-04: la ficha del virus (A6) y abrir con el rayo o tocando el panel.
         var fichaVirus = rm.fichas.FirstOrDefault(f => f.id == "Hepatitis B");
         bool textoElectronica = fichaVirus != null && fichaVirus.GetComponentsInChildren<TMPro.TMP_Text>(true).Any(t => t.text.Contains("electrónica"));
@@ -162,10 +211,19 @@ public class DebugReto : MonoBehaviour
 
         if (fallarPrimero)
         {
-            // Hipótesis equivocada, estrategia buena y un vial que no la sigue: la prensa avisa antes de formular.
-            yield return Intento(rm, opcionIncorrecta, estrategiaCorrecta, incorrecto, viales, prensa, camara, micro, porta);
+            // MISIÓN 1: una identificación que no encaja con las evidencias se explica y no se registra.
+            int err = rm.Metricas.Datos.errores;
+            rm.terminal.Elegir(opcionIncorrecta);
+            Comprobar(rm.Hipotesis == null && rm.Mision == 1 && rm.Metricas.Datos.errores == err + 1, "MISIÓN 1: identificar mal la A se explica, cuenta como error y no termina la misión");
+            rm.terminal.Elegir(opcionCorrecta);
+            Comprobar(rm.Hipotesis == rm.reto.muestra && rm.Mision == 2 && Misiones.Tiene(Misiones.Recuerdo1) && rm.Metricas.Datos.caso == Misiones.Codigo2,
+                      $"MISIÓN 1 completa al identificar {rm.reto.muestra.nombre}: recuerdo 1, métricas de la misión 2");
+            Momento?.Invoke("mision1_completa");
+            // MISIÓN 2: estrategia buena y un vial que no la sigue: la prensa avisa antes de formular.
+            yield return Intento(rm, opcionCorrecta, estrategiaCorrecta, incorrecto, viales, prensa, camara, micro, porta);
             Comprobar(rm.Actual == EtapaReto.Hipotesis && rm.Intentos == 1, "Tras un fallo y el análisis se vuelve a Hipótesis con una pista");
             Comprobar(!rm.placa.Tratada, "La placa se regenera para reintentar");
+            Momento?.Invoke("terminal_3_pista_fallo");
             var it = rm.Metricas.Datos.intentos.LastOrDefault();
             Comprobar(it != null && !it.coherente && it.estrategia == rm.reto.estrategias[estrategiaCorrecta].nombre,
                       $"El registro guarda la estrategia del intento y que el vial no la seguía ({it?.estrategia}, coherente {it?.coherente})");
@@ -173,7 +231,21 @@ public class DebugReto : MonoBehaviour
                       $"La pista dice que la estrategia era buena y el vial no; la estrategia se borra para repensarla y la hipótesis se mantiene: \"{rm.PistaFallo}\"");
         }
         yield return Intento(rm, opcionCorrecta, estrategiaCorrecta, correcto, viales, prensa, camara, micro, porta);
-        Comprobar(rm.Actual == EtapaReto.Cierre, "Tras el éxito y el análisis el caso se cierra");
+        Comprobar(rm.Actual == EtapaReto.Analisis && rm.ExitoAnalizado, "Tras el éxito y el análisis, falta explicar el resultado en CONCLUSIONES");
+        Comprobar(!rm.PuedeFormular(out _), "Mientras falta la explicación no se formula otra cápsula");
+        int e2 = rm.Metricas.Datos.errores;
+        conc.botones[1].Activar();   // "es un virus" (mal)
+        yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
+        Comprobar(rm.Explicadas == 0 && rm.Metricas.Datos.errores == e2 + 1, "Una explicación equivocada se corrige y cuenta como error");
+        conc.botones[0].Activar();   // pared gruesa
+        yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
+        Momento?.Invoke("conclusiones_explicacion");
+        conc.botones[1].Activar();   // no serviría contra el virus
+        yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
+        Comprobar(rm.Actual == EtapaReto.Cierre && Misiones.Tiene(Misiones.Recuerdo2) && Misiones.VacunaDesbloqueada,
+                  "MISIÓN 2 completa: recuerdo 2 y la vacuna (MISIÓN 3) desbloqueada");
+        yield return new WaitForSeconds(0.3f);
+        Momento?.Invoke("mision2_completa");
         Comprobar(rm.Metricas.Datos.comparacionAntesDespues, "Se registró la comparación antes/después");
         Comprobar(RecuerdosBaymax.Cantidad >= 1 && indicador != null && indicador.texto.text.Contains($"{RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}"),
                   $"Baymax recupera un recuerdo: el indicador muestra {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}");
@@ -192,9 +264,10 @@ public class DebugReto : MonoBehaviour
     {
 #if UNITY_EDITOR
         // Solo con el archivo de prueba (NanoLab/Probar reto completo): con F9/F10 se borraría la partida real.
+        if (SinPruebaPartida) yield break;
         if (string.IsNullOrEmpty(UnityEditor.SessionState.GetString(Partida.ClaveRutaPrueba, ""))) { log.AppendLine("(partida: se prueba solo desde NanoLab/Probar reto completo)"); yield break; }
         var cp = Partida.UltimoCheckpoint;
-        Comprobar(cp != null && cp.reto == rm.reto.codigo && cp.etapa == (int)EtapaReto.Cierre,
+        Comprobar(cp != null && cp.reto == Misiones.Codigo2 && cp.etapa == (int)EtapaReto.Cierre,
                   $"Al cerrar el caso se guarda un checkpoint ({(cp != null ? $"{cp.reto}, etapa {(EtapaReto)cp.etapa}" : "ninguno")})");
 
         bool guardada = Partida.GuardarManual();

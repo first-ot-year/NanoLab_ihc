@@ -2,8 +2,13 @@
 
 > Documento de contexto para retomar el proyecto (o pasárselo a otra persona o a una IA): qué es NanoLab VR, en qué
 > estado está al **7 de noviembre de 2026**, cómo están organizados los archivos, qué espacios tiene el laboratorio y
-> **cómo aprovecharlos todos** con nuevos casos/desafíos. Las ideas de la sección 7 en adelante son **propuestas**:
-> ninguna está implementada todavía.
+> **cómo aprovecharlos todos** con nuevos casos/desafíos. Las ideas de la sección 7 en adelante son **propuestas**.
+>
+> **Actualización (12/11/2026, E5):** ya hay **3 misiones en orden fijo**, una por recuerdo de Baymax: MISIÓN 1 ·
+> ¿Qué hay en las muestras? (compara bacteria, hongo y virus con el mobiliario del centro), MISIÓN 2 · ¿Qué la detiene?
+> (terminal, prensa, cámara reubicada, ANTES | DESPUÉS) y MISIÓN 3 · Crea la vacuna (antes "CASO 01"). Ver
+> [`Misiones_1_y_2.md`](Misiones_1_y_2.md), [`Reto_Vacuna.md`](Reto_Vacuna.md) y [`E5_avance.md`](E5_avance.md). De la
+> historia "El brote" (sección 7) quedan hechos, en versión reducida, los casos 03, 05 y 08 dentro de las misiones 1-2.
 
 ---
 
@@ -52,7 +57,7 @@ Git LFS para modelos, texturas y audio. No hay asmdef: todos los scripts compila
 - **Laboratorio completo** en la escena `Assets/NanoLab/Scenes/Microbiologia.unity`: recibidor, 10 puestos de
   microscopía, cepario, sala de alto riesgo BSL-3 con cabina de descontaminación, Centro de Experimentación y portal.
 - **Microscopio óptico** jugable (portaobjetos, muestras, platina, ocular) y **estación de análisis 3D** con 5 virus.
-- **CASO 01 · Crea la vacuna** (único caso por ahora), detallado en [`Docs/Reto_Vacuna.md`](Reto_Vacuna.md):
+- **MISIÓN 3 · Crea la vacuna** (antes CASO 01; hoy precedida por las misiones 1 y 2), detallada en [`Docs/Reto_Vacuna.md`](Reto_Vacuna.md):
   el estudiante fabrica una vacuna de ARNm en **9 pasos** (antígeno, diseño, síntesis, nanopartículas, calidad y frío,
   neutralización, título, fases clínicas y eficacia) en un mostrador con 4 mesas. **Se construye por código** al dar
   Play (`MontajeVacuna`); no hay que hornear nada.
@@ -67,8 +72,14 @@ Git LFS para modelos, texturas y audio. No hay asmdef: todos los scripts compila
 - **EFICACIA** como 4 preguntas sencillas sobre las barras (sin fórmulas), con revelaciones en la gráfica.
 - **Aviso de inicio** con etiquetas claras: "Ya lo veo bien ›", "Siguiente ›", "Empezar a jugar" y "‹ Atrás".
 - Letra **Nunito SemiBold** en toda la interfaz; sala principal sin los paneles celestes antiguos.
+- **Microscopio invertido en el paso 7 (E5):** la placa se lleva a la platina y el monitor compara ANTES · CONTROL y
+  DESPUÉS · PLACEBO (el virus no se ve; su efecto en las células sí). Cumple RF-03 y RF-08 dentro de la vacuna.
+- **3 recuerdos de Baymax (E5):** DISEÑAR (paso 2), FABRICAR (paso 5) y PROBAR (al resolver).
+- **Preguntas de comprensión (E5):** las mismas 4 antes del paso 1 (sin corregir) y después del 9 (con explicación).
+- **Métricas HEART y FPS (E5):** `MetricsLogger` + `MedidorRendimiento`; resumen con `Herramientas/analizar_metricas.py`.
+  Protocolo del piloto en [`Docs/Piloto_HEART.md`](Piloto_HEART.md) y estado de requisitos en [`Docs/E5_avance.md`](E5_avance.md).
 - **Prueba automática:** menú `NanoLab > Probar reto de vacuna (play mode)` → `Logs/prueba_vacuna.txt` con
-  `RESULTADO: CORRECTO` y **36 OK**, más capturas en `Logs/Capturas/`.
+  `RESULTADO: CORRECTO` y **46 OK**, más capturas en `Logs/Capturas/`.
 
 ### Repositorios
 
@@ -92,7 +103,7 @@ git lfs pull            # baja modelos, texturas y audio
 2. Escena: `Assets/NanoLab/Scenes/Microbiologia.unity`.
 3. **Sin visor:** Meta XR Simulator (ver [`Docs/Simulador_PC.md`](Simulador_PC.md)). En el Editor, **F7** resuelve el
    paso actual del caso y **F6** comete el error típico.
-4. **Prueba automática:** `NanoLab > Probar reto de vacuna (play mode)`; esperado `RESULTADO: CORRECTO` con 36 OK.
+4. **Prueba automática:** `NanoLab > Probar reto de vacuna (play mode)`; esperado `RESULTADO: CORRECTO` con 46 OK.
    Para capturas con colores reales, ejecutarla con el editor **con ventana** (en modo batch los botones poke salen
    casi transparentes porque su color se anima con `WaitForEndOfFrame`).
 5. **Compilar para Quest:** menú `NanoLab > Compilar APK para Quest` (ver README).
@@ -145,7 +156,7 @@ git lfs pull            # baja modelos, texturas y audio
 | `CabinaDescontaminacion`, `CamaraDescontaminacion` | Esclusa de la BSL-3 (dos puertas y desinfección en 4 fases) |
 | `Compartimento`, `Hueco`, `Guardable` | Cajones, vitrinas y huecos donde se guardan objetos |
 | `PuertaAutomatica`, `PuertaCorrediza` | Puerta del Centro |
-| `Partida`, `IndicadorRecuerdos` (`RecuerdosBaymax`) | Guardado, checkpoint y contador de recuerdos (hoy `Total = 1`) |
+| `Partida`, `IndicadorRecuerdos` (`RecuerdosBaymax`) | Guardado, checkpoint y contador de recuerdos (hoy `Total = 3`, uno por misión; ids en `Misiones`) |
 | `MenuAjustes`, `BotonMenu`, `AjustesNanoLab` | Menú ☰ (volumen, modo sentado, checkpoint) |
 
 **CASO 01 · Vacuna (`Scripts/Centro/`)**
@@ -331,7 +342,8 @@ El CASO 01 sirve de plantilla. Patrón recomendado (sin hornear nada en la escen
 **Integración:**
 
 1. Llamar al montaje desde `AdaptadorEscena.Start` (como `MontajeVacuna.Asegurar`).
-2. Subir `RecuerdosBaymax.Total` en `IndicadorRecuerdos.cs` y llamar a `RecuerdosBaymax.Recuperar(codigo)` al terminar.
+2. Subir `RecuerdosBaymax.Total` en `IndicadorRecuerdos.cs` (hoy 3, todos del CASO 01) y llamar a `RecuerdosBaymax.Recuperar(id)` en los momentos clave del caso.
+5. Registrar en `MetricsLogger` errores (`Error`), indagación (`Indagacion`) y, si tiene, la comparación antes/después, para que el caso entre en el análisis HEART.
 3. Guardar checkpoint con `Partida.GuardarCheckpoint(codigo)`.
 4. Documentar el caso en `Docs/` (como `Reto_Vacuna.md`) y en el README.
 

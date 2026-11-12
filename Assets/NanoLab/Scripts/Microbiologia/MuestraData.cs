@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public enum TipoMuestra { Virus, Bacteria }
+public enum TipoMuestra { Virus, Bacteria, Hongo }
 
 // Ficha de una muestra: lo que se ve en el HUD del microscopio y en la estación 3D.
 [CreateAssetMenu(menuName = "NanoLab/Muestra", fileName = "Muestra")]
@@ -17,6 +17,11 @@ public class MuestraData : ScriptableObject
     public string riesgo = "ALTO CONTAGIO";
     public Color color = Color.cyan;
     public bool gramPositiva;            // solo bacterias: pared gruesa de peptidoglucano (queda violeta en la tinción de Gram)
+    [Tooltip("Solo virus: se mira con el microscopio óptico (se ven las células de la muestra, no el virus) en lugar del visor 3D.")]
+    public bool vistaOptica;
+
+    // Virus que se ve como modelo 3D (micrografía electrónica) en el HUD y la estación de análisis.
+    public bool Vista3D => tipo == TipoMuestra.Virus && !vistaOptica;
 
     [Header("Imagen y modelo")]
     public Texture2D micrografia;
@@ -46,17 +51,17 @@ public class MuestraData : ScriptableObject
     }
 
     // Aumentos del microscopio (etiqueta, factor de zoom de la vista, barra de escala).
-    public string[] Aumentos => tipo == TipoMuestra.Virus
+    public string[] Aumentos => Vista3D
         ? new[] { "25 000x", "50 000x", "100 000x", "200 000x" }
         : new[] { "100x", "400x", "1000x" };
 
-    public float[] FactoresZoom => tipo == TipoMuestra.Virus
+    public float[] FactoresZoom => Vista3D
         ? new[] { 0.55f, 0.8f, 1.15f, 1.7f }
         : new[] { 1f, 2f, 3.5f };
 
-    public string[] Escalas => tipo == TipoMuestra.Virus
+    public string[] Escalas => Vista3D
         ? new[] { "400 nm", "200 nm", "100 nm", "50 nm" }
         : new[] { "50 µm", "10 µm", "5 µm" };
 
-    public int AumentoInicial => tipo == TipoMuestra.Virus ? 2 : 1;
+    public int AumentoInicial => Vista3D ? 2 : 1;
 }

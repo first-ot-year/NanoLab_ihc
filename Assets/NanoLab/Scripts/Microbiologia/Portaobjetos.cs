@@ -34,6 +34,7 @@ public class Portaobjetos : MonoBehaviour
     public bool TincionCompleta => PasosTincion == 4 && !TincionErronea;
     public bool Despues { get; private set; }      // portaobjetos que entrega la cámara tras el experimento
     public bool DeCaso => etiquetaTexto != null;   // muestra de un reto (su identidad no se revela)
+    public string Etiqueta => etiquetaTexto;       // p. ej. "MUESTRA A" (null si no es de un reto)
     string etiquetaTexto;
 
     Grabbable grabbable;

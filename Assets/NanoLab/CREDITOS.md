@@ -28,6 +28,8 @@ Reducidos de polígonos y recoloreados para usarlos en Meta Quest.
   - Vistas derivadas para el Caso 01 (`saureus_sin_tenir`, `saureus_tincion_fallida`, `saureus_despues`, `saureus_crecimiento`), generadas por código a partir de esa micrografía (MontarCentroExperimentacion) — CC BY-SA 4.0
 - Bacillus subtilis, tinción de Gram (CDC PHIL 19261) — Dr. W.A. Clark — Dominio público
 - Símbolo de riesgo biológico — Silsor — Dominio público
+- Micrografías del cultivo celular del CASO 01 (células sanas y efecto citopático, monitor del microscopio invertido): generadas por código en `Scripts/Centro/MicroscopioVacuna.cs` (`MicrografiasCultivo`), sin material de terceros. Son ilustrativas.
+- Micrografías de las MUESTRAS B (moho *Penicillium* con azul de lactofenol) y C (hisopado nasal con células epiteliales) de la misión 1: generadas por código en `Scripts/Centro/Misiones.cs` (`MicrografiasMisiones`), sin material de terceros. Son ilustrativas.
 
 ## Unity Asset Store (Standard Unity Asset Store EULA)
 - Chemistry Lab Items Pack — Animatics Studio (https://assetstore.unity.com/packages/3d/environments/chemistry-lab-items-pack-220212)
