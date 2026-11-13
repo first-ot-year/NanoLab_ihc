@@ -39,6 +39,13 @@ public static class MontajeMisiones
         var banco = centro.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "1_BancoMuestras");
         if (banco != null) MuestrasBanco(rm, banco);
 
+        // Incubadora, cabina, autoclave, ultracongelador e incubadora CO2: consolas y pasos de las misiones.
+        try { EquiposCentro.Montar(centro, rm, banco); }
+        catch (System.Exception e) { Debug.LogWarning("[Equipos] No se pudieron montar las consolas: " + e); }
+        // Evento sorpresa de bioseguridad (misión 2): kit de derrames con el pulverizador y la iluminación de alarma.
+        try { BiohazardEvent.Montar(centro); }
+        catch (System.Exception e) { Debug.LogWarning("[Biohazard] No se pudo montar el evento: " + e); }
+
         var micro = centro.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "3_Microscopia");
         var panel = CrearConclusiones(centro, micro, suelo);
 
@@ -49,6 +56,7 @@ public static class MontajeMisiones
                           $"<b>1 · {Misiones.Titulo1}</b> Compara 3 muestras al microscopio.\n" +
                           $"<b>2 · {Misiones.Titulo2}</b> Prueba qué detiene a la bacteria.\n" +
                           $"<b>3 · {ContenidoVacuna.Titulo}</b> En el LABORATORIO DE VACUNAS (se desbloquea con la 2).\n\n" +
+                          "Usarás todo el centro: incubadoras, cabina de bioseguridad, autoclave y ultracongelador.\n\n" +
                           "<color=#8FD8FF>Sigue las flechas del suelo · cada estación tiene un botón PISTA · Y: ver tu objetivo.</color>";
         // Carteles de las estaciones: qué se hace en cada una en las misiones.
         foreach (var g in rm.estaciones)
@@ -63,7 +71,7 @@ public static class MontajeMisiones
 
     static readonly string[] Descripciones =
     {
-        "MISIÓN 1 · Aquí están las 3 muestras: A (herida de piel), B (placa con moho) y C (hisopado del brote). Tócalas con un portaobjetos.",
+        "MISIÓN 1 · Muestras A (herida de piel) y B (placa con moho), que salen de la INCUBADORA (9). La C (hisopado del brote) está en la CABINA (10).",
         "MISIÓN 1 · Tinción de Gram de la MUESTRA A: goteros 1 > 2 > 3 > 4. Aquí están los portaobjetos y el desinfectante.",
         "MISIONES 1 y 2 · Compara las muestras A, B y C y, en la misión 2, el ANTES | DESPUÉS. Al lado, el panel CONCLUSIONES.",
         "MISIÓN 1 · Fichas de microorganismos: busca cuál coincide con la MUESTRA A.",

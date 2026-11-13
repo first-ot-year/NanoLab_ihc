@@ -76,6 +76,24 @@ public class GuiaReto : MonoBehaviour
         if (nueva && conAviso && dentro) Mostrar(SegundosVisible);
     }
 
+    // Meta fuera del ciclo de las misiones 1 y 2 (en la MISIÓN 3: un equipo del centro). Mismas flechas y tarjeta.
+    public void Externo(string titulo, string pasoTxt, string obj, EstacionGuia estacion)
+    {
+        bool nueva = estacion == null || destino != (estacion.puntoBaliza != null ? estacion.puntoBaliza : estacion.transform);
+        textoObjetivo = obj;
+        destino = estacion != null ? (estacion.puntoBaliza != null ? estacion.puntoBaliza : estacion.transform) : null;
+        numeroEstacion = estacion != null ? estacion.numero : 0;
+        nombreEstacion = estacion != null ? estacion.titulo : "";
+        if (nueva) llegado = false;
+        etapa = -1;   // al volver a Etapa(...) cuenta como paso nuevo
+        caso.text = titulo;
+        paso.text = pasoTxt;
+        objetivo.text = obj;
+        RefrescarDestino();
+        if (etiquetaMeta != null) etiquetaMeta.text = numeroEstacion > 0 ? $"<b>{numeroEstacion}</b>  {nombreEstacion}" : nombreEstacion;
+        if (nueva && dentro) Mostrar(SegundosVisible);
+    }
+
     void RefrescarDestino()
     {
         if (destinoTxt == null) return;

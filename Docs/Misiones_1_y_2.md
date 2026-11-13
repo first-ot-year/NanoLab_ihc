@@ -50,6 +50,20 @@ La muestra B reproduce lo que vio Alexander Fleming en 1928: una placa de bacter
 4. **Microscopía (3):** portaobjetos DESPUÉS: **ANTES | DESPUÉS**. Si falló, pista y vuelta a la terminal (la estrategia se repiensa).
 5. **CONCLUSIONES:** con el agente eficaz, dos preguntas para explicar el resultado: *¿por qué funcionó?* (pared gruesa de peptidoglucano, por eso quedó violeta) y *¿serviría contra el virus del brote?* (no: los virus no tienen esa pared). Al acertar: **MISIÓN 2 COMPLETA**, recuerdo 2/3, checkpoint, informe en el **Archivo (8)** y **MISIÓN 3 desbloqueada**.
 
+## Todo el mobiliario del centro se usa (equipos 9 a 13)
+
+Los equipos que antes solo decoraban tienen ahora una consola (pantalla + botón amarillo, con el dedo o con el rayo) y un número en la guía. Cada uno es un paso obligatorio con sentido de laboratorio real; pulsarlo cuando no toca no penaliza: explica para qué sirve y cuándo se usa (`Scripts/Centro/EquiposCentro.cs`).
+
+| N.º | Equipo | Misión y paso | Qué bloquea hasta usarlo | Qué enseña |
+|---|---|---|---|---|
+| 9 | Incubadora 37 °C | M1, al empezar: **SACAR PLACAS** | Las placas A y B no aparecen en el banco (no hay frotis) | Las bacterias crecen a la temperatura del cuerpo |
+| 10 | Cabina de bioseguridad | M1, antes de la muestra C: **ENCENDER FLUJO** | El hisopado C (ahora dentro de la cabina) no se abre | Un posible virus respiratorio se manipula con flujo de aire filtrado |
+| 11 | Autoclave 121 °C | M2, último paso: **ESTERILIZAR** | La misión 2 no se completa | Lo que tocó una muestra se esteriliza con vapor antes de tirarlo |
+| 12 | Ultracongelador -80 °C | M3, paso 3: **SACAR REACTIVOS** | La pipeta no descarga en el tubo de síntesis | El molde de ADN y la enzima T7 se degradan sin frío |
+| 13 | Incubadora CO2 | M3, paso 6: **SACAR CÉLULAS** | La pipeta no descarga en la placa del ensayo | Las células Vero necesitan 37 °C y 5 % de CO2 |
+
+Guía paso a paso: el objetivo de la tarjeta (botón Y), las flechas del suelo y el AHORA: de la pantalla del equipo apuntan al mueble que toca; en la Observación el orden es MUESTRA A (microscopio) > B (banco) > cabina > C > microscopio. En la misión 3 el plan del paso (y el modo PASO A PASO) empieza por el equipo, y las flechas del centro llevan hasta él.
+
 ## Guía, ayudas y accesibilidad
 
 - **Flechas del suelo y tarjeta de objetivo** (`GuiaReto`, tecla Y): llevan a la estación del paso actual, también al panel CONCLUSIONES. Cada estación tiene su cartel con **PISTA** (pistas graduales por paso).

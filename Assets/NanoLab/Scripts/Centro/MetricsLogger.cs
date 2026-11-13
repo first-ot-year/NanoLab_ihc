@@ -19,6 +19,8 @@ public class MetricsLogger
     [System.Serializable] public class TiempoEtapa { public string etapa; public float segundos; }
     [System.Serializable] public class Intento { public int numero; public string hipotesis; public string estrategia; public string agente; public bool coherente; public float eficacia; public bool exito; public float minuto; }
     [System.Serializable] public class Conteo { public string etapa; public int veces; }
+    // Evento sorpresa de bioseguridad (misión 2): tiempos hasta tomar el spray y hasta descontaminar.
+    [System.Serializable] public class Bioseguridad { public bool ocurrido; public float segundosHastaSpray; public float segundosLimpieza; public int zonas; public float minuto; }
 
     [System.Serializable]
     public class Sesion
@@ -60,6 +62,7 @@ public class MetricsLogger
         public List<string> pretest = new List<string>();
         public List<string> postest = new List<string>();
         public MedidorRendimiento.Resumen rendimiento;
+        public Bioseguridad bioseguridad;
     }
 
     public Sesion Datos { get; private set; }

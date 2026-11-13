@@ -42,7 +42,7 @@ public class RetoManager : MonoBehaviour
     public int Pistas => metricas.Datos.pistasPedidas;
     public int Intentos => metricas.Datos.intentos.Count;
     public MetricsLogger Metricas => metricas;
-    public string ObjetivoActual => Objetivo(Actual);
+    public string ObjetivoActual => BiohazardEvent.Activo ? BiohazardEvent.Instancia.Objetivo : Objetivo(Actual);
     public string PistaFallo => pistaFallo;      // pista ligada al último fallo (se muestra en Hipótesis)
     public bool JugadorDentro => dentro;
 
@@ -57,6 +57,7 @@ public class RetoManager : MonoBehaviour
     public int Explicadas { get; private set; }          // misión 2: preguntas de CONCLUSIONES acertadas (0-2)
     public bool ComparacionCompleta => VistoHongo && VistoVirus && Evidencias.All(x => x);
     public bool FichaVista => metricas.Datos.fichasConsultadas.Count > 0;
+    public bool PendienteAutoclave { get; private set; } // misión 2: explicado el resultado, falta esterilizar (AUTOCLAVE 11)
 
     MetricsLogger metricas;
     GuiaReto guia;                               // tarjeta de objetivo + ruta de flechas hasta la estación
@@ -155,7 +156,10 @@ public class RetoManager : MonoBehaviour
     {
         switch (e)
         {
-            case EtapaReto.Exploracion: return "En el BANCO (1) hay 3 muestras. Coge un portaobjetos de la mesa de TINCIÓN (2) y toca con él la placa de la MUESTRA A (herida de piel) para hacer el frotis.";
+            case EtapaReto.Exploracion:
+                if (!EquiposCentro.Listo(EquiposCentro.Incubadora))
+                    return "Las placas de las MUESTRAS A y B pasaron la noche en la INCUBADORA (9) a 37 °C. Ve a la incubadora y pulsa SACAR PLACAS.";
+                return "En el BANCO (1) hay 3 muestras. Coge un portaobjetos de la mesa de TINCIÓN (2) y toca con él la placa de la MUESTRA A (herida de piel) para hacer el frotis.";
             case EtapaReto.Tincion: return "Tiñe el frotis de la MUESTRA A: toca los goteros en orden 1 > 2 > 3 > 4 (tinción de Gram).";
             case EtapaReto.Observacion:
             {
@@ -164,7 +168,8 @@ public class RetoManager : MonoBehaviour
                 if (ev < Evidencias.Length) falta.Add($"evidencias de la A ({ev}/{Evidencias.Length})");
                 if (!VistoHongo) falta.Add("la MUESTRA B");
                 if (!VistoVirus) falta.Add("la MUESTRA C");
-                return $"Compara las 3 muestras en un MICROSCOPIO (3). Te falta: {string.Join(", ", falta)}. Las B y C se cargan tocando su placa o su tubo en el BANCO (1) con un portaobjetos limpio.";
+                string paso = PasoObservacion();
+                return $"{paso} Te falta: {string.Join(", ", falta)}.";
             }
             case EtapaReto.Investigacion:
                 if (Clasificadas < 3) return $"Ve al panel CONCLUSIONES (junto a los microscopios) y clasifica cada muestra: ¿bacteria, hongo o virus? ({Clasificadas}/3)";
@@ -178,15 +183,70 @@ public class RetoManager : MonoBehaviour
                 : "Elige un agente, encájalo en la PRENSA (6) y pulsa FORMULAR.";
             case EtapaReto.Experimento: return "Pon la placa de la MUESTRA A y la cápsula en la CÁMARA (7) y pulsa ACTIVAR.";
             case EtapaReto.Analisis:
+                if (PendienteAutoclave) return "Último paso de la MISIÓN 2: esteriliza la placa tratada y el material. Ve al AUTOCLAVE (11) y pulsa ESTERILIZAR.";
                 if (ExitoAnalizado) return $"Explica tu resultado en el panel CONCLUSIONES, junto a los microscopios ({Explicadas}/2).";
                 return "Lleva el portaobjetos DESPUÉS a un MICROSCOPIO (3) y compáralo con el ANTES.";
             default: return "MISIONES 1 y 2 completas. Lee el informe en el ARCHIVO (8) y ve al LABORATORIO DE VACUNAS: la MISIÓN 3 está desbloqueada.";
         }
     }
 
-    // Estación a la que apuntan las flechas: en Investigación y al explicar, el panel CONCLUSIONES.
+    // Qué hacer ahora en la Observación (en orden: la A teñida, la B del banco, la C de la cabina).
+    enum PasoObs { MuestraA, CargarB, VerB, Cabina, CargarC, VerC, Listo }
+    PasoObs SiguienteObservacion()
+    {
+        if (!Evidencias.All(x => x)) return PasoObs.MuestraA;
+        var portas = FindObjectsOfType<Portaobjetos>();
+        if (!VistoHongo) return portas.Any(p => p.muestra != null && p.muestra == muestraHongo) ? PasoObs.VerB : PasoObs.CargarB;
+        if (!VistoVirus)
+        {
+            if (!EquiposCentro.Listo(EquiposCentro.Cabina)) return PasoObs.Cabina;
+            return portas.Any(p => p.muestra != null && p.muestra == muestraVirus) ? PasoObs.VerC : PasoObs.CargarC;
+        }
+        return PasoObs.Listo;
+    }
+
+    string PasoObservacion()
+    {
+        switch (SiguienteObservacion())
+        {
+            case PasoObs.MuestraA: return "Mira la MUESTRA A teñida en un MICROSCOPIO (3) a 400x y a 1000x.";
+            case PasoObs.CargarB: return "Limpia un portaobjetos con el desinfectante (o coge otro) y toca la placa de la MUESTRA B en el BANCO (1).";
+            case PasoObs.VerB: return "Lleva el portaobjetos de la MUESTRA B a un MICROSCOPIO (3).";
+            case PasoObs.Cabina: return "La MUESTRA C está en la CABINA DE BIOSEGURIDAD (10): pulsa ENCENDER FLUJO antes de abrirla.";
+            case PasoObs.CargarC: return "En la CABINA (10), toca el tubo de la MUESTRA C con un portaobjetos limpio.";
+            case PasoObs.VerC: return "Lleva el portaobjetos de la MUESTRA C a un MICROSCOPIO (3).";
+            default: return "Compara las 3 muestras en un MICROSCOPIO (3).";
+        }
+    }
+
+    // Estación a la que apuntan las flechas: en Investigación y al explicar, el panel CONCLUSIONES; los equipos
+    // (incubadora, cabina, autoclave) cuando toca usarlos.
+    // Evento sorpresa de bioseguridad (BiohazardEvent): mientras dure la alarma, la misión 2 no avanza.
+    public bool Bloqueado(out string motivo)
+    {
+        motivo = BiohazardEvent.Activo ? BiohazardEvent.Instancia.Bloqueo : null;
+        return motivo != null;
+    }
+
+    void AvisarBloqueo(Vector3 donde)
+    {
+        if (!Bloqueado(out var m)) return;
+        Aviso.Mostrar(m, donde, Aviso.Tipo.Error, 4f);
+        Sonidos.Error(donde);
+    }
+
     EstacionGuia EstacionActual()
     {
+        if (BiohazardEvent.Activo) return BiohazardEvent.Instancia.GuiaActual;
+        if (externa != null) return externa;
+        if (Actual == EtapaReto.Exploracion && !EquiposCentro.Listo(EquiposCentro.Incubadora)) return EquiposCentro.Incubadora.guia;
+        if (Actual == EtapaReto.Analisis && PendienteAutoclave && EquiposCentro.Autoclave != null) return EquiposCentro.Autoclave.guia;
+        if (Actual == EtapaReto.Observacion)
+        {
+            var s = SiguienteObservacion();
+            if ((s == PasoObs.Cabina || s == PasoObs.CargarC) && EquiposCentro.Cabina != null) return EquiposCentro.Cabina.guia;
+            if (s == PasoObs.CargarB) return estaciones[0];
+        }
         bool aConclusiones = (Actual == EtapaReto.Investigacion && Clasificadas < 3) || (Actual == EtapaReto.Analisis && ExitoAnalizado);
         if (aConclusiones && conclusiones != null) return conclusiones.guia;
         if (Actual == EtapaReto.Cierre) return null;   // ya no hay estación: lo siguiente es la vacuna (MISIÓN 3)
@@ -215,10 +275,17 @@ public class RetoManager : MonoBehaviour
         var destino = EstacionActual();
         for (int i = 0; i < estaciones.Length; i++) if (estaciones[i] != null) estaciones[i].Mostrar(estaciones[i] == destino, obj);
         if (conclusiones != null) conclusiones.guia.Mostrar(conclusiones.guia == destino, obj);
+        var ev = BiohazardEvent.Instancia;
+        if (ev != null) { ev.guiaKit.Mostrar(ev.guiaKit == destino, null); ev.guiaZona.Mostrar(ev.guiaZona == destino, null); }
+        foreach (var eq in EquiposCentro.Todos) if (eq.guia != null) eq.guia.Mostrar(eq.guia == destino, eq.guia == destino ? (externa != null ? objetivoExterno : obj) : null);
         string titulo = Actual == EtapaReto.Cierre ? "MISIONES 1 y 2 COMPLETAS" : $"{CodigoMision} · {TituloMision.ToUpper()}";
         string estado = $"Intentos: {Intentos}   ·   Pistas: {Pistas}" + (pistaFallo != null && Actual == EtapaReto.Hipotesis ? $"\n<color=#FFD25A>PISTA: {pistaFallo}</color>" : "");
         foreach (var p in paneles) if (p != null) p.Mostrar(CicloDeEtapa[(int)Actual], titulo, obj, estado);
-        if (guia != null) guia.Etapa(Actual, titulo, obj, destino, true);
+        if (guia != null)
+        {
+            if (externa != null) guia.Externo(tituloExterno, "MATERIAL DEL LABORATORIO", objetivoExterno, externa);
+            else guia.Etapa(Actual, titulo, obj, destino, true);
+        }
         if (terminal != null) terminal.Refrescar();
         RefrescarConclusiones();
         if (conSonido && ManosRig.Cabeza != null) Sonidos.Etapa(ManosRig.Cabeza.position);
@@ -274,6 +341,7 @@ public class RetoManager : MonoBehaviour
             RecuerdosBaymax.Recuperar(Misiones.Recuerdo2);
             MostrarResumen();
         }
+        EquiposCentro.Sincronizar(this);
         Refrescar(false);
     }
 
@@ -282,6 +350,7 @@ public class RetoManager : MonoBehaviour
     {
         VistoHongo |= hongo;
         VistoVirus |= virus;
+        EquiposCentro.Sincronizar(this);
         if (Actual == EtapaReto.Exploracion && ComparacionCompleta) Avanzar(EtapaReto.Investigacion);
         else Refrescar(false);
     }
@@ -319,6 +388,7 @@ public class RetoManager : MonoBehaviour
             metricas.Indagacion($"Frotis: {f.etiqueta}");
             Refrescar(false);
         }
+        else if (f.esDesinfectante && Actual == EtapaReto.Observacion) Refrescar(false);
     }
 
     void AlTenir(Portaobjetos p)
@@ -339,6 +409,7 @@ public class RetoManager : MonoBehaviour
         var hud = HUDMicroscopio.Instancia;
         if (p.Despues)
         {
+            if (BiohazardEvent.Activo) { AvisarBloqueo(m.transform.position + Vector3.up * 0.5f); return; }
             hud.MostrarReto(p.muestra, DatosComparacion);
             if (Actual == EtapaReto.Analisis && !ExitoAnalizado) AnalisisCompletado();
             return;
@@ -415,6 +486,7 @@ public class RetoManager : MonoBehaviour
     public bool PuedeHipotesis(out string motivo)
     {
         motivo = null;
+        if (Bloqueado(out motivo)) return false;
         if (Actual == EtapaReto.Cierre) motivo = "Las misiones 1 y 2 ya están completas. Pulsa REINICIAR en el ARCHIVO (8) para repetirlas.";
         else if (Actual == EtapaReto.Analisis) motivo = "Antes de cambiar tu hipótesis, analiza el resultado: mira el portaobjetos DESPUÉS en un MICROSCOPIO (3).";
         else if (!Evidencias.All(x => x))
@@ -487,6 +559,7 @@ public class RetoManager : MonoBehaviour
 
     public bool PuedeFormular(out string motivo)
     {
+        if (Bloqueado(out motivo)) return false;
         motivo = null;
         if (Actual == EtapaReto.Cierre) motivo = "Las misiones 1 y 2 ya están completas. Pulsa REINICIAR en el ARCHIVO (8) para repetirlas.";
         else if (Actual == EtapaReto.Analisis) motivo = ExitoAnalizado
@@ -503,6 +576,7 @@ public class RetoManager : MonoBehaviour
     public bool PuedeExperimentar(out string motivo)
     {
         motivo = null;
+        if (Bloqueado(out motivo)) return false;
         if (Actual == EtapaReto.Cierre) motivo = "Las misiones 1 y 2 ya están completas. Pulsa REINICIAR en el ARCHIVO (8) para repetirlas.";
         else if (Actual == EtapaReto.Analisis) motivo = ExitoAnalizado
             ? "Tu agente ya funcionó: explica el resultado en el panel CONCLUSIONES."
@@ -544,6 +618,25 @@ public class RetoManager : MonoBehaviour
         ExitoAnalizado = false;
         Explicadas = 0;
         Poner(EtapaReto.Analisis);
+        // Evento sorpresa: tras el PRIMER experimento falla el sellado de la cámara (una vez por partida).
+        if (metricas.Datos.intentos.Count == 1 && camara != null) BiohazardEvent.Disparar(camara.transform);
+    }
+
+    // Avisos del evento de bioseguridad (alarma, spray tomado, zona limpiada).
+    public void BiohazardCambio(bool conSonido)
+    {
+        metricas.Actividad();
+        Refrescar(conSonido);
+    }
+
+    public void BiohazardResuelto(float segundosHastaSpray, float segundosTotal, int zonas)
+    {
+        metricas.Actividad();
+        metricas.Datos.bioseguridad = new MetricsLogger.Bioseguridad
+        {
+            ocurrido = true, segundosHastaSpray = segundosHastaSpray, segundosLimpieza = segundosTotal, zonas = zonas, minuto = metricas.Minutos,
+        };
+        Refrescar(true);
     }
 
     bool Exito => ultimoAgente >= 0 && ultimaEficacia >= reto.umbralExito;
@@ -572,6 +665,35 @@ public class RetoManager : MonoBehaviour
             Poner(EtapaReto.Hipotesis);
             pistaPendiente = pistaFallo;   // se muestra al apartar la cara del ocular (el HUD ya la explica)
         }
+    }
+
+    // ------------------------------------------------------------------ equipos del centro (EquiposCentro)
+
+    public void EquipoUsado()
+    {
+        metricas.Actividad();
+        metricas.Indagacion("Equipo usado");
+        Refrescar(true);
+    }
+
+    public void Esterilizado()
+    {
+        if (!PendienteAutoclave) return;
+        PendienteAutoclave = false;
+        metricas.Actividad();
+        CompletarMision2();
+        RefrescarConclusiones();
+    }
+
+    // MISIÓN 3: la guía de flechas lleva a un equipo del centro (ultracongelador, incubadora CO2). null = vuelve a lo normal.
+    EstacionGuia externa;
+    string tituloExterno, objetivoExterno;
+    public void GuiaExterna(EstacionGuia est, string titulo, string objetivo)
+    {
+        externa = est;
+        tituloExterno = titulo;
+        objetivoExterno = objetivo;
+        Refrescar(est != null);
     }
 
     // ------------------------------------------------------------------ misiones
@@ -665,6 +787,7 @@ public class RetoManager : MonoBehaviour
 
     void AlElegirConclusion(int opcion)
     {
+        if (BiohazardEvent.Activo) { AvisarBloqueo(conclusiones != null ? conclusiones.transform.position + Vector3.up * 1.5f : transform.position); return; }
         var pos = conclusiones != null ? conclusiones.Encima : transform.position;
         metricas.Actividad();
         if (Actual == EtapaReto.Investigacion && Clasificadas < 3)
@@ -709,7 +832,16 @@ public class RetoManager : MonoBehaviour
                 Sonidos.Carga(pos);
                 ManosRig.Vibrar(pos, 0.4f, 0.08f);
                 respuestaConclusiones = $"<color=#39FF88><b>¡BIEN!</b></color> {q.porque[opcion]}";
-                if (Explicadas >= PreguntasExplicar.Length) { CompletarMision2(); respuestaConclusiones = $"<color=#39FF88><b>¡BIEN!</b></color> {q.porque[opcion]}"; RefrescarConclusiones(); }
+                if (Explicadas >= PreguntasExplicar.Length)
+                {
+                    if (EquiposCentro.Autoclave != null && !PendienteAutoclave)
+                    {
+                        PendienteAutoclave = true;
+                        respuestaConclusiones = $"<color=#39FF88><b>¡BIEN!</b></color> {q.porque[opcion]}\n<color=#FFD25A>Último paso: esteriliza la placa tratada en el AUTOCLAVE (11).</color>";
+                        Refrescar(true);
+                    }
+                    else { CompletarMision2(); respuestaConclusiones = $"<color=#39FF88><b>¡BIEN!</b></color> {q.porque[opcion]}"; RefrescarConclusiones(); }
+                }
                 else Refrescar(false);
             }
             else
@@ -773,14 +905,21 @@ public class RetoManager : MonoBehaviour
         string[] lista;
         switch (Actual)
         {
-            case EtapaReto.Exploracion: lista = new[]
+            case EtapaReto.Exploracion: lista = !EquiposCentro.Listo(EquiposCentro.Incubadora) ? new[]
+            {
+                "La INCUBADORA es el armario blanco con puerta de vidrio que marca 37 °C (número 9). Pulsa el botón amarillo de su repisa.",
+                "Sigue las flechas del suelo: llevan a la INCUBADORA (9). Las bacterias crecen a la temperatura del cuerpo, por eso las placas estaban ahí.",
+            } : new[]
             {
                 "Busca el BANCO DE MUESTRAS (zona 1): la placa de la izquierda es la MUESTRA A. Coge un portaobjetos de la mesa de TINCIÓN (2) y toca la placa con él.",
                 reto.pistasExploracion != null && reto.pistasExploracion.Length > 1 ? reto.pistasExploracion[1] : "Lleva el portaobjetos en la mano y tócalo con la placa: el frotis aparece en el vidrio.",
             }; break;
             case EtapaReto.Tincion: lista = reto.pistasTincion; break;
             case EtapaReto.Observacion:
-                lista = Evidencias.All(x => x)
+                lista = SiguienteObservacion() == PasoObs.Cabina
+                    ? new[] { "La CABINA DE BIOSEGURIDAD (10) es la vitrina blanca con luz azul. Pulsa el botón amarillo de su mesa para encender el flujo.",
+                              "Un virus respiratorio puede viajar en gotitas: el flujo de aire de la cabina las aleja de tu cara antes de abrir el tubo." }
+                    : Evidencias.All(x => x)
                     ? new[] { "Ya tienes las evidencias de la A. Limpia un portaobjetos con el desinfectante (o coge otro), toca la placa B o el tubo C del BANCO (1) y míralo al microscopio.",
                               "La B y la C no hace falta teñirlas. Míralas una detrás de otra: el HUD te deja comparar con la anterior." }
                     : reto.pistasObservacion; break;
@@ -796,7 +935,10 @@ public class RetoManager : MonoBehaviour
             case EtapaReto.Preparacion: lista = reto.pistasPreparacion; break;
             case EtapaReto.Experimento: lista = reto.pistasExperimento; break;
             case EtapaReto.Analisis:
-                lista = ExitoAnalizado
+                lista = PendienteAutoclave
+                    ? new[] { "El AUTOCLAVE (11) es el equipo blanco con puerta redonda. Pulsa el botón amarillo de encima: ESTERILIZAR.",
+                              "Todo lo que tocó una bacteria se esteriliza con vapor a 121 °C antes de tirarlo: así no sale nada vivo del laboratorio." }
+                    : ExitoAnalizado
                     ? new[] { "Piensa en la tinción de Gram: la A quedó VIOLETA porque tiene una pared gruesa. ¿Qué hizo el agente con ella?",
                               "Los virus no tienen pared de peptidoglucano: un agente que rompe esa pared no les hace nada." }
                     : reto.pistasAnalisis; break;
@@ -822,7 +964,9 @@ public class RetoManager : MonoBehaviour
         Estrategia = -1;
         Evidencias = new bool[reto.evidencias.Length];
         VistoHongo = VistoVirus = false;
-        Clasificadas = 0; Explicadas = 0; ExitoAnalizado = false;
+        Clasificadas = 0; Explicadas = 0; ExitoAnalizado = false; PendienteAutoclave = false;
+        EquiposCentro.ReiniciarMisiones();
+        BiohazardEvent.Reiniciar();
         fallosClasificacion = fallosExplicacion = false;
         respuestaConclusiones = null; avisoMision = null;
         nivelPista.Clear();

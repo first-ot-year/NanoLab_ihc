@@ -196,6 +196,7 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 | `NanoLab/Reconstruir solo el centro de experimentación` | Regenera únicamente el Centro de Experimentación |
 | `NanoLab/Montar cámara de descontaminación (BSL-3)` | Cambia la cabina de la puerta del BSL-3 por una esclusa con dos puertas correderas y ciclo de descontaminación (niebla, luz UV-C, extracción), sin volver a hornear la luz |
 | `NanoLab/Probar misiones 1 y 2 (play mode)` | Recorre las misiones 1 y 2 con errores a propósito (tinción, clasificación, identificación, vial que no sigue la estrategia, explicación) y comprueba comparación de muestras, CONCLUSIONES, recuerdos, desbloqueo de la vacuna y partida: `Logs/prueba_reto.txt` y capturas |
+| `NanoLab/Capturas paso a paso (3 misiones)` | Juega las 3 misiones seguidas (con errores a propósito) y guarda una captura numerada de cada paso, frente a la estación que toca: `Logs/Capturas/PasoAPaso` (`indice.txt`, `informe_misiones.txt`, `informe_vacuna.txt`). Sirve para el informe y el video |
 | `NanoLab/Probar reto de vacuna (play mode)` | Ejecuta el Caso 01 (crea la vacuna) de extremo a extremo sin visor, con las mismas acciones del estudiante y un error típico por paso (incluye las preguntas de comprensión, el microscopio y los 3 recuerdos; esperado **46 OK**): informe en `Logs/prueba_vacuna.txt` y capturas `Logs/Capturas/vacuna_*.png`. No recarga la escena si ya está abierta |
 | `NanoLab/Configurar interacción Meta (…)` | Configura los componentes del Meta Interaction SDK en las salas |
 | `NanoLab/Avatar Baymax/…` | Convierte e instala el modelo de Baymax |
@@ -225,6 +226,8 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | Script | Responsabilidad |
 |---|---|
 | `RetoManager` | MISIONES 1 y 2 con el mobiliario del centro: etapas, objetivo actual, evidencias de la A, comparación con las muestras B y C (HUD con otra muestra al lado y cuadro comparativo), panel CONCLUSIONES, identificación comprobada, intervención y ANTES \| DESPUÉS, pistas, un recuerdo y unas métricas por misión |
+| `BiohazardEvent` | Evento sorpresa de bioseguridad en la misión 2: alarma roja, pulverizador con gatillo, zonas `Contaminated` que se desvanecen y felicitación de Baymax ([Docs/Evento_Bioseguridad.md](Docs/Evento_Bioseguridad.md)) |
+| `EquiposCentro` | Incubadora (9), cabina de bioseguridad (10), autoclave (11), ultracongelador (12) e incubadora CO2 (13): consola con pantalla y botón, paso obligatorio de una misión y destino de las flechas |
 | `Misiones` / `MontajeMisiones` / `PanelConclusiones` | Códigos, recuerdos y desbloqueo de las 3 misiones; muestras B (moho *Penicillium*) y C (hisopado del brote) con micrografías generadas por código. Al empezar: reubica la cámara experimental en un hueco libre, crea las muestras B y C en el banco, rotula la A y monta el atril CONCLUSIONES junto a los microscopios |
 | `RetoData` / `MuestraData` | Datos configurables del caso y de cada muestra (sin tocar código) |
 | `PlacaCaso` | Placa de Petri cuyas colonias cambian tras la intervención |

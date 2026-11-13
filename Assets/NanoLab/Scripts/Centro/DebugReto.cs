@@ -74,16 +74,30 @@ public class DebugReto : MonoBehaviour
         var indicador = FindObjectOfType<IndicadorRecuerdos>();
         Comprobar(indicador != null && indicador.texto != null && indicador.texto.text.Contains($"{RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}"),
                   $"Introducción con indicador de recuerdos ({(indicador != null && indicador.texto != null ? indicador.texto.text : "no encontrado")})");
-        var otro = Portaobjetos.Todos.Where(p => p != porta && !p.Despues && !p.Agarrado && p.Encajada == null).OrderBy(p => p.name).FirstOrDefault();
+        var otro = Portaobjetos.Todos.Where(p => p != porta && EnZona(p) && !p.Despues && !p.Agarrado && p.Encajada == null && Hueco.De(p.transform) == null).OrderBy(p => p.name).FirstOrDefault();
         if (Comprobar(otro != null, "Hay otro portaobjetos para probar la recuperación"))
         {
             var casa = otro.transform.position;
             otro.transform.position = casa + Vector3.down * 1.2f;   // simula que se cae al suelo
             float t0 = Time.time;
-            while (Time.time - t0 < 3f && (otro.transform.position - casa).sqrMagnitude > 0.0001f) yield return null;
+            while (Time.time - t0 < 6f && (otro.transform.position - casa).sqrMagnitude > 0.0001f) yield return null;
             Comprobar((otro.transform.position - casa).sqrMagnitude <= 0.0001f, $"Un portaobjetos caído vuelve a su sitio en {Time.time - t0:F1} s (RNF-04)");
         }
 
+        // 0b) INCUBADORA (9): las placas A y B pasaron la noche dentro; hasta sacarlas no hay frotis.
+        var inc = EquiposCentro.Incubadora;
+        if (Comprobar(inc != null && EquiposCentro.Cabina != null && EquiposCentro.Autoclave != null && EquiposCentro.Ultracongelador != null && EquiposCentro.IncubadoraCO2 != null,
+                      $"Consolas de los equipos del centro: {string.Join(", ", EquiposCentro.Todos.Select(x => x.titulo))}"))
+        {
+            Comprobar(rm.ObjetivoActual.Contains("INCUBADORA") && inc.guia.Activa, "Al empezar, el objetivo y las flechas llevan a la INCUBADORA (9)");
+            Momento?.Invoke("equipo_9_antes");
+            fuentePlaca.Aplicar(porta);
+            Comprobar(porta.muestra == null && rm.Actual == EtapaReto.Exploracion, "Con las placas en la incubadora no se puede hacer el frotis");
+            yield return EquiposCentro.Usar(inc);
+            Comprobar(inc.Hecho && !inc.guia.Activa && rm.estaciones[0].Activa, "SACAR PLACAS: las placas A y B pasan al BANCO (1) y la guía va allí");
+            yield return new WaitForSeconds(0.3f);
+            Momento?.Invoke("equipo_9_hecho");
+        }
         Momento?.Invoke("inicio_banco");
         // 1) Frotis y tinción (con un error de orden a propósito para probar el feedback).
         fuentePlaca.Aplicar(porta);
@@ -134,6 +148,18 @@ public class DebugReto : MonoBehaviour
         {
             porta.ColocarEn(porta.transform.position + Vector3.up * 0.2f, Quaternion.identity);
             desinfectante.Aplicar(porta);
+            if (letra == "C" && EquiposCentro.Cabina != null)
+            {
+                // CABINA DE BIOSEGURIDAD (10): el hisopado C solo se abre con el flujo encendido.
+                Comprobar(EquiposCentro.Cabina.guia.Activa && rm.ObjetivoActual.Contains("CABINA"), "Para la MUESTRA C, el objetivo y las flechas llevan a la CABINA (10)");
+                fuente.Aplicar(porta);
+                Comprobar(porta.muestra == null, "Sin encender el flujo de la cabina, el hisopado C no se abre");
+                Momento?.Invoke("equipo_10_antes");
+                yield return EquiposCentro.Usar(EquiposCentro.Cabina);
+                Comprobar(EquiposCentro.Cabina.Hecho, "ENCENDER FLUJO en la cabina");
+                yield return new WaitForSeconds(0.3f);
+                Momento?.Invoke("equipo_10_hecho");
+            }
             fuente.Aplicar(porta);
             Comprobar(porta.DeCaso && porta.Etiqueta == "MUESTRA " + letra, $"Frotis de la MUESTRA {letra} con su etiqueta (no revela qué es)");
             porta.Encajar(micro.platina);
@@ -242,6 +268,15 @@ public class DebugReto : MonoBehaviour
         Momento?.Invoke("conclusiones_explicacion");
         conc.botones[1].Activar();   // no serviría contra el virus
         yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
+        if (EquiposCentro.Autoclave != null)
+        {
+            // AUTOCLAVE (11): último paso de la misión 2.
+            Comprobar(rm.PendienteAutoclave && rm.Actual == EtapaReto.Analisis && !Misiones.Tiene(Misiones.Recuerdo2) && EquiposCentro.Autoclave.guia.Activa,
+                      "Explicado el resultado, falta esterilizar: las flechas llevan al AUTOCLAVE (11)");
+            Momento?.Invoke("equipo_11_antes");
+            yield return EquiposCentro.Usar(EquiposCentro.Autoclave);
+            Momento?.Invoke("equipo_11_hecho");
+        }
         Comprobar(rm.Actual == EtapaReto.Cierre && Misiones.Tiene(Misiones.Recuerdo2) && Misiones.VacunaDesbloqueada,
                   "MISIÓN 2 completa: recuerdo 2 y la vacuna (MISIÓN 3) desbloqueada");
         yield return new WaitForSeconds(0.3f);
@@ -372,6 +407,7 @@ public class DebugReto : MonoBehaviour
         bool exito = rm.reto.Eficacia(rm.reto.agentes[agente]) >= rm.reto.umbralExito;
         Comprobar(rm.Actual == EtapaReto.Analisis && camara.portaDespues.gameObject.activeSelf && rm.placa.Tratada, $"Intento {n}: resultado {(exito ? "EFICAZ" : "SIN EFECTO")} > etapa Análisis, portaobjetos DESPUÉS entregado");
         Comprobar(!rm.PuedeFormular(out _), $"Intento {n}: no se puede formular otra cápsula sin analizar");
+        if (n == 1 && BiohazardEvent.Instancia != null) yield return Bioseguridad(rm, camara, micro, porta);
 
         porta.ColocarEn(porta.transform.position + Vector3.up * 0.3f, Quaternion.identity);
         camara.portaDespues.Encajar(micro.platina);
@@ -382,6 +418,58 @@ public class DebugReto : MonoBehaviour
         micro.DejarDeObservar();
         Paso($"Intento {n}: comparación ANTES | DESPUÉS observada (etapa ahora {rm.Actual})");
         camara.portaDespues.ColocarEn(camara.anclajeDespues.position, camara.anclajeDespues.rotation);
+    }
+
+    // Evento sorpresa tras el primer experimento: alarma, bloqueo, pulverizador, limpieza y vuelta a la normalidad.
+    IEnumerator Bioseguridad(RetoManager rm, CamaraExperimental camara, MicroscopioOptico micro, Portaobjetos porta)
+    {
+        var ev = BiohazardEvent.Instancia;
+        Comprobar(BiohazardEvent.Activo && ev.zonas.Count >= 2, $"Tras el primer experimento salta la ALERTA DE BIOSEGURIDAD ({ev.zonas.Count} zonas contaminadas)");
+        Comprobar(ev.zonas.All(z => z.gameObject.layer == BiohazardEvent.Capa || BiohazardEvent.Capa < 0), "Las zonas están en la capa Biohazard");
+        bool tag = false; try { tag = ev.zonas[0].CompareTag(BiohazardEvent.Tag); } catch (UnityException) { }
+        Comprobar(tag, "Las zonas tienen la etiqueta Contaminated");
+        Comprobar(rm.ObjetivoActual.Contains("ALERTA") && ev.guiaKit.Activa, "El objetivo y las flechas llevan al KIT DE DERRAMES");
+        yield return new WaitForSeconds(0.6f);
+        var luz = GameObject.Find("LuzAlarma_Sala");
+        Comprobar(luz != null && luz.activeInHierarchy && luz.GetComponent<Light>().color.r > 0.9f, "Luces rojas de alarma encendidas");
+        Momento?.Invoke("biohazard_1_alarma");
+
+        porta.ColocarEn(porta.transform.position + Vector3.up * 0.3f, Quaternion.identity);
+        camara.portaDespues.Encajar(micro.platina);
+        yield return null;
+        micro.ObservarAhora();
+        Comprobar(rm.Actual == EtapaReto.Analisis && !rm.PuedeExperimentar(out _), "Con la alarma no se analiza el portaobjetos DESPUÉS ni se experimenta");
+        micro.DejarDeObservar();
+        camara.portaDespues.ColocarEn(camara.anclajeDespues.position, camara.anclajeDespues.rotation);
+        Momento?.Invoke("biohazard_2_kit");
+
+        ev.MarcarSpray();   // en el visor: agarrar el pulverizador del kit
+        yield return null;
+        Comprobar(ev.guiaZona.Activa && rm.ObjetivoActual.Contains("Quedan"), "Con el pulverizador en la mano, la guía va a la zona contaminada más cercana");
+        Momento?.Invoke("biohazard_3_zona");
+        bool primera = true;
+        foreach (var z in ev.zonas.ToList())
+        {
+            var origen = z.transform.position + Vector3.up * 0.9f;
+            int tocadas = BiohazardEvent.Rociar(origen + Vector3.up * 3f, Vector3.up, 0.01f);   // apuntando al techo: nada
+            if (primera) Comprobar(tocadas == 0, "Rociar hacia otro lado no limpia nada");
+            float t = 0f;
+            while (!z.Limpia && t < 5f)
+            {
+                BiohazardEvent.Rociar(origen, z.transform.position - origen, Time.deltaTime);
+                t += Time.deltaTime;
+                if (primera && t > 0.55f && t - Time.deltaTime <= 0.55f) { Comprobar(z.carga < 0.9f && z.carga > 0f, "La mancha pierde opacidad poco a poco con el rocío"); Momento?.Invoke("biohazard_4_rociando"); }
+                yield return null;
+            }
+            yield return new WaitForSeconds(0.5f);
+            Comprobar(z.Limpia && !z.gameObject.activeSelf, $"Zona contaminada limpiada en {t:F1} s y desactivada");
+            primera = false;
+        }
+        yield return new WaitForSeconds(1.5f);
+        Comprobar(!BiohazardEvent.Activo && BiohazardEvent.YaOcurrio, "Sin zonas contaminadas termina la alerta");
+        Comprobar(luz == null || !luz.activeInHierarchy, "Las luces vuelven a la normalidad");
+        Comprobar(!rm.ObjetivoActual.Contains("ALERTA") && rm.PuedeExperimentar(out _) == false, "La misión 2 sigue donde estaba (analizar el DESPUÉS)");
+        Momento?.Invoke("biohazard_5_resuelto");
     }
 
     void Fin()

@@ -50,6 +50,7 @@ public static class Partida
         public string estrategia;        // DianaAgente de la estrategia de la terminal; vacío = sin elegir (campo aditivo de la v2)
         public List<Checkpoint> checkpoints = new List<Checkpoint>();   // uno por reto terminado, el último al final
         public bool vistoHongo, vistoVirus;   // misión 1: muestras B y C ya observadas (campos aditivos)
+        public bool biohazard;               // misión 2: evento de bioseguridad ya resuelto (campo aditivo)
     }
 
 #if UNITY_EDITOR
@@ -187,6 +188,7 @@ public static class Partida
             d.estrategia = rm.EstrategiaElegida != null ? rm.EstrategiaElegida.diana.ToString() : null;
             d.vistoHongo = rm.VistoHongo;
             d.vistoVirus = rm.VistoVirus;
+            d.biohazard = BiohazardEvent.YaOcurrio;
         }
         var j = JugadorNanoLab.Instancia;
         if (j != null && j.Pies(out var pies, out var yaw))
@@ -299,6 +301,7 @@ public class GestorPartida : MonoBehaviour
             {
                 rm.Restaurar((EtapaReto)d.etapa, d.evidencias, d.hipotesis, d.estrategia);
                 rm.RestaurarComparacion(d.vistoHongo, d.vistoVirus);
+                BiohazardEvent.Restaurar(d.biohazard);
             }
 
             if (!restauradaEnSesion)

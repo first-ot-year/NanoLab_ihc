@@ -227,13 +227,15 @@ public static class CapturasPasoAPaso
         {
             var rm = RetoManager.Instancia;
             if (nombre.StartsWith("hud")) { Hud(nombre); return; }
+            if (nombre.StartsWith("equipo")) { Equipo(nombre); return; }
+            if (nombre.StartsWith("biohazard")) { Biohazard(nombre); return; }
             if (rm == null) return;
             var fuentes = Object.FindObjectsOfType<FuenteMuestra>();
             if (nombre.StartsWith("inicio_banco") || nombre.StartsWith("banco"))
             {
                 var b = fuentes.FirstOrDefault(f => f.muestra == rm.muestraHongo);
                 var c = fuentes.FirstOrDefault(f => f.muestra == rm.muestraVirus);
-                VistaLibre(nombre, Medio(rm.placa, b, c) + Vector3.up * 0.05f, 1.3f, 0.55f);
+                VistaLibre(nombre, Medio(rm.placa, b) + Vector3.up * 0.05f, 1.3f, 0.55f);   // la C está en la cabina (10)
             }
             else if (nombre.StartsWith("tincion"))
             {
@@ -284,13 +286,44 @@ public static class CapturasPasoAPaso
         catch (System.Exception e) { Debug.LogWarning($"[Capturas] No se pudo capturar {nombre}: {e.Message}"); }
     }
 
-    static void Terminal(string nombre) => Capturar(nombre, new Vector3(20.5f, 1.62f, 15.4f), new Vector3(0f, -0.27f, 1f));
+    // Consola de un equipo del centro (incubadora, cabina, autoclave, ultracongelador, incubadora CO2), de frente.
+    static void Equipo(string nombre)
+    {
+        var partes = nombre.Split('_');
+        int num = partes.Length > 1 && int.TryParse(partes[1], out var k) ? k : 0;
+        var e = EquiposCentro.Todos.FirstOrDefault(x => x.guia != null && x.guia.numero == num);
+        if (e == null) return;
+        var t = e.transform;
+        var obj = e.guia.tituloTxt != null ? e.guia.tituloTxt.transform.position + Vector3.down * 0.2f : t.position + Vector3.up * 1.1f;
+        var cam = t.position + t.forward * 1.45f + t.right * 0.25f + Vector3.up * 1.55f;
+        Capturar(nombre + "_" + e.accion.Split(' ')[0].ToLower(), cam, obj - cam);
+    }
+
+    static void Biohazard(string nombre)
+    {
+        var ev = BiohazardEvent.Instancia;
+        if (ev == null) return;
+        if (nombre.Contains("alarma") || nombre.Contains("resuelto")) { Vista(nombre); return; }
+        if (nombre.Contains("kit"))
+        {
+            var k = ev.spray.transform;
+            var f = ev.guiaKit.puntoBaliza.position - k.position; f.y = 0f;
+            var cam = k.position + f.normalized * 1.3f + Vector3.up * 0.55f;
+            Capturar(nombre, cam, k.position + Vector3.up * 0.1f - cam);
+            return;
+        }
+        var z = ev.zonas.FirstOrDefault(x => x != null && x.gameObject.activeSelf) ?? ev.zonas.FirstOrDefault();
+        if (z != null) VistaLibre(nombre, z.transform.position, 1.4f, 1.1f);
+    }
+
+        static void Terminal(string nombre) => Capturar(nombre, new Vector3(20.5f, 1.62f, 15.4f), new Vector3(0f, -0.27f, 1f));
 
     // MISIÓN 3: vista del estudiante delante del mostrador y, en los pasos de manipulación, la mesa desde arriba.
     static void Vacuna(string nombre)
     {
         var r = RetoVacuna.Instancia;
         if (r == null || dir == null) return;
+        if (nombre.StartsWith("equipo")) { Mision(nombre); return; }
         try
         {
             var t = r.transform;
