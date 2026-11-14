@@ -63,7 +63,9 @@ public class PanelConclusiones : MonoBehaviour
         var tablero = K.Caja(g, "Tablero", new Vector3(0f, h + 0.01f, 0f), new Vector3(1.0f, 0.02f, 0.5f), oscuro, true);
         tablero.gameObject.AddComponent<BoxCollider>();
         p.marco = K.Caja(g, "Franja", new Vector3(0f, h - 0.05f, 0.227f), new Vector3(0.95f, 0.02f, 0.006f), K.Plano(Color.white));
-        K.Caja(g, "Poste", new Vector3(0f, 1.3f, -0.2f), new Vector3(0.05f, 0.75f, 0.04f), K.Escena("Marco", Color.gray), true);
+        // El poste va detrás de la pantalla (antes atravesaba el fondo, ahora opaco, y se veía salir por delante).
+        K.Caja(g, "Poste", new Vector3(0f, 1.25f, -0.33f), new Vector3(0.05f, 0.64f, 0.04f), K.Escena("Marco", Color.gray), true);
+        K.Caja(g, "Brazo", new Vector3(0f, 1.52f, -0.27f), new Vector3(0.05f, 0.05f, 0.1f), K.Escena("Marco", Color.gray), true);
 
         p.botones = new BotonFisico[3];
         p.rotulos = new TMP_Text[3];

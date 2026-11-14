@@ -27,6 +27,7 @@ public static class LimpiezaEscena
     public static void Aplicar(Scene escena)
     {
         if (!escena.IsValid() || !escena.isLoaded) return;
+        LegibilidadTextos.Asegurar();   // letras siempre por delante de sus paneles y ajustadas a su recuadro
         var todos = escena.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<Transform>(true)).ToList();
         int rotulos = 0, carteles = 0, microscopios = 0;
 
