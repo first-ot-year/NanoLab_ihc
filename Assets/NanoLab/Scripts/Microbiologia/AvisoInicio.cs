@@ -98,8 +98,8 @@ public class AvisoInicio : MonoBehaviour
         var mazo = new[]
         {
             new Tarjeta { titulo = "¿QUÉ HAGO AHORA?", texto = ahora },
-            new Tarjeta { titulo = "CONTROLES", texto = "<b>Joystick izq.:</b> caminar · <b>der.:</b> girar\n<b>Grip o gatillo:</b> agarrar\n<b>Botones:</b> tócalos, o apúntalos y aprieta el gatillo\n<b>Y:</b> ver tu objetivo · <b>Botón menú:</b> ajustes y ayuda" },
-            new Tarjeta { titulo = "EN EL MICROSCOPIO", texto = "<b>A:</b> más aumento · <b>B o Y:</b> menos\n<b>Joystick izq.:</b> mover la muestra\n<b>Joystick der.:</b> pestañas y zoom fino\n<b>X:</b> mover la vista\nAparta la cara del ocular para salir." },
+            new Tarjeta { titulo = "CONTROLES", texto = "<b>Joystick izq.:</b> caminar · <b>der.:</b> girar\n<b>Grip o gatillo:</b> agarrar\n<b>Botones:</b> tócalos, o apúntalos y aprieta el gatillo\n<b>Muñeca izquierda:</b> tu objetivo (gírala para leerlo; Y la hace vibrar)\n<b>Botón menú:</b> ajustes y ayuda" },
+            new Tarjeta { titulo = "EN EL MICROSCOPIO", texto = "<b>A:</b> más aumento · <b>B o Y:</b> menos\n<b>Joystick izq.:</b> mover la muestra\n<b>Joystick der.:</b> zoom fino y pestañas\nLos datos de la muestra están en el <b>monitor</b> de al lado.\nAparta la cara del ocular para salir." },
             new Tarjeta { titulo = "SI TE ATASCAS", texto = "Cada estación tiene un botón <b>PISTA</b>.\nEn la vacuna, <b>AYUDA</b> enseña el gesto y <b>PASO A PASO</b> te guía.\nEquivocarte no resta: cada error explica por qué." },
             new Tarjeta { titulo = "PALABRAS DEL LABORATORIO", texto = "<b>Frotis:</b> capa fina de muestra sobre el portaobjetos.\n<b>Tinción de Gram:</b> colorantes que dejan las bacterias violetas (Gram +) o rosas (Gram -).\n<b>Platina:</b> la base del microscopio donde va el portaobjetos." },
             new Tarjeta { titulo = "MÁS PALABRAS", texto = "<b>Hifas:</b> los filamentos de un hongo.\n<b>Pared:</b> capa que rodea a la bacteria; la penicilina la rompe.\n<b>Antígeno:</b> la parte del virus que la vacuna enseña a reconocer." },
@@ -202,10 +202,7 @@ public class AvisoInicio : MonoBehaviour
         Sonidos.Etapa(raiz.transform.position);
         if (!avisarAyuda) return;
         avisarAyuda = false;
-        var cab = ManosRig.Cabeza;
-        if (cab == null) return;
-        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-        Aviso.Mostrar("Tutorial y controles: botón menú (mando izq.) > AYUDA.", cab.position + f * 0.9f + Vector3.down * 0.3f, Aviso.Tipo.Info, 5f);
+        Aviso.EnMuneca("Tutorial y controles: botón menú (mando izq.) > AYUDA.", Aviso.Tipo.Info);
     }
 
     void Update()

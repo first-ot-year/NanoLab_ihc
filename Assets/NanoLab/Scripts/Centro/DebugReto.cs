@@ -70,16 +70,19 @@ public class DebugReto : MonoBehaviour
         FuenteMuestra Gotero(int r) => fuentes.FirstOrDefault(f => f.reactivo == r);
         var desinfectante = fuentes.FirstOrDefault(f => f.esDesinfectante);
 
-        // Heurísticas de Nielsen: la tarjeta de objetivo dice el paso de la misión y adónde ir de verdad.
+        // Heurísticas de Nielsen: el objetivo (en el brazalete de la muñeca) dice el paso de la misión y adónde ir de verdad.
         // MISIÓN 1 corta: FROTIS, TINCIÓN, OBSERVAR, CLASIFICAR, IDENTIFICAR (5). Con los equipos obligatorios, antes la INCUBADORA (9).
         bool conEquipos = EquiposCentro.Obligatorios && EquiposCentro.Incubadora != null;
         int pasosM1 = conEquipos ? 6 : 5;
         Comprobar(rm.Mision == 1 && rm.PasoMision == 1 && rm.PasosMision == pasosM1 && rm.ObjetivoCorto.Contains(conEquipos ? "INCUBADORA" : "TINCIÓN"),
-                  $"La tarjeta de objetivo empieza en MISIÓN 1 · paso 1 de {pasosM1} y dice adónde ir (H1, H2): \"{rm.ObjetivoCorto}\"");
+                  $"El objetivo empieza en MISIÓN 1 · paso 1 de {pasosM1} y dice adónde ir (H1, H2): \"{rm.ObjetivoCorto}\"");
         // Menos idas y vueltas: las muestras B y C ya están preparadas en la bandeja de microscopía.
         var preparadas = Portaobjetos.Todos.Where(x => x != null && x.DeCaso && (x.muestra == rm.muestraHongo || x.muestra == rm.muestraVirus)).ToArray();
         Comprobar(preparadas.Any(x => x.muestra == rm.muestraHongo) && preparadas.Any(x => x.muestra == rm.muestraVirus),
                   $"Las MUESTRAS B y C esperan preparadas junto a los microscopios ({preparadas.Length} portaobjetos)");
+        var brazalete = BrazaleteBaymax.Instancia;
+        Comprobar(brazalete != null && brazalete.Objetivo_ == rm.ObjetivoCorto,
+                  "El objetivo está en el brazalete de la muñeca, no en una tarjeta que sigue la vista (presencia)");
         // Poke de Meta (Interaction SDK): los botones de las misiones 1 y 2.
         var botonesMision = rm.terminal.botones.Concat(rm.terminal.botonesEstrategia ?? new BotonFisico[0])
             .Concat(new[] { prensa.formular, camara.activar, rm.resumen != null ? rm.resumen.reiniciar : null })
@@ -124,6 +127,8 @@ public class DebugReto : MonoBehaviour
         Gotero(1).Aplicar(porta);
         Gotero(3).Aplicar(porta);
         Comprobar(porta.TincionErronea, "Saltarse el lugol invalida la tinción");
+        yield return new WaitForSeconds(0.3f);   // el aviso aparece con un fundido corto
+        Momento?.Invoke("presencia_aviso");
         porta.Encajar(micro.platina);
         yield return null;
         micro.ObservarAhora();
@@ -201,6 +206,10 @@ public class DebugReto : MonoBehaviour
             micro.DejarDeObservar();
         }
         Comprobar(rm.Actual == EtapaReto.Investigacion, "Con las 3 muestras comparadas > etapa Investigación");
+        Comprobar(micro.Monitor != null && HUDMicroscopio.Instancia.Laterales != null && HUDMicroscopio.Instancia.Laterales.IsChildOf(micro.Monitor.transform),
+                  "Las características y el cuaderno se leen en el monitor junto al microscopio; el ocular solo enseña la muestra (presencia)");
+        yield return null;
+        Momento?.Invoke("presencia_monitor");
 
         // 3c) Panel CONCLUSIONES: clasificar A, B y C (un error a propósito).
         var conc = rm.conclusiones;
@@ -281,6 +290,12 @@ public class DebugReto : MonoBehaviour
             Comprobar(rm.PasoMision == 1 && rm.PasosMision == pasosM2 && rm.Hipotesis == rm.reto.muestra && rm.Metricas.Datos.errores == errM2,
                       $"MISIÓN 2 · paso 1 de {pasosM2}; con la A identificada, la fila 1 de la terminal ya no cuenta errores (H5)");
             Momento?.Invoke("mision1_completa");
+            yield return null;   // RetoManager entrega el aviso de la misión al frame siguiente
+            Comprobar(brazalete != null && brazalete.HayPendiente && brazalete.Pendiente.Contains("MISIÓN 1 COMPLETA"),
+                      "MISIÓN 1 COMPLETA llega a la muñeca (vibra y espera), no delante de la cara");
+            if (brazalete != null) brazalete.Llamar();
+            yield return new WaitForSeconds(0.35f);
+            Momento?.Invoke("presencia_brazalete");
             // MISIÓN 2: estrategia buena y un vial que no la sigue: la prensa avisa antes de formular.
             yield return Intento(rm, opcionCorrecta, estrategiaCorrecta, incorrecto, viales, prensa, camara, micro, porta);
             Comprobar(rm.Actual == EtapaReto.Hipotesis && rm.Intentos == 1, "Tras un fallo y el análisis se vuelve a Hipótesis con una pista");

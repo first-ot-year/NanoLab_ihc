@@ -59,7 +59,7 @@ public static class MontajeMisiones
                           $"<b>2 · {Misiones.Titulo2}</b> Prueba qué detiene a la bacteria.\n" +
                           $"<b>3 · {ContenidoVacuna.Titulo}</b> En el LABORATORIO DE VACUNAS (se desbloquea con la 2).\n\n" +
                           "Los equipos con número 9-13 (incubadoras, cabina, autoclave, ultracongelador) son opcionales: púlsalos para ver qué hacen.\n\n" +
-                          "<color=#8FD8FF>Sigue las flechas del suelo · cada estación tiene un botón PISTA · Y: ver tu objetivo.</color>";
+                          "<color=#8FD8FF>Sigue las flechas del suelo · cada estación tiene un botón PISTA · tu objetivo, en la muñeca izquierda.</color>";
         // Carteles de las estaciones: qué se hace en cada una en las misiones.
         foreach (var g in rm.estaciones)
         {

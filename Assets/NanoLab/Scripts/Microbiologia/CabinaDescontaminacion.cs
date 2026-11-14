@@ -353,14 +353,8 @@ public class CabinaDescontaminacion : MonoBehaviour
         luzUV.enabled = si;
     }
 
-    // El aviso aparece delante de la cara (dentro de la cabina no se ve bien un cartel fijo).
-    static void Avisar(string texto, Aviso.Tipo tipo)
-    {
-        var c = ManosRig.Cabeza;
-        if (c == null) return;
-        var f = Vector3.ProjectOnPlane(c.forward, Vector3.up).normalized;
-        Aviso.Mostrar(texto, c.position + f * 0.9f, tipo, 3f);
-    }
+    // El aviso va a la muñeca (vibra): nada aparece delante de la cara. Las pantallas de la cabina dan el detalle.
+    static void Avisar(string texto, Aviso.Tipo tipo) => Aviso.EnMuneca(texto, tipo);
 
     // Pancarta de estado que acompaña a la cabeza: título, pasos 1-4, fase actual con su explicación,
     // barra de progreso con porcentaje y segundos restantes. Cristal translúcido con texto contorneado.

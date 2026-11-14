@@ -49,7 +49,7 @@ public static class MontarAjustes
         // Lo que borra el avance va en otra fila que lo que lo guarda, y en rojo (prevención de errores).
         botones.Add(Boton(p, "nueva", "NUEVA PARTIDA", "empezar una partida nueva", -0.13f, -0.345f, 0.3f, new Color(1f, 0.45f, 0.4f)));
         botones.Add(Boton(p, "cerrar", "CERRAR", "cerrar los ajustes", 0.17f, -0.345f, 0.24f));
-        // TEMPORAL (pruebas): reinicia la partida de un toque, sin confirmación. NUEVA PARTIDA hace lo mismo pidiendo confirmar.
+        // Reinicia la partida (borra el avance y recarga). Pide una segunda pulsación, como NUEVA PARTIDA.
         botones.Add(Boton(p, "reiniciar", "REINICIAR PARTIDA", "reiniciar la partida", 0f, -0.435f, 0.4f, new Color(1f, 0.45f, 0.4f)));
         menu.partida = MI.Texto(p, "", 0f, -0.49f, 0.58f, 0.2f, Tenue, false, TextAlignmentOptions.Center);
         MI.Texto(p, "Sentado en una silla real: activa el modo sentado y la vista sube a la de alguien de pie.\nToca los botones o apúntalos con el rayo.",

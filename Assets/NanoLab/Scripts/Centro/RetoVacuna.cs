@@ -187,12 +187,10 @@ public class RetoVacuna : MonoBehaviour
             saludado = true;
             metricas = new MetricsLogger(C.Codigo);
             metricas.Etapa(Actual.ToString());
-            var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-            Aviso.Mostrar(Misiones.VacunaDesbloqueada
+            Aviso.EnMuneca(Misiones.VacunaDesbloqueada
                     ? $"{C.Codigo} · {C.Titulo.ToUpper()}: vas a fabricar una vacuna de ARNm. Pulsa el botón verde CONTINUAR para empezar."
                     : $"{C.Codigo} · {C.Titulo.ToUpper()}: se desbloquea al terminar las misiones 1 y 2. Empieza en el BANCO DE MUESTRAS (1).",
-                cab.position + frente * 0.9f + Vector3.down * 0.15f, Aviso.Tipo.Info, 7f);
-            Sonidos.Etapa(cab.position);
+                Aviso.Tipo.Info);
         }
         dentro = ahora;
         // Actividad del estudiante mientras el caso está en marcha (Engagement: tiempo inactivo).
@@ -975,14 +973,9 @@ public class RetoVacuna : MonoBehaviour
         if (demo != null) demo.Detener();
         if (c == Cuestionario.Antes) { aciertosPre = 0; metricas?.Empezar(); } else aciertosPost = 0;
         metricas?.Etapa(c == Cuestionario.Antes ? "PreguntasAntes" : "PreguntasDespues");
-        var cab = ManosRig.Cabeza;
-        if (cab != null)
-        {
-            var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-            Aviso.Mostrar(c == Cuestionario.Antes ? "ANTES DE EMPEZAR: 4 preguntas rápidas.\n<size=75%>No cuentan como error.</size>"
-                                                  : "PARA TERMINAR: las mismas 4 preguntas.\n<size=75%>¿Qué aprendiste?</size>",
-                cab.position + frente * 0.85f + Vector3.down * 0.05f, Aviso.Tipo.Info, 3.5f);
-        }
+        // La pantalla de la estación ya presenta las preguntas: el aviso va a la muñeca (sin texto delante de la cara).
+        Aviso.EnMuneca(c == Cuestionario.Antes ? "ANTES DE EMPEZAR: 4 preguntas rápidas. No cuentan como error."
+                                               : "PARA TERMINAR: las mismas 4 preguntas. ¿Qué aprendiste?", Aviso.Tipo.Info);
         Sonidos.Etapa(transform.position + Vector3.up * 1.2f);
         tVentana = 0f;
         Refrescar();
@@ -1540,14 +1533,9 @@ public class RetoVacuna : MonoBehaviour
     }
 
     // Cartel grande delante de la vista al empezar cada paso.
-    void Banner(EtapaVacuna e)
-    {
-        var cab = ManosRig.Cabeza;
-        if (cab == null) return;
-        int n = (int)e;
-        var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-        Aviso.Mostrar($"PASO {n}/{NumPasos} · {C.Pasos[n - 1]}\n<size=75%>{C.Donde[n - 1]}</size>", cab.position + frente * 0.85f + Vector3.down * 0.05f, Aviso.Tipo.Info, 3.5f);
-    }
+    // Antes salía un rótulo delante de la cara en cada paso. Ahora la estación presenta el paso en su pantalla y en el
+    // apartado AHORA, y el brazalete de la muñeca recibe el paso (GuiaReto): aquí ya no se pone nada delante de los ojos.
+    void Banner(EtapaVacuna e) { }
 
     void CrearMarcador()
     {
@@ -1707,12 +1695,8 @@ public class RetoVacuna : MonoBehaviour
         RecuerdosBaymax.Recuperar(Misiones.Recuerdo3);
         if (!guardado) { metricas?.Guardar(true); guardado = true; }
         bool cp = Partida.GuardarCheckpoint(C.Codigo);
-        if (cab != null)
-        {
-            var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-            Aviso.Mostrar($"{C.Codigo} COMPLETA · ¡Creaste una vacuna! Baymax recupera un recuerdo científico ({RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total})" + (cp ? "\nCHECKPOINT GUARDADO" : ""),
-                cab.position + frente * 0.9f + Vector3.down * 0.1f, Aviso.Tipo.Ok, 6f);
-        }
+        Aviso.EnMuneca($"{C.Codigo} COMPLETA · ¡Creaste una vacuna! Baymax recupera un recuerdo científico ({RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total})" + (cp ? "\nProgreso guardado (checkpoint)." : ""),
+            Aviso.Tipo.Ok);
         Refrescar();
     }
 
@@ -1909,7 +1893,7 @@ public class RetoVacuna : MonoBehaviour
         return sb.ToString();
     }
 
-    // Para la tarjeta de objetivo (tecla Y), que en la misión 3 enseña el paso de la vacuna.
+    // Para el brazalete de la muñeca, que en la misión 3 enseña el paso de la vacuna.
     public string TituloActual => TituloEtapa();
     public string ObjetivoActual => EnCuestionario ? "Responde la pregunta con las letras del mostrador." : Indicacion();
 

@@ -145,8 +145,9 @@ public class BiohazardEvent : MonoBehaviour
         parpadeo = StartCoroutine(Parpadeo());
         StartCoroutine(Sirena());
         var cab = ManosRig.Cabeza != null ? ManosRig.Cabeza.position + ManosRig.Cabeza.forward * 0.9f : foco.position + Vector3.up * 1.5f;
-        Aviso.Mostrar("<b>¡ALERTA DE BIOSEGURIDAD!</b>\nFalló el sellado de la cámara: hay aerosoles de S. aureus en el área. Toma el PULVERIZADOR del KIT DE DERRAMES.",
-                      cab, Aviso.Tipo.Error, 8f);
+        // La alarma ya se ve y se oye en la sala (luces rojas, sirena): el texto va a la muñeca, no delante de la cara.
+        Aviso.EnMuneca("<b>¡ALERTA DE BIOSEGURIDAD!</b>\nFalló el sellado de la cámara: hay aerosoles de S. aureus en el área. Toma el PULVERIZADOR del KIT DE DERRAMES.",
+                      Aviso.Tipo.Error);
         ManosRig.Vibrar(cab, 1f, 0.4f);
         Debug.Log($"[Biohazard] Alarma: {zonas.Count} zonas contaminadas alrededor de {foco.name}");
         RetoManager.Instancia?.BiohazardCambio(false);
@@ -355,9 +356,8 @@ public class BiohazardEvent : MonoBehaviour
             Destroy(go, clip.length + 0.2f);
         }
         else StartCoroutine(Melodia(p));
-        var delante = cab != null ? p + cab.forward * 0.9f : p + Vector3.up;
-        Aviso.Mostrar("<b>BAYMAX:</b> ¡Laboratorio seguro! Descontaminaste todas las zonas. Así se contiene un derrame: aislar, desinfectar y seguir.",
-                      delante, Aviso.Tipo.Ok, 8f);
+        Aviso.EnMuneca("<b>BAYMAX:</b> ¡Laboratorio seguro! Descontaminaste todas las zonas. Así se contiene un derrame: aislar, desinfectar y seguir.",
+                      Aviso.Tipo.Ok);
         Sonidos.Logro(p);
     }
 

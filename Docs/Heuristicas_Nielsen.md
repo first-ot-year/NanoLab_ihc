@@ -95,6 +95,23 @@ Evidencia: **PR** = `NanoLab/Probar misiones 1 y 2` (`Logs/prueba_reto.txt`) · 
 |---|---|---|---|
 | No había ayuda bajo demanda fuera de la PISTA de cada estación | 2 | Botón **AYUDA** en el menú ☰ con 7 tarjetas: qué hago ahora, controles, microscopio, si te atascas, glosario (2) y partida (`AvisoInicio.MostrarAyuda`). No cuenta como pista | PL "AYUDA del panel ☰ abre la ayuda con el objetivo actual, los controles y el glosario" |
 
+## Presencia: interfaz diegética (revisión tras probar en los visores)
+
+Al probar en los Meta Quest, los paneles **rompían la presencia**, que es lo más importante del trabajo: la tarjeta de objetivo perseguía la vista, varios avisos aparecían delante de la cara, el menú ☰ era un cartel de 62 × 77 cm pegado a los ojos y el HUD del microscopio ocupaba ~86° con paneles de texto. **Principio adoptado: nada sigue a la cabeza salvo el ocular del microscopio**, que lo hace porque así funciona el aparato real. La información vive en objetos del mundo o pegada al objeto que la provoca.
+
+| Antes | Ahora | Archivo |
+|---|---|---|
+| Tarjeta de objetivo blanca (0,42 × 0,24 m) que seguía la vista 8 s en cada paso; Y la mostraba | **Brazalete de Baymax** en la muñeca izquierda: atenuado en reposo, se enciende al girar la muñeca hacia la cara (como un reloj) y enseña misión, paso, objetivo y recuerdos. Cada novedad **vibra el mando izquierdo**, late un LED y suena; el texto espera hasta que se mira. Y lo hace vibrar | `BrazaleteBaymax.cs` (nuevo), `GuiaReto.cs` |
+| 11 avisos delante de la cara (misión completa 10 s, pistas 10 s, 9 rótulos de paso de la vacuna, partida cargada, checkpoint, cabina, caídas) | Van a la muñeca con `Aviso.EnMuneca`. Los rótulos de paso de la vacuna se quitaron: la estación ya presenta el paso en su pantalla y en AHORA | `Aviso.cs`, `RetoManager`, `RetoVacuna`, `Partida`, `JugadorNanoLab`, `CabinaDescontaminacion` |
+| Avisos de objeto que giraban cada frame hacia la cabeza y subían, hasta 5 a la vez | **Etiquetas fijas en el mundo** junto al objeto, con rabillo y una línea fina hacia él; se orientan una vez (solo en horizontal); máximo 2 | `Aviso.cs` |
+| "Gatillo o A/X: …" cada vez que el rayo apuntaba algo | Solo las 2 primeras veces de cada acción; luego basta el rayo verde | `PunteroMuestras.cs` |
+| Menú ☰ de 0,62 × 0,77 m delante de la cara, colgado del rig | **Tablet** (escala 0,7, carcasa con grosor y asa) que sale sobre la mano izquierda, inclinada hacia la cara y **fija en el mundo** mientras está abierta | `MenuAjustes.cs` |
+| HUD del microscopio opaco de ~86° con características, cuaderno, micrografía y observaciones a los lados; X para "mover la vista" | En el **ocular** solo la muestra: campo circular, retícula, escala, aumento, una línea de aviso y, al comparar, la otra muestra en un segundo círculo. Todo el texto pasa a un **monitor físico** junto al microscopio (con pie hasta la mesa), que se lee al levantar la cabeza. Sin modo "mover la vista" | `HUDMicroscopio.cs`, `MonitorMicroscopio.cs` (nuevo), `MicroscopioOptico.cs` |
+
+**Joystick bloqueado al agarrar.** En el rig de Meta, la locomoción está dentro del grupo de interactores de cada mando (`BestHoverInteractorGroup`), que apaga a todos los demás en cuanto uno hace hover o agarra: con un objeto en la mano derecha no se podía girar (ni mientras se apuntaba algo). Se quedó el arreglo de la rama de Luis: el giro del SDK se apaga y `JugadorNanoLab.Girar` gira con el joystick derecho (30° a los lados, media vuelta hacia atrás) aunque se lleve algo en la mano; el deslizamiento del joystick izquierdo nunca dependió de ese grupo.
+
+Evidencia: PR "El objetivo está en el brazalete…", "Las características y el cuaderno se leen en el monitor…", "MISIÓN 1 COMPLETA llega a la muñeca…"; PL "Mando der.: sin el giro del SDK (gira JugadorNanoLab…)", "Giro por pasos de 30°…", "El menú ☰ es una tablet…"; CAP `presencia_brazalete`, `presencia_monitor`, `presencia_aviso`, `hud_comparacion_muestra_b`.
+
 ## Lo que ya cumplía
 
 - Feedback redundante en al menos dos canales (color + texto, sonido, vibración).
@@ -136,24 +153,28 @@ SDK: `com.meta.xr.sdk.all` 201. Rig: `OVRCameraRigInteraction` de Meta, con inte
 
 | Prueba | Resultado |
 |---|---|
-| `NanoLab/Probar misiones 1 y 2` | CORRECTO: 85 comprobaciones OK (9 nuevas), 0 fallos, 0 excepciones |
+| `NanoLab/Probar misiones 1 y 2` | CORRECTO: 104 comprobaciones OK (incluye las de la rama de Luis: bioseguridad y equipos; 3 de presencia), 0 fallos |
 | `NanoLab/Probar reto de vacuna` | CORRECTO: 47 OK |
-| `NanoLab/Probar locomoción` | CORRECTO: 27 OK (2 nuevas: AYUDA y poke del menú) |
+| `NanoLab/Probar locomoción` | CORRECTO: 28 OK (giro de Luis con objetos en la mano, menú de 12 botones como tablet, levantarse de la silla corregido) |
 | `NanoLab/Probar recorrido del jugador` | Todas las rutas son transitables |
 | `NanoLab/Probar física de los objetos agarrables` | 49 agarrables, 0 movidos |
 | `NanoLab/Aplicar heurísticas (panel ☰ con AYUDA y botones poke)` | Panel rehecho con 11 botones, sin hornear la luz |
 
 ## Validación pendiente en Meta Quest
 
-1. La tarjeta de objetivo (tecla Y) y los avisos con fondo se leen a 0,75 m.
-2. Al empezar, las flechas llevan a la mesa de TINCIÓN y, con el portaobjetos en la mano, al BANCO.
-3. Un botón gris se distingue de uno activo y, al pulsarlo, explica qué falta.
-4. Los botones del menú ☰ se pulsan con el dedo y con el mando (poke) y con el rayo; no se activan al pasar la mano.
-5. REINICIAR, VOLVER AL CHECKPOINT y NUEVA PARTIDA piden la segunda pulsación.
-6. "Saltar" cierra el tutorial; con partida guardada no vuelve a salir.
-7. AYUDA del menú: las 7 tarjetas se leen y el texto no pisa los botones.
-8. La etiqueta del portaobjetos (GRAM 2/4) se lee en la mano.
-9. Rozar la placa B con la muestra A teñida no la borra.
+1. Coger un portaobjetos con la mano derecha y, a la vez, girar con el joystick derecho y caminar con el izquierdo.
+2. Al girar la muñeca izquierda hacia la cara, el brazalete se enciende y se lee; al terminar una misión vibra y el mensaje espera allí. Nada aparece delante de la cara.
+3. El menú ☰ sale sobre la mano izquierda, se queda quieto y se pulsa con el índice derecho.
+4. En el ocular solo se ve la muestra; al levantar la cabeza, el monitor de al lado tiene las evidencias y la comparación.
+5. Las etiquetas de los avisos quedan quietas junto a su objeto y se leen a 0,75 m.
+6. Al empezar, las flechas llevan a la mesa de TINCIÓN y, con el portaobjetos en la mano, al BANCO.
+7. Un botón gris se distingue de uno activo y, al pulsarlo, explica qué falta.
+8. Los botones del menú ☰ se pulsan con el dedo y con el mando (poke) y con el rayo; no se activan al pasar la mano.
+9. REINICIAR, VOLVER AL CHECKPOINT y NUEVA PARTIDA piden la segunda pulsación.
+10. "Saltar" cierra el tutorial; con partida guardada no vuelve a salir.
+11. AYUDA del menú: las 7 tarjetas se leen y el texto no pisa los botones.
+12. La etiqueta del portaobjetos (GRAM 2/4) se lee en la mano.
+13. Rozar la placa B con la muestra A teñida no la borra.
 
 ## Archivos
 

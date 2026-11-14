@@ -60,7 +60,7 @@ public class RetoManager : MonoBehaviour
     public bool PendienteAutoclave { get; private set; } // misión 2: explicado el resultado, falta esterilizar (AUTOCLAVE 11)
 
     MetricsLogger metricas;
-    GuiaReto guia;                               // tarjeta de objetivo + ruta de flechas hasta la estación
+    GuiaReto guia;                               // objetivo en el brazalete de la muñeca + ruta de flechas hasta la estación
     readonly Dictionary<EtapaReto, int> nivelPista = new Dictionary<EtapaReto, int>();
     bool dentro, sesionGuardada, cronometro;
     int ultimoAgente = -1;
@@ -142,17 +142,15 @@ public class RetoManager : MonoBehaviour
             if (k != claveSub) { bool primera = claveSub < 0; claveSub = k; if (!primera) Refrescar(false); }
         }
         if (cab == null || MicroscopioOptico.AlgunoActivo) return;
-        var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
+        // Al apartar la cara del ocular: la novedad va a la muñeca (vibra y espera a que se mire), no delante de los ojos.
         if (avisoMision != null)
         {
-            Aviso.Mostrar(avisoMision, cab.position + frente * 0.9f + Vector3.down * 0.05f, Aviso.Tipo.Ok, 10f);
-            Sonidos.Logro(cab.position);
+            Aviso.EnMuneca(avisoMision, Aviso.Tipo.Ok);
             avisoMision = null;
         }
         if (pistaPendiente != null)
         {
-            Aviso.Mostrar(pistaPendiente, cab.position + frente * 0.9f + Vector3.down * 0.2f, Aviso.Tipo.Pista, 10f);
-            Sonidos.Pista(cab.position);
+            Aviso.EnMuneca(pistaPendiente, Aviso.Tipo.Pista);
             pistaPendiente = null;
         }
     }
@@ -1229,7 +1227,7 @@ public class RetoManager : MonoBehaviour
             guia = "",
         };
         Comparar(ref d, p.muestra);
-        if (d.antes == null) d.guia = "• ¿Qué forma tiene lo que ves?\n• ¿Es más grande o más pequeño que una bacteria (~1 µm)?\n• ¿Hay algún microbio?\n\n<color=#8FD8FF>A: más aumento   B / Y: menos   Joystick izq.: mover la muestra   X: mover la vista   Aparta la cara: salir</color>";
+        if (d.antes == null) d.guia = "• ¿Qué forma tiene lo que ves?\n• ¿Es más grande o más pequeño que una bacteria (~1 µm)?\n• ¿Hay algún microbio?\n\n<color=#8FD8FF>A: más aumento   B / Y: menos   Joystick izq.: mover la muestra   Aparta la cara: salir</color>";
         return d;
     }
 
@@ -1247,7 +1245,7 @@ public class RetoManager : MonoBehaviour
             colorRiesgo = revelado ? (Color?)null : new Color(1f, 0.75f, 0.3f),
             cuadernoTitulo = "CUADERNO DE EVIDENCIAS",
             obsTitulo = "QUÉ ESTÁS VIENDO",
-            guia = "• ¿Qué forma tienen las células?\n• ¿Están sueltas, en cadenas o en racimos?\n• ¿De qué color quedaron tras la tinción de Gram?\n\n<color=#8FD8FF>A: más aumento   B / Y: menos   Joystick izq.: mover la muestra   X: mover la vista   Aparta la cara: salir</color>",
+            guia = "• ¿Qué forma tienen las células?\n• ¿Están sueltas, en cadenas o en racimos?\n• ¿De qué color quedaron tras la tinción de Gram?\n\n<color=#8FD8FF>A: más aumento   B / Y: menos   Joystick izq.: mover la muestra   Aparta la cara: salir</color>",
         };
         var claves = new List<string> { "Origen", "Tinción" };
         var valores = new List<string> { reto.origen, tincion };

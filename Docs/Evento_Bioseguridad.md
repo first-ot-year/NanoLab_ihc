@@ -5,7 +5,7 @@ Al terminar el **primer experimento** de la cámara experimental (7), falla el s
 ## Cómo se juega
 
 1. **Alarma.** Se encienden las luces rojas intermitentes (unas 0,9 veces por segundo) y las balizas de los equipos, suena un pitido que se va espaciando y aparece el aviso de ALERTA DE BIOSEGURIDAD.
-2. **Kit de derrames.** La tarjeta de objetivo, las flechas del suelo y el cartel AHORA llevan al KIT DE DERRAMES. Está entre la INCUBADORA (9) y el AUTOCLAVE (11).
+2. **Kit de derrames.** El brazalete de la muñeca (vibra con la alerta), las flechas del suelo y el cartel AHORA llevan al KIT DE DERRAMES. Está entre la INCUBADORA (9) y el AUTOCLAVE (11).
 3. **Pulverizador.** Se agarra con el grip, como cualquier otro objeto del juego. Mientras se aprieta el **gatillo** de esa mano, sale niebla, suena el rociado y vibra el mando.
 4. **Zonas contaminadas.** Son entre 2 y 4 manchas con un anillo rojo que late, en el suelo y en las mesas que rodean la cámara. Las flechas llevan a la más cercana. Al rociarlas pierden opacidad poco a poco (unos 1,2 s rociando de lleno), se desvanecen y se desactivan. No se puede rociar a través de una mesa ni de una pared.
 5. **Fin de la alarma.** Cuando ya no quedan zonas, las luces vuelven a su estado normal y Baymax felicita al estudiante con un clip de audio y un mensaje. La misión 2 sigue donde estaba: analizar el portaobjetos DESPUÉS en el microscopio.
