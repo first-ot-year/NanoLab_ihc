@@ -229,6 +229,13 @@ public static class CapturasPasoAPaso
             if (nombre.StartsWith("hud")) { Hud(nombre); return; }
             if (nombre.StartsWith("equipo")) { Equipo(nombre); return; }
             if (nombre.StartsWith("biohazard")) { Biohazard(nombre); return; }
+            if (nombre.StartsWith("adn") && HoloDNA_Manager.Instancia != null)
+            {
+                var h = HoloDNA_Manager.Instancia.transform;
+                var cam = h.TransformPoint(new Vector3(0.15f, 1.65f, 1.45f));
+                Capturar(nombre, cam, h.TransformPoint(new Vector3(0f, 1.3f, -0.1f)) - cam);
+                return;
+            }
             if (rm == null) return;
             var fuentes = Object.FindObjectsOfType<FuenteMuestra>();
             if (nombre.StartsWith("inicio_banco") || nombre.StartsWith("banco"))

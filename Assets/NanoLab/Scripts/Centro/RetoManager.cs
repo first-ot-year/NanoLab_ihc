@@ -186,7 +186,10 @@ public class RetoManager : MonoBehaviour
                 if (PendienteAutoclave) return "Último paso de la MISIÓN 2: esteriliza la placa tratada y el material. Ve al AUTOCLAVE (11) y pulsa ESTERILIZAR.";
                 if (ExitoAnalizado) return $"Explica tu resultado en el panel CONCLUSIONES, junto a los microscopios ({Explicadas}/2).";
                 return "Lleva el portaobjetos DESPUÉS a un MICROSCOPIO (3) y compáralo con el ANTES.";
-            default: return "MISIONES 1 y 2 completas. Lee el informe en el ARCHIVO (8) y ve al LABORATORIO DE VACUNAS: la MISIÓN 3 está desbloqueada.";
+            default:
+                if (Misiones.AdnPendiente)
+                    return "MISIÓN 2 completa. Baymax aisló el virus, pero su banco genómico está corrupto: ve al PROYECTOR DE ADN (14) y repara la hebra (A con T, C con G) para desbloquear la vacuna.";
+                return "MISIONES 1 y 2 completas. Lee el informe en el ARCHIVO (8) y ve al LABORATORIO DE VACUNAS: la MISIÓN 3 está desbloqueada.";
         }
     }
 
@@ -239,6 +242,7 @@ public class RetoManager : MonoBehaviour
     {
         if (BiohazardEvent.Activo) return BiohazardEvent.Instancia.GuiaActual;
         if (externa != null) return externa;
+        if (Actual == EtapaReto.Cierre && Misiones.AdnPendiente && HoloDNA_Manager.Instancia.Activo) return HoloDNA_Manager.Instancia.guia;
         if (Actual == EtapaReto.Exploracion && !EquiposCentro.Listo(EquiposCentro.Incubadora)) return EquiposCentro.Incubadora.guia;
         if (Actual == EtapaReto.Analisis && PendienteAutoclave && EquiposCentro.Autoclave != null) return EquiposCentro.Autoclave.guia;
         if (Actual == EtapaReto.Observacion)
@@ -277,6 +281,8 @@ public class RetoManager : MonoBehaviour
         if (conclusiones != null) conclusiones.guia.Mostrar(conclusiones.guia == destino, obj);
         var ev = BiohazardEvent.Instancia;
         if (ev != null) { ev.guiaKit.Mostrar(ev.guiaKit == destino, null); ev.guiaZona.Mostrar(ev.guiaZona == destino, null); }
+        var adn = HoloDNA_Manager.Instancia;
+        if (adn != null) adn.guia.Mostrar(adn.guia == destino, adn.guia == destino ? obj : null);
         foreach (var eq in EquiposCentro.Todos) if (eq.guia != null) eq.guia.Mostrar(eq.guia == destino, eq.guia == destino ? (externa != null ? objetivoExterno : obj) : null);
         string titulo = Actual == EtapaReto.Cierre ? "MISIONES 1 y 2 COMPLETAS" : $"{CodigoMision} · {TituloMision.ToUpper()}";
         string estado = $"Intentos: {Intentos}   ·   Pistas: {Pistas}" + (pistaFallo != null && Actual == EtapaReto.Hipotesis ? $"\n<color=#FFD25A>PISTA: {pistaFallo}</color>" : "");
@@ -622,6 +628,10 @@ public class RetoManager : MonoBehaviour
         if (metricas.Datos.intentos.Count == 1 && camara != null) BiohazardEvent.Disparar(camara.transform);
     }
 
+    // Rompecabezas del ADN (HoloDNA_Manager): se activa al terminar la misión 2 y desbloquea la vacuna.
+    public void AdnCambio(bool conSonido) => Refrescar(conSonido);
+    public void AdnCompletado() => Refrescar(true);
+
     // Avisos del evento de bioseguridad (alarma, spray tomado, zona limpiada).
     public void BiohazardCambio(bool conSonido)
     {
@@ -737,7 +747,9 @@ public class RetoManager : MonoBehaviour
             sesionGuardada = true;
         }
         avisoMision = $"MISIÓN 2 COMPLETA · RECUERDO CIENTÍFICO {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}\n<size=70%>{Misiones.TextoRecuerdo2}</size>\n" +
-                      "<size=80%><color=#FFD25A>MISIÓN 3 DESBLOQUEADA: ve al LABORATORIO DE VACUNAS.</color></size>";
+                      (Misiones.AdnPendiente
+                          ? "<size=80%><color=#FFD25A>SIGUIENTE: repara el ADN del virus en el PROYECTOR DE ADN (14) para desbloquear la MISIÓN 3.</color></size>"
+                          : "<size=80%><color=#FFD25A>MISIÓN 3 DESBLOQUEADA: ve al LABORATORIO DE VACUNAS.</color></size>");
         // Checkpoint: cada misión terminada deja un punto de guardado al que se puede volver.
         checkpointPendiente = Partida.GuardarCheckpoint(Misiones.Codigo2);
     }

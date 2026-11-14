@@ -41,7 +41,20 @@ public static class Misiones
     // Para las pruebas automáticas de la vacuna (sin pasar por las misiones 1 y 2).
     public static bool ForzarDesbloqueo;
 
-    public static bool VacunaDesbloqueada => ForzarDesbloqueo || Tiene(Recuerdo2);
+    // Rompecabezas del ADN (HoloDNA_Manager, PROYECTOR DE ADN 14): puente entre la MISIÓN 2 y la vacuna. Se guarda en la partida.
+    public static bool AdnReparado;
+    public static bool AdnPendiente => Tiene(Recuerdo2) && !AdnReparado && HoloDNA_Manager.Instancia != null;
+
+    public static bool VacunaDesbloqueada => ForzarDesbloqueo || (Tiene(Recuerdo2) && !AdnPendiente);
+
+    // Texto del laboratorio de vacunas mientras está bloqueado.
+    public static string TextoBloqueada => AdnPendiente
+        ? "<color=#FFD25A><b>MISIÓN BLOQUEADA</b></color>\nBaymax aisló el virus del brote, pero su banco genómico está corrupto: sin el gen de la espiga S no hay vacuna.\n" +
+          "<color=#8FD8FF>Ve al PROYECTOR DE ADN (14) y repara la hebra: A con T y C con G.</color>"
+        : ContenidoVacuna.Bloqueada;
+    public static string TextoBloqueadaCorto => AdnPendiente
+        ? "Bloqueada: primero repara el ADN del virus en el PROYECTOR DE ADN (14)"
+        : "Bloqueada: primero las misiones 1 y 2";
     public static bool Tiene(string recuerdo) { foreach (var r in RecuerdosBaymax.Lista) if (r == recuerdo) return true; return false; }
 
     // Recuerdos de partidas anteriores: "CASO 01" era el recuerdo de la vacuna (o del caso de bacterias, que hoy es la

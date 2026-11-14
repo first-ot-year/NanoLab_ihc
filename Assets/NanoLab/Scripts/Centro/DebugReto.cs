@@ -277,10 +277,12 @@ public class DebugReto : MonoBehaviour
             yield return EquiposCentro.Usar(EquiposCentro.Autoclave);
             Momento?.Invoke("equipo_11_hecho");
         }
-        Comprobar(rm.Actual == EtapaReto.Cierre && Misiones.Tiene(Misiones.Recuerdo2) && Misiones.VacunaDesbloqueada,
-                  "MISIÓN 2 completa: recuerdo 2 y la vacuna (MISIÓN 3) desbloqueada");
+        var holo = HoloDNA_Manager.Instancia;
+        Comprobar(rm.Actual == EtapaReto.Cierre && Misiones.Tiene(Misiones.Recuerdo2) && (holo != null ? !Misiones.VacunaDesbloqueada : Misiones.VacunaDesbloqueada),
+                  holo != null ? "MISIÓN 2 completa: recuerdo 2; la vacuna espera al ADN del virus" : "MISIÓN 2 completa: recuerdo 2 y la vacuna (MISIÓN 3) desbloqueada");
         yield return new WaitForSeconds(0.3f);
         Momento?.Invoke("mision2_completa");
+        if (holo != null) yield return RompecabezasADN(rm, holo);
         Comprobar(rm.Metricas.Datos.comparacionAntesDespues, "Se registró la comparación antes/después");
         Comprobar(RecuerdosBaymax.Cantidad >= 1 && indicador != null && indicador.texto.text.Contains($"{RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}"),
                   $"Baymax recupera un recuerdo: el indicador muestra {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}");
@@ -418,6 +420,36 @@ public class DebugReto : MonoBehaviour
         micro.DejarDeObservar();
         Paso($"Intento {n}: comparación ANTES | DESPUÉS observada (etapa ahora {rm.Actual})");
         camara.portaDespues.ColocarEn(camara.anclajeDespues.position, camara.anclajeDespues.rotation);
+    }
+
+    // Puente a la misión 3: reparar la hebra de ADN (A-T, C-G) en el proyector holográfico.
+    IEnumerator RompecabezasADN(RetoManager rm, HoloDNA_Manager holo)
+    {
+        yield return null;
+        Comprobar(holo.Activo && holo.guia.Activa && rm.ObjetivoActual.Contains("PROYECTOR DE ADN"),
+                  "Tras la MISIÓN 2 se activa el PROYECTOR DE ADN (14) y las flechas llevan allí");
+        Momento?.Invoke("adn_1_inicio");
+        char m0 = holo.plantilla[0];
+        Comprobar(holo.Soltar(0, m0), $"Se suelta una {m0} frente a la {m0} del molde");
+        yield return null; yield return null;
+        Comprobar(holo.Errores == 1 && holo.sockets[0].Libre, "Una base que no es complementaria se explica y vuelve a la bandeja");
+        yield return new WaitForSeconds(0.3f);
+        Momento?.Invoke("adn_2_error");
+        for (int i = 0; i < holo.plantilla.Length; i++)
+        {
+            char c = HoloDNA_Manager.Complemento(holo.plantilla[i]);
+            holo.Soltar(i, c);
+            yield return null;
+            var e = holo.sockets[i].Actual;
+            if (i == 0) Comprobar(e != null && e.GetComponent<BaseADN>().letra == c && e.GetComponent<Rigidbody>().isKinematic && !e.GetComponents<MonoBehaviour>().OfType<Oculus.Interaction.IInteractable>().Cast<MonoBehaviour>().Any(x => x.enabled),
+                                 $"La {c} encaja frente a la {holo.plantilla[i]} y queda fija (cinemática y sin agarre)");
+            if (i == 3) { yield return new WaitForSeconds(0.2f); Momento?.Invoke("adn_3_mitad"); }
+        }
+        Comprobar(holo.Colocadas == holo.plantilla.Length, $"Hebra completa: {holo.Colocadas}/{holo.plantilla.Length} bases");
+        yield return new WaitForSeconds(2.6f);
+        Comprobar(holo.Completo && Misiones.AdnReparado && Misiones.VacunaDesbloqueada && !holo.guia.Activa,
+                  "Secuencia reparada: el holograma brilla, el núcleo de memoria de Baymax se restaura y la MISIÓN 3 se desbloquea");
+        Momento?.Invoke("adn_4_completo");
     }
 
     // Evento sorpresa tras el primer experimento: alarma, bloqueo, pulverizador, limpieza y vuelta a la normalidad.

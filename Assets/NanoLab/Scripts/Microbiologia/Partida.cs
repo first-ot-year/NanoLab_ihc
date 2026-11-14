@@ -51,6 +51,7 @@ public static class Partida
         public List<Checkpoint> checkpoints = new List<Checkpoint>();   // uno por reto terminado, el último al final
         public bool vistoHongo, vistoVirus;   // misión 1: muestras B y C ya observadas (campos aditivos)
         public bool biohazard;               // misión 2: evento de bioseguridad ya resuelto (campo aditivo)
+        public bool adnReparado;             // puente a la misión 3: ADN del virus reparado en el proyector (campo aditivo)
     }
 
 #if UNITY_EDITOR
@@ -189,6 +190,7 @@ public static class Partida
             d.vistoHongo = rm.VistoHongo;
             d.vistoVirus = rm.VistoVirus;
             d.biohazard = BiohazardEvent.YaOcurrio;
+            d.adnReparado = Misiones.AdnReparado;
         }
         var j = JugadorNanoLab.Instancia;
         if (j != null && j.Pies(out var pies, out var yaw))
@@ -256,6 +258,7 @@ public static class Partida
         UltimoGuardado = null;
         Progreso.Reiniciar();
         RecuerdosBaymax.Reiniciar();
+        Misiones.AdnReparado = false;
     }
 }
 
@@ -302,6 +305,7 @@ public class GestorPartida : MonoBehaviour
                 rm.Restaurar((EtapaReto)d.etapa, d.evidencias, d.hipotesis, d.estrategia);
                 rm.RestaurarComparacion(d.vistoHongo, d.vistoVirus);
                 BiohazardEvent.Restaurar(d.biohazard);
+                HoloDNA_Manager.Instancia?.Restaurar(d.adnReparado);
             }
 
             if (!restauradaEnSesion)

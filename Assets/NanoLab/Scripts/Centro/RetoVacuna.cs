@@ -1453,7 +1453,7 @@ public class RetoVacuna : MonoBehaviour
         switch (Actual)
         {
             case EtapaVacuna.Intro:
-                ventana.Mostrar(true, $"{C.Codigo} · {C.Titulo.ToUpper()}", Misiones.VacunaDesbloqueada ? "Pulsa CONTINUAR (verde) para empezar" : "Bloqueada: primero las misiones 1 y 2", Misiones.VacunaDesbloqueada ? I.Pulsar : I.Ninguno);
+                ventana.Mostrar(true, $"{C.Codigo} · {C.Titulo.ToUpper()}", Misiones.VacunaDesbloqueada ? "Pulsa CONTINUAR (verde) para empezar" : Misiones.TextoBloqueadaCorto, Misiones.VacunaDesbloqueada ? I.Pulsar : I.Ninguno);
                 return;
             case EtapaVacuna.Cierre: ventana.Mostrar(true, "¡CASO RESUELTO!", "Mira tu informe o pulsa REPETIR para volver a jugar", I.Ninguno); return;
         }
@@ -1611,7 +1611,8 @@ public class RetoVacuna : MonoBehaviour
         // Orden fijo de las misiones: la vacuna (MISIÓN 3) se desbloquea al terminar la MISIÓN 2.
         if (Actual == EtapaVacuna.Intro && !Misiones.VacunaDesbloqueada)
         {
-            Aviso.Mostrar("MISIÓN BLOQUEADA: primero completa las misiones 1 y 2 de este centro (empieza en el BANCO DE MUESTRAS, 1).", pos, Aviso.Tipo.Info, 5f);
+            Aviso.Mostrar(Misiones.AdnPendiente ? "MISIÓN BLOQUEADA: primero repara el ADN del virus en el PROYECTOR DE ADN (14)."
+                                                : "MISIÓN BLOQUEADA: primero completa las misiones 1 y 2 de este centro (empieza en el BANCO DE MUESTRAS, 1).", pos, Aviso.Tipo.Info, 5f);
             Sonidos.Clic(pos);
             return;
         }
@@ -1988,7 +1989,7 @@ public class RetoVacuna : MonoBehaviour
                 sb.AppendLine("• <b>Botones y rótulos</b>: acerca la mano o apúntalos con el rayo de la mano vacía y aprieta el gatillo.");
                 sb.AppendLine("• Los errores no penalizan. <color=#FFD25A>AYUDA</color> te enseña el gesto · <color=#B07CFF>PASO A PASO</color> = una acción a la vez · <color=#39FF88>CONTINUAR</color> avanza.");
                 opcionesTxt.text = sb.ToString();
-                if (!Misiones.VacunaDesbloqueada) { respuesta.text = C.Bloqueada + "\n\n<size=85%><color=#A9BED2>" + C.Aviso + "</color></size>"; break; }
+                if (!Misiones.VacunaDesbloqueada) { respuesta.text = Misiones.TextoBloqueada + "\n\n<size=85%><color=#A9BED2>" + C.Aviso + "</color></size>"; break; }
                 respuesta.text = (Misiones.Tiene(Misiones.Recuerdo3) ? "<color=#39FF88>Ya resolviste esta misión antes: puedes repetirla para repasar.</color>\n" : "") +
                                  "Pulsa <color=#39FF88><b>CONTINUAR</b></color> para empezar.\n\n<size=85%><color=#A9BED2>" + C.Aviso + "</color></size>";
                 break;

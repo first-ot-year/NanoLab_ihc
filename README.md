@@ -226,6 +226,7 @@ El reto se coordina desde `RetoManager`, que avanza por las etapas `Exploracion 
 | Script | Responsabilidad |
 |---|---|
 | `RetoManager` | MISIONES 1 y 2 con el mobiliario del centro: etapas, objetivo actual, evidencias de la A, comparación con las muestras B y C (HUD con otra muestra al lado y cuadro comparativo), panel CONCLUSIONES, identificación comprobada, intervención y ANTES \| DESPUÉS, pistas, un recuerdo y unas métricas por misión |
+| `HoloDNA_Manager` | Rompecabezas del ADN holográfico entre la misión 2 y la vacuna: hebra molde del gen S, bases A/T/C/G agarrables, validación A-T y C-G, brillo final y núcleo de memoria de Baymax ([Docs/ADN_Holografico.md](Docs/ADN_Holografico.md)) |
 | `BiohazardEvent` | Evento sorpresa de bioseguridad en la misión 2: alarma roja, pulverizador con gatillo, zonas `Contaminated` que se desvanecen y felicitación de Baymax ([Docs/Evento_Bioseguridad.md](Docs/Evento_Bioseguridad.md)) |
 | `EquiposCentro` | Incubadora (9), cabina de bioseguridad (10), autoclave (11), ultracongelador (12) e incubadora CO2 (13): consola con pantalla y botón, paso obligatorio de una misión y destino de las flechas |
 | `Misiones` / `MontajeMisiones` / `PanelConclusiones` | Códigos, recuerdos y desbloqueo de las 3 misiones; muestras B (moho *Penicillium*) y C (hisopado del brote) con micrografías generadas por código. Al empezar: reubica la cámara experimental en un hueco libre, crea las muestras B y C en el banco, rotula la A y monta el atril CONCLUSIONES junto a los microscopios |

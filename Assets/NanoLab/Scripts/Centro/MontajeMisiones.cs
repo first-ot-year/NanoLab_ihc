@@ -45,6 +45,9 @@ public static class MontajeMisiones
         // Evento sorpresa de bioseguridad (misión 2): kit de derrames con el pulverizador y la iluminación de alarma.
         try { BiohazardEvent.Montar(centro); }
         catch (System.Exception e) { Debug.LogWarning("[Biohazard] No se pudo montar el evento: " + e); }
+        // Rompecabezas del ADN holográfico (entre la misión 2 y la vacuna).
+        try { CrearHoloDNA(centro, suelo); }
+        catch (System.Exception e) { Debug.LogWarning("[ADN] No se pudo montar el proyector: " + e); }
 
         var micro = centro.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "3_Microscopia");
         var panel = CrearConclusiones(centro, micro, suelo);
@@ -233,6 +236,30 @@ public static class MontajeMisiones
     }
 
     // ------------------------------------------------------------------ panel CONCLUSIONES
+
+    // PROYECTOR DE ADN (14): junto al laboratorio de vacunas si hay sitio; si no, en un hueco libre del centro.
+    static void CrearHoloDNA(Transform centro, float suelo)
+    {
+        var cand = new List<(Vector3 pos, float yaw)>();
+        var rv = RetoVacuna.Instancia;
+        if (rv != null)
+        {
+            float y = rv.transform.eulerAngles.y;
+            foreach (var (x, z) in new[] { (3.3f, 0.8f), (-3.3f, 0.8f), (3.3f, -1.6f), (-3.3f, -1.6f) })
+                cand.Add((rv.transform.TransformPoint(new Vector3(x, 0f, z)), y));
+        }
+        foreach (var h in HuecosCamara) cand.Add((new Vector3(h.x, suelo, h.z), h.yaw));
+        for (int i = 0; i < cand.Count; i++) cand[i] = (new Vector3(cand[i].pos.x, suelo, cand[i].pos.z), cand[i].yaw);
+        var cajas = new[]
+        {
+            (centro: new Vector3(0f, 1.05f, -0.1f), tam: new Vector3(1.7f, 2.1f, 0.5f)),   // proyector y holograma
+            (centro: new Vector3(0f, 1.0f, 0.75f), tam: new Vector3(1.3f, 1.4f, 0.9f)),    // bandeja y sitio del usuario
+        };
+        int i0 = Elegir(cand.ToArray(), cajas, out int choques);
+        if (choques > 0) Debug.LogWarning($"[ADN] Ningún hueco libre para el proyector: se usa el que menos choca ({choques}).");
+        HoloDNA_Manager.Montar(centro, cand[i0].pos, cand[i0].yaw);
+        Debug.Log($"[ADN] Proyector de ADN en {cand[i0].pos} (yaw {cand[i0].yaw:F0})");
+    }
 
     static PanelConclusiones CrearConclusiones(Transform centro, Transform micro, float suelo)
     {
