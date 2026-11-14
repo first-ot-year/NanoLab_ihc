@@ -12,15 +12,23 @@ using K = KitVacuna;
 //    suena en la muñeca; el texto espera en la pantalla hasta que se mira.
 //  - Y (mando izquierdo) lo llama: vibra y se queda encendido unos segundos (con el microscopio, Y es "menos aumento").
 // Lo añade JugadorNanoLab; se construye por código. No tiene colliders: no estorba al agarrar.
+// Revisión del profesor ("no tiene sentido lo que tiene en la mano"): la pantalla de 15 × 9,5 cm iba sobre el mando,
+// dentro de la mano, y parecía un móvil. Ahora es un RELOJ de verdad: esfera pequeña (5,5 × 4,2 cm) y correa en la
+// MUÑECA, detrás de la mano. El texto no va en la esfera (no se leería): al girar la muñeca hacia la cara, sale un
+// holograma encima del reloj que mira a los ojos, crece al mirarlo y se recoge al bajar la mano.
 public class BrazaleteBaymax : MonoBehaviour
 {
     public static BrazaleteBaymax Instancia { get; private set; }
 
     // Pose sobre el mando izquierdo (local al leftHandAnchor): encima del dorso, hacia la muñeca, con la pantalla
     // mirando hacia arriba y un poco hacia el usuario. El texto se lee "hacia la mano", como la esfera de un reloj.
-    static readonly Vector3 PosLocal = new Vector3(0f, 0.032f, -0.085f);
-    static readonly Vector3 NormalLocal = new Vector3(0f, 0.94f, -0.34f);
-    const float Ancho = 0.15f, Alto = 0.095f;   // a ~0,3 m de los ojos: letra equivalente a la de un cartel a 0,75 m
+    // Muñeca izquierda con el mando de Quest en la mano: ~11 cm detrás del agarre y algo por debajo; la esfera mira
+    // hacia el dorso (arriba y hacia fuera). Si en el visor queda desplazado, se ajusta aquí.
+    static readonly Vector3 PosLocal = new Vector3(-0.012f, -0.012f, -0.115f);
+    static readonly Vector3 NormalLocal = new Vector3(-0.45f, 0.88f, -0.15f);
+    const float AnchoReloj = 0.055f, AltoReloj = 0.042f;
+    const float Ancho = 0.15f, Alto = 0.095f;   // holograma: a ~0,35 m de los ojos se lee como un cartel a 0,8 m
+    const float AlturaHolograma = 0.085f;       // encima de la esfera
     const float DistanciaLectura = 0.65f;
     const float SegundosLeido = 4f;
 
@@ -30,13 +38,14 @@ public class BrazaleteBaymax : MonoBehaviour
     static readonly Color Amarillo = new Color(1f, 0.82f, 0.35f);
     static readonly Color Verde = new Color(0.35f, 1f, 0.55f);
 
-    Transform mano, raiz, pantallaT;
+    Transform mano, raiz, pantallaT, holograma;
+    TextMeshPro mini;
     PanelRedondeado pantalla, barraFondo, barra;
     TextMeshPro cabecera, cuerpo, pie;
     Renderer led;
 
     string cabTxt = "NANOLAB";
-    string objTxt = "Ve al CENTRO DE EXPERIMENTACIÓN y sigue las flechas del suelo.";
+    string objTxt = "Ve al CENTRO DE EXPERIMENTACIÓN y sigue la LUZ GUÍA de Baymax.";
     string corto = "";
     int paso, total;
     string pendiente;
@@ -102,7 +111,7 @@ public class BrazaleteBaymax : MonoBehaviour
         }
         bool micro = MicroscopioOptico.AlgunoActivo;
         if (raiz.gameObject.activeSelf == micro) raiz.gameObject.SetActive(!micro);   // con la cara en el ocular no se ve
-        if (micro) return;
+        if (micro) { if (holograma != null && holograma.gameObject.activeSelf) holograma.gameObject.SetActive(false); return; }
 
         bool tutorial = AvisoInicio.Instancia != null && AvisoInicio.Instancia.Abierto;   // ahí Y es "atrás"
         if (!tutorial && OVRInput.GetDown(OVRInput.Button.Four)) Llamar();
@@ -112,9 +121,9 @@ public class BrazaleteBaymax : MonoBehaviour
         bool mirando = false;
         if (cab != null)
         {
-            var hacia = cab.position - pantallaT.position;
+            var hacia = cab.position - raiz.position;
             float d = hacia.magnitude;
-            float dot = d > 1e-3f ? Vector3.Dot(-pantallaT.forward, hacia / d) : 0f;
+            float dot = d > 1e-3f ? Vector3.Dot(-raiz.forward, hacia / d) : 0f;
             mirando = d < DistanciaLectura && dot > (despierto ? 0.4f : 0.55f);   // histéresis
         }
         bool antes = despierto;
@@ -130,6 +139,26 @@ public class BrazaleteBaymax : MonoBehaviour
 
         brillo = Mathf.MoveTowards(brillo, despierto ? 1f : 0f, Time.deltaTime / 0.2f);
         AplicarBrillo();
+        ColocarHolograma(cab);
+    }
+
+    // El holograma flota encima del reloj, mirando a los ojos; crece al despertar y se recoge al dormir.
+    void ColocarHolograma(Transform cab)
+    {
+        if (holograma == null) return;
+        float e = Mathf.SmoothStep(0f, 1f, brillo);
+        bool ver = e > 0.02f;
+        if (holograma.gameObject.activeSelf != ver) holograma.gameObject.SetActive(ver);
+        if (!ver) return;
+        var p = raiz.position + Vector3.up * AlturaHolograma * e;
+        if (cab != null) p += (cab.position - raiz.position).normalized * 0.03f;
+        holograma.position = p;
+        if (cab != null)
+        {
+            var d = p - cab.position;
+            if (d.sqrMagnitude > 1e-4f) holograma.rotation = Quaternion.LookRotation(d, Vector3.up);
+        }
+        holograma.localScale = Vector3.one * Mathf.Lerp(0.15f, 1f, e);
     }
 
     void AplicarBrillo()
@@ -153,6 +182,7 @@ public class BrazaleteBaymax : MonoBehaviour
     {
         if (cabecera == null) return;
         int n = RecuerdosBaymax.Cantidad;
+        if (mini != null) mini.text = pendiente != null ? "<color=#FFD25A>!</color>" : total > 0 ? $"{paso}/{total}" : "";
         if (!despierto)
         {
             cabecera.text = string.IsNullOrEmpty(corto) ? "NANOLAB" : corto;
@@ -214,18 +244,23 @@ public class BrazaleteBaymax : MonoBehaviour
         var n = NormalLocal.normalized;
         var arriba = Vector3.Cross(n, Vector3.right).normalized;   // hacia la mano (como las 12 de un reloj)
         if (Vector3.Dot(arriba, Vector3.forward) < 0f) arriba = -arriba;
-        raiz.localRotation = Quaternion.LookRotation(-n, arriba);   // el -z local mira hacia fuera de la pantalla
+        raiz.localRotation = Quaternion.LookRotation(-n, arriba);   // el -z local mira hacia fuera de la esfera
 
         var blanco = K.Escena("BlancoMate", new Color(0.93f, 0.94f, 0.95f));
         var oscuro = K.Plano(new Color(0.06f, 0.07f, 0.08f));
-        // Correa alrededor de la muñeca (un tubo corto a lo largo del antebrazo) y carcasa del reloj.
-        K.Pieza(raiz, "Correa", PrimitiveType.Cylinder, new Vector3(0f, 0f, 0.028f), new Vector3(0.066f, 0.016f, 0.058f), blanco, Quaternion.Euler(90f, 0f, 0f));
-        K.Caja(raiz, "Carcasa", new Vector3(0f, 0f, 0.004f), new Vector3(Ancho + 0.01f, Alto + 0.01f, 0.008f), blanco);
-        K.Caja(raiz, "Bisel", new Vector3(0f, 0f, -0.0002f), new Vector3(Ancho + 0.004f, Alto + 0.004f, 0.001f), oscuro);
+        // Correa alrededor de la muñeca (aro a lo largo del antebrazo) y caja del reloj.
+        K.Pieza(raiz, "Correa", PrimitiveType.Cylinder, new Vector3(0f, 0f, 0.026f), new Vector3(0.062f, 0.012f, 0.052f), blanco, Quaternion.Euler(0f, 0f, 90f) * Quaternion.Euler(90f, 0f, 0f));
+        K.Caja(raiz, "Carcasa", new Vector3(0f, 0f, 0.004f), new Vector3(AnchoReloj + 0.006f, AltoReloj + 0.006f, 0.009f), blanco);
+        K.Caja(raiz, "Esfera", new Vector3(0f, 0f, -0.0003f), new Vector3(AnchoReloj, AltoReloj, 0.001f), oscuro);
+        mini = K.Texto(raiz, "", new Vector3(0f, -0.003f, -0.0012f), 0.05f, Cian, AnchoReloj - 0.008f, 0.02f, TextAlignmentOptions.Center, true);
+        led = K.Esfera(raiz, "Led", new Vector3(0f, AltoReloj / 2f - 0.008f, -0.0015f), 0.006f, K.Plano(Color.white));
 
-        pantallaT = K.Grupo(raiz, "Pantalla", new Vector3(0f, 0f, -0.0012f));
+        // Holograma con el objetivo (fuera de la jerarquía de la mano: lo coloca ColocarHolograma cada frame).
+        holograma = new GameObject("BrazaleteHolograma").transform;
+        holograma.SetParent(transform, false);
+        pantallaT = K.Grupo(holograma, "Pantalla", Vector3.zero);
         pantalla = Panel(K.Panel(pantallaT, "Fondo", Vector3.zero, Ancho, Alto, PantallaApagada, new Color(0.25f, 0.55f, 0.7f, 1f), 0.0015f, 0.012f));
-        pantalla.radio = 0.008f;   // K.Panel redondea mucho los paneles pequeños: aquí, esquinas de pantalla de reloj
+        pantalla.radio = 0.008f;
         pantalla.Aplicar();
         cabecera = K.Texto(pantallaT, "", new Vector3(0f, Alto / 2f - 0.014f, -0.001f), 0.055f, Cian, Ancho - 0.016f, 0.018f, TextAlignmentOptions.Left, true);
         K.AutoTam(cabecera, 0.04f);
@@ -236,9 +271,11 @@ public class BrazaleteBaymax : MonoBehaviour
         K.AutoTam(pie, 0.032f);
         barraFondo = Panel(K.Panel(pantallaT, "BarraFondo", new Vector3(0f, -Alto / 2f + 0.022f, -0.001f), Ancho - 0.016f, 0.003f, new Color(1f, 1f, 1f, 0.12f), Color.clear, 0f, 0.0015f));
         barra = Panel(K.Panel(pantallaT, "Barra", new Vector3(0f, -Alto / 2f + 0.022f, -0.0012f), 0.01f, 0.003f, Cian, Color.clear, 0f, 0.0015f));
-        led = K.Esfera(raiz, "Led", new Vector3(Ancho / 2f + 0.002f, Alto / 2f + 0.002f, -0.002f), 0.007f, K.Plano(Color.white));
+        foreach (var t in GetComponentsInChildren<TextMeshPro>(true)) t.sortingOrder = AdaptadorEscena.OrdenTexto + 1;
         foreach (var t in raiz.GetComponentsInChildren<TextMeshPro>(true)) t.sortingOrder = AdaptadorEscena.OrdenTexto + 1;
         foreach (var c in raiz.GetComponentsInChildren<Collider>(true)) Destroy(c);
+        foreach (var c in holograma.GetComponentsInChildren<Collider>(true)) Destroy(c);
+        holograma.gameObject.SetActive(false);
         Refrescar();
         AplicarBrillo();
     }

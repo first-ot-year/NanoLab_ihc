@@ -11,7 +11,7 @@ using K = KitVacuna;
 //   DespuesDeLaVacuna: vuelve a poner la cámara en un hueco libre, convierte las dos ranuras "próximamente" del banco
 //     en las MUESTRAS B (placa con moho) y C (hisopado del brote), rotula la A, monta el panel CONCLUSIONES junto a los
 //     microscopios y conecta todo con RetoManager. Las estaciones, sus carteles con PISTA, la terminal, la prensa, el
-//     archivo y la guía de flechas siguen activos (en la versión anterior se ocultaban).
+//     archivo y la guía (luz guía) siguen activos (en la versión anterior se ocultaban).
 public static class MontajeMisiones
 {
     static readonly string[] Ocultar = { "TorreObjetivo", "Baliza" };
@@ -42,9 +42,9 @@ public static class MontajeMisiones
         // Incubadora, cabina, autoclave, ultracongelador e incubadora CO2: consolas y pasos de las misiones.
         try { EquiposCentro.Montar(centro, rm, banco); }
         catch (System.Exception e) { Debug.LogWarning("[Equipos] No se pudieron montar las consolas: " + e); }
-        // Evento sorpresa de bioseguridad (misión 2): kit de derrames con el pulverizador y la iluminación de alarma.
-        try { BiohazardEvent.Montar(centro); }
-        catch (System.Exception e) { Debug.LogWarning("[Biohazard] No se pudo montar el evento: " + e); }
+        // Revisión del profesor: el evento sorpresa de bioseguridad (alarma, kit de derrames, pulverizador) ya no se monta:
+        // no aportaba conocimiento de microbiología. El código sigue en BiohazardEvent por si se reutiliza; las ideas
+        // para aprovechar ese rincón (junto a la INCUBADORA) están en Docs/Revision_profesor.md.
 
         var micro = centro.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "3_Microscopia");
         bandejaMicro = micro != null ? micro.Cast<Transform>().FirstOrDefault(t => t.name == "Bandeja") : null;
@@ -59,7 +59,7 @@ public static class MontajeMisiones
                           $"<b>2 · {Misiones.Titulo2}</b> Prueba qué detiene a la bacteria.\n" +
                           $"<b>3 · {ContenidoVacuna.Titulo}</b> En el LABORATORIO DE VACUNAS (se desbloquea con la 2).\n\n" +
                           "Los equipos con número 9-13 (incubadoras, cabina, autoclave, ultracongelador) son opcionales: púlsalos para ver qué hacen.\n\n" +
-                          "<color=#8FD8FF>Sigue las flechas del suelo · cada estación tiene un botón PISTA · tu objetivo, en la muñeca izquierda.</color>";
+                          "<color=#8FD8FF>Sigue la LUZ GUÍA de Baymax · cada estación tiene un botón PISTA · tu objetivo, en el reloj de la muñeca izquierda.</color>";
         // Carteles de las estaciones: qué se hace en cada una en las misiones.
         foreach (var g in rm.estaciones)
         {
@@ -77,7 +77,7 @@ public static class MontajeMisiones
         "MISIÓN 1 · Tinción de Gram de la MUESTRA A: goteros 1 > 2 > 3 > 4. Aquí están los portaobjetos y el desinfectante.",
         "MISIONES 1 y 2 · Compara las muestras A, B y C y, en la misión 2, el ANTES | DESPUÉS. Al lado, el panel CONCLUSIONES.",
         "AYUDA OPCIONAL · Fichas de microorganismos: si dudas, busca cuál coincide con la MUESTRA A.",
-        "MISIÓN 1: identifica la MUESTRA A (fila 1) · MISIÓN 2: elige qué estructura atacar (fila 2).",
+        "Una pregunta a la vez y 3 botones · MISIÓN 1: ¿qué bacteria es la MUESTRA A? · MISIÓN 2: ¿qué estructura atacarás?",
         "MISIÓN 2 · Encaja el vial del agente que sigue tu estrategia y pulsa FORMULAR.",
         "MISIÓN 2 · Placa de la MUESTRA A + cápsula y pulsa ACTIVAR.",
         "Informe de las misiones 1 y 2 y recuerdos de Baymax. REINICIAR las repite.",

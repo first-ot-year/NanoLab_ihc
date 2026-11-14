@@ -182,9 +182,9 @@ public class RetoManager : MonoBehaviour
                 if (Clasificadas < 3) return $"Ve al panel CONCLUSIONES (junto a los microscopios) y clasifica cada muestra: ¿bacteria, hongo o virus? ({Clasificadas}/3)";
                 return "Busca en la BIBLIOTECA (4) la ficha que coincide con la MUESTRA A (forma, agrupación y color de Gram).";
             case EtapaReto.Hipotesis:
-                if (Hipotesis == null) return "En la TERMINAL (5), fila 1: ¿qué bacteria es la MUESTRA A? Al acertar terminas la MISIÓN 1. Si dudas, compara con las fichas de la BIBLIOTECA (4).";
-                if (Intentos > 0) return $"Intento {Intentos + 1}: elige otra vez en la TERMINAL (5) qué estructura de {Hipotesis.nombre} atacarás (fila 2).";
-                return $"MISIÓN 2 · Ya sabes que es {Hipotesis.nombre}. Elige en la TERMINAL (5) qué estructura atacarás (fila 2).";
+                if (Hipotesis == null) return "En la TERMINAL (5), PREGUNTA 1: ¿qué bacteria es la MUESTRA A? Al acertar terminas la MISIÓN 1. Si dudas, compara con las fichas de la BIBLIOTECA (4).";
+                if (Intentos > 0) return $"Intento {Intentos + 1}: elige otra vez en la TERMINAL (5) qué estructura de {Hipotesis.nombre} atacarás (PREGUNTA 2).";
+                return $"MISIÓN 2 · Ya sabes que es {Hipotesis.nombre}. Elige en la TERMINAL (5) qué estructura atacarás (PREGUNTA 2).";
             case EtapaReto.Preparacion: return EstrategiaElegida != null
                 ? $"Estrategia: {EstrategiaElegida.nombre.ToLower()}. Busca el vial que lo hace, encájalo en la PRENSA (6) y pulsa FORMULAR."
                 : "Elige un agente, encájalo en la PRENSA (6) y pulsa FORMULAR.";
@@ -387,8 +387,8 @@ public class RetoManager : MonoBehaviour
                     return Clasificadas < 3 ? $"Clasifica las muestras en el panel CONCLUSIONES ({Clasificadas}/3)."
                                             : "Abre una ficha en la BIBLIOTECA (4) y compárala con la MUESTRA A.";
                 case EtapaReto.Hipotesis:
-                    return Hipotesis == null ? "TERMINAL (5), fila 1: ¿qué bacteria es la MUESTRA A?"
-                                             : "TERMINAL (5), fila 2: elige qué estructura atacar.";
+                    return Hipotesis == null ? "TERMINAL (5), PREGUNTA 1: ¿qué bacteria es la MUESTRA A?"
+                                             : "TERMINAL (5), PREGUNTA 2: elige qué estructura atacar.";
                 case EtapaReto.Preparacion: return "PRENSA (6): encaja el vial de tu estrategia y pulsa FORMULAR.";
                 case EtapaReto.Experimento: return "CÁMARA (7): encaja la cápsula (la placa A ya está dentro) y pulsa ACTIVAR.";
                 case EtapaReto.Analisis:
@@ -680,7 +680,7 @@ public class RetoManager : MonoBehaviour
     public bool PuedeEstrategia(out string motivo)
     {
         if (!PuedeHipotesis(out motivo)) return false;
-        if (Hipotesis == null) motivo = "Primero identifica en la fila 1 qué bacteria es la MUESTRA A (así terminas la MISIÓN 1).";
+        if (Hipotesis == null) motivo = "Primero responde la PREGUNTA 1: qué bacteria es la MUESTRA A (así terminas la MISIÓN 1).";
         return motivo == null;
     }
 
@@ -803,9 +803,26 @@ public class RetoManager : MonoBehaviour
         metricas.Actividad();
         ExitoAnalizado = false;
         Explicadas = 0;
+        ExplicacionResultado = Explicar(a, Exito);
         Poner(EtapaReto.Analisis);
-        // Evento sorpresa: tras el PRIMER experimento falla el sellado de la cámara (una vez por partida).
-        if (metricas.Datos.intentos.Count == 1 && camara != null) BiohazardEvent.Disparar(camara.transform);
+        // Revisión del profesor: el evento sorpresa de bioseguridad (falla el sellado de la cámara) ya no se dispara:
+        // no enseñaba microbiología. BiohazardEvent queda en el proyecto, sin uso, por si se reutiliza.
+        // Revisión del profesor (9-10): si NO funcionó, mandar al microscopio a ver "lo mismo de antes" no tenía sentido.
+        // La cámara explica allí mismo por qué falló y la guía vuelve a la TERMINAL (5) a repensar la estrategia.
+        // Si funcionó, sí se compara ANTES | DESPUÉS al microscopio (se ven las células rotas: es la evidencia).
+        if (!Exito) FalloAnalizado();
+    }
+
+    // Explicación del resultado que enseña la cámara: qué hace el agente y por qué sirvió (o no) con esta bacteria.
+    public string ExplicacionResultado { get; private set; }
+
+    string Explicar(RetoData.Agente a, bool exito)
+    {
+        var e = reto.EstrategiaDe(a.diana);
+        if (exito)
+            return $"{a.nombre}: {a.accion}" + (e != null && !string.IsNullOrEmpty(e.descripcion) ? $" {e.descripcion}" : "") +
+                   $" Por eso, alrededor de la cápsula, ya no crecen colonias de {reto.muestra.nombre} (halo de inhibición).";
+        return $"{a.nombre}: {a.accion} " + PistaDelFallo();
     }
 
     // Avisos del evento de bioseguridad (alarma, spray tomado, zona limpiada).
@@ -841,16 +858,24 @@ public class RetoManager : MonoBehaviour
             pistaPendiente = "¡El agente funcionó! Ahora explica por qué en el panel CONCLUSIONES, junto a los microscopios.";
             Refrescar(true);
         }
-        else
-        {
-            // El error es información: pista ligada a la evidencia y nueva placa para reintentar.
-            metricas.Error("Experimento");
-            pistaFallo = PistaDelFallo();
-            if (placa != null) placa.Reiniciar();
-            Estrategia = -1;   // la hipótesis se conserva, pero la estrategia hay que repensarla
-            Poner(EtapaReto.Hipotesis);
-            pistaPendiente = pistaFallo;   // se muestra al apartar la cara del ocular (el HUD ya la explica)
-        }
+        else FalloAnalizado();
+    }
+
+    // El error es información: pista ligada a la evidencia, nueva placa para reintentar y vuelta a la terminal.
+    void FalloAnalizado()
+    {
+        metricas.Error("Experimento");
+        pistaFallo = PistaDelFallo();
+        if (placa != null) StartCoroutine(ReiniciarPlaca(placa));   // se deja ver unos segundos el resultado
+        Estrategia = -1;   // la hipótesis se conserva, pero la estrategia hay que repensarla
+        Poner(EtapaReto.Hipotesis);
+        pistaPendiente = pistaFallo;   // también llega a la muñeca
+    }
+
+    System.Collections.IEnumerator ReiniciarPlaca(PlacaCaso p)
+    {
+        yield return new WaitForSeconds(3f);
+        if (p != null && Actual != EtapaReto.Experimento) p.Reiniciar();
     }
 
     // ------------------------------------------------------------------ equipos del centro (EquiposCentro)

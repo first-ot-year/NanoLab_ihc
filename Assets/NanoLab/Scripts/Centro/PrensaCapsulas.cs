@@ -30,7 +30,13 @@ public class PrensaCapsulas : MonoBehaviour
     {
         if (piston != null) pistonPos = piston.localPosition;
         if (capsula != null) capsula.gameObject.SetActive(false);
-        if (ranura != null) ranura.Cambio += _ => { confirmarVial = null; Refrescar(); };
+        if (ranura != null) ranura.Cambio += _ =>
+        {
+            confirmarVial = null;
+            Refrescar();
+            // Revisión del profesor: que encajar el vial se oiga y se sienta.
+            if (Encajado != null) { Sonidos.Encaje(ranura.transform.position); ManosRig.Vibrar(ranura.transform.position, 0.4f, 0.06f); }
+        };
     }
 
     void OnEnable()
@@ -67,7 +73,9 @@ public class PrensaCapsulas : MonoBehaviour
             string encaja = rm.EstrategiaElegida == null ? ""
                 : rm.EsCoherente(v.agente) ? "\n<color=#39FF88>[OK] COINCIDE con tu estrategia</color>"
                 : "\n<color=#FFB347>[!] NO COINCIDE con tu estrategia</color>";
-            cuerpo = $"<b>{a.sigla}</b> · {a.nombre}\n<size=75%>{a.accion}</size>{encaja}\n<color=#8FD8FF>Pulsa FORMULAR</color>";
+            var diana = reto.EstrategiaDe(a.diana);
+            string ataca = diana != null ? $"\n<size=70%><color=#8FD8FF>ATACA:</color> {diana.nombre.ToLower()}</size>" : "";
+            cuerpo = $"<b>{a.sigla}</b> · {a.nombre}\n<size=75%>{a.accion}</size>{ataca}{encaja}\n<color=#8FD8FF>Pulsa FORMULAR</color>";
         }
         else cuerpo = "Encaja aquí un vial de agente\n<size=75%>(arrástralo hasta la silueta)</size>";
         pantalla.text = $"<size=70%>{decision}</size>\n{cuerpo}\n<size=55%><color=#7F93A8><i>{TerminalHipotesis.AvisoSimplificado}</i></color></size>";
@@ -128,8 +136,11 @@ public class PrensaCapsulas : MonoBehaviour
         capsula.Configurar(v.agente, a);
         capsula.Encajable.Encajar(salida, true);
         v.Encajable.VolverACasa();
-        Sonidos.Logro(transform.position);
-        Aviso.Mostrar($"Cápsula {a.sigla} lista. Llévala a la CÁMARA EXPERIMENTAL (7).", salida.transform.position + Vector3.up * 0.2f, Aviso.Tipo.Ok);
+        Sonidos.Capsula(salida.transform.position);
+        ManosRig.Vibrar(salida.transform.position, 0.5f, 0.1f);
+        var dianaC = RetoManager.Instancia.reto.EstrategiaDe(a.diana);
+        Aviso.Mostrar($"Cápsula {a.sigla} lista: {a.accion}" + (dianaC != null ? $"\n<size=80%>Ataca: {dianaC.nombre.ToLower()}.</size>" : "") +
+                      "\nLlévala a la CÁMARA EXPERIMENTAL (7).", salida.transform.position + Vector3.up * 0.2f, Aviso.Tipo.Ok);
         ocupada = false;
         RetoManager.Instancia.CapsulaFormulada(v.agente);
         Refrescar();

@@ -1,5 +1,8 @@
 # Evento sorpresa de bioseguridad (MISIÓN 2)
 
+> **Desactivado (revisión del profesor, 14/11/2026):** el evento ya no se dispara ni se monta porque no aportaba conocimiento de microbiología. El código sigue en `BiohazardEvent.cs`. Ideas para reutilizar ese rincón junto a la incubadora: `Docs/Revision_profesor.md`.
+
+
 Al terminar el **primer experimento** de la cámara experimental (7), falla el sellado de su compuerta y salen aerosoles de *S. aureus*. El laboratorio entra en alarma y la misión 2 se detiene hasta que el estudiante encuentra las zonas contaminadas y las limpia con el pulverizador.
 
 ## Cómo se juega

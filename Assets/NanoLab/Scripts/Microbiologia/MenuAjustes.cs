@@ -1,9 +1,13 @@
 using TMPro;
 using UnityEngine;
 
-// Panel de ajustes (RNF-07): el botón ☰ del mando izquierdo lo abre en cualquier sala. Por la presencia no aparece
-// pegado a la cara: es una TABLET (carcasa con grosor y asa) que sale sobre la mano izquierda, mirando al jugador,
-// y se queda quieta en el mundo mientras está abierta; se pulsa con el índice derecho (poke de Meta) o con el rayo.
+// Panel de ajustes (RNF-07): el botón ☰ del mando izquierdo lo abre en cualquier sala. Es una TABLET (carcasa con
+// grosor y asa) delante del jugador; se pulsa con el índice derecho (poke de Meta) o con el rayo.
+// Revisión del profesor ("¿por qué se queda estático? y no me para el juego"):
+//  - PAUSA: mientras está abierto el juego se detiene (Time.timeScale = 0: cámara, incubación, guía, cronómetros y
+//    métricas no avanzan). Los botones del menú usan tiempo sin escalar, así que siguen respondiendo.
+//  - SIGUE AL JUGADOR con retardo ("lazy follow", como el menú del sistema de Quest): si se gira o se aparta, la tablet
+//    vuelve suavemente delante de él en vez de quedarse atrás en el mundo.
 // Volumen de la música y de los efectos, modo sentado (sube la vista a la de alguien de pie) y
 // recalibrar la altura. Los botones se tocan o se apuntan con el rayo. Lo monta MontarAjustes en el rig.
 public class MenuAjustes : MonoBehaviour
@@ -16,10 +20,16 @@ public class MenuAjustes : MonoBehaviour
     public float distancia = 0.55f;
     [Tooltip("Si la cabeza se aleja más que esto del panel (m), se cierra.")]
     public float distanciaCierre = 1.5f;
-    [Tooltip("Tamaño de la tablet respecto al panel montado (0,62 × 0,77 m).")]
+    [Tooltip("Sin uso: el panel vuelve a su tamaño real (antes era una tablet al 70 %).")]
     public float escalaTablet = 0.7f;
 
     Transform padreOriginal;   // el rig: la tablet vuelve a él al cerrarse
+    float escalaTiempoAntes = 1f;
+    bool pausado, siguiendo;
+    Vector3 velSeguir;
+    TMP_Text rotuloPausa;
+
+    public static bool EnPausa => Instancia != null && Instancia.pausado;
 
     public static MenuAjustes Instancia { get; private set; }
     public bool Abierto => panel != null && panel.activeSelf;
@@ -39,10 +49,49 @@ public class MenuAjustes : MonoBehaviour
     {
         if (OVRInput.GetDown(OVRInput.Button.Start, OVRInput.Controller.LTouch) || OVRInput.GetDown(OVRInput.Button.Start) || TeclaMenu())
             Abrir(!Abierto);
-        // Se cierra solo si el usuario se aleja de él (p. ej. caminando por la habitación real).
-        var cab = ManosRig.Cabeza;
-        if (Abierto && cab != null && Vector3.Distance(cab.position, panel.transform.position) > distanciaCierre) Abrir(false);
+        if (Abierto) Seguir();
     }
+
+    // Lazy follow: la tablet se queda quieta mientras esté más o menos delante; si el jugador se gira (> 28°) o se
+    // aleja/acerca (> 0,3 m del sitio ideal), vuelve suavemente delante de él. Con tiempo sin escalar (el juego está en pausa).
+    void Seguir()
+    {
+        var cab = ManosRig.Cabeza;
+        if (cab == null) return;
+        Ideal(cab, out var pos, out var rot);
+        var t = panel.transform;
+        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
+        var haciaPanel = Vector3.ProjectOnPlane(t.position - cab.position, Vector3.up).normalized;
+        float ang = Vector3.Angle(f, haciaPanel);
+        float dist = Vector3.Distance(t.position, pos);
+        if (!siguiendo && (ang > 28f || dist > 0.3f)) siguiendo = true;
+        if (!siguiendo) return;
+        float dt = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
+        t.position = Vector3.SmoothDamp(t.position, pos, ref velSeguir, 0.22f, 4f, dt);
+        t.rotation = Quaternion.Slerp(t.rotation, rot, 1f - Mathf.Exp(-dt * 10f));
+        if (Vector3.Distance(t.position, pos) < 0.02f) siguiendo = false;
+    }
+
+    // Delante de los ojos, un poco por debajo, vertical (como el panel de la versión anterior).
+    void Ideal(Transform cab, out Vector3 pos, out Quaternion rot)
+    {
+        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up);
+        if (f.sqrMagnitude < 1e-4f) f = Vector3.forward;
+        f.Normalize();
+        pos = cab.position + f * distancia - Vector3.up * 0.12f;
+        rot = Quaternion.LookRotation(f, Vector3.up);   // vertical, como en la versión anterior
+    }
+
+    void Pausar(bool si)
+    {
+        if (si == pausado) return;
+        pausado = si;
+        if (si) { escalaTiempoAntes = Time.timeScale > 0f ? Time.timeScale : 1f; Time.timeScale = 0f; }
+        else Time.timeScale = escalaTiempoAntes;
+        if (rotuloPausa != null) rotuloPausa.gameObject.SetActive(si);
+    }
+
+    void OnDestroy() { if (pausado) Time.timeScale = escalaTiempoAntes; if (Instancia == this) Instancia = null; }
 
     public void Abrir(bool abrir)
     {
@@ -63,57 +112,76 @@ public class MenuAjustes : MonoBehaviour
             }
             Tablet();
             if (padreOriginal == null) padreOriginal = panel.transform.parent;
-            panel.transform.SetParent(null, true);   // fija en el mundo mientras está abierta
+            panel.transform.SetParent(null, true);   // en el mundo (la mueve Seguir, no la cabeza directamente)
             Colocar();
+            siguiendo = false;
+            velSeguir = Vector3.zero;
             Refrescar();
         }
         else if (padreOriginal != null && panel.transform.parent != padreOriginal) panel.transform.SetParent(padreOriginal, true);
         panel.SetActive(abrir);
+        Pausar(abrir);
         Sonidos.Clic(panel.transform.position);
     }
 
     public bool FijaEnElMundo => panel != null && panel.transform.parent == null;
 
-    // Sobre la mano izquierda (la que pulsó ☰), a una distancia y altura cómodas, de cara a la cabeza.
+    // Delante del jugador (antes salía sobre la mano izquierda y se quedaba quieta).
     void Colocar()
     {
         var cab = ManosRig.Cabeza;
         if (cab == null) return;
-        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up);
-        if (f.sqrMagnitude < 1e-4f) f = Vector3.forward;
-        f.Normalize();
-        var mano = ManosRig.ManoIzq;
-        var pos = mano != null ? mano.position + Vector3.up * 0.18f : cab.position + f * distancia - Vector3.up * 0.2f;
-        // Ni pegada a la cara ni a la cintura: entre 0,35 y 0,55 m por delante y entre 15 y 50 cm bajo los ojos.
-        var h = Vector3.ProjectOnPlane(pos - cab.position, Vector3.up);
-        float delante = Vector3.Dot(h, f);
-        var lado = h - f * delante;
-        delante = Mathf.Clamp(delante, 0.35f, 0.55f);
-        lado = Vector3.ClampMagnitude(lado, 0.25f);
-        pos = cab.position + f * delante + lado;
-        pos.y = Mathf.Clamp(pos.y, cab.position.y - 0.5f, cab.position.y - 0.15f);
-        panel.transform.position = pos;
-        // Mira a la cabeza, también en vertical: queda inclinada como una tablet sostenida.
-        panel.transform.rotation = Quaternion.LookRotation(pos - cab.position, Vector3.up);
+        Ideal(cab, out var pos, out var rot);
+        panel.transform.SetPositionAndRotation(pos, rot);
     }
 
     // Carcasa con grosor y asa detrás del panel, y tamaño de tablet (se hace una vez, en tiempo de ejecución).
+    // Como el panel de la versión anterior (letras blancas sobre fondo oscuro, tamaño real), sin la carcasa de
+    // tablet: solo un marco celeste fino en los BORDES y el rótulo "JUEGO EN PAUSA" encima. Se hace una vez.
     void Tablet()
     {
         var t = panel.transform;
-        t.localScale = Vector3.one * escalaTablet;
-        if (t.Find("Carcasa") != null) return;
-        // La carcasa toma el tamaño del fondo del panel (el panel puede crecer si se añaden botones).
-        float ancho = 0.62f, alto = 0.77f, y = -0.105f;
+        t.localScale = Vector3.one;
+        if (t.Find("Canto") != null) return;
+        float ancho = 0.62f, alto = 0.86f, y = -0.15f;
         var fondo = t.Find("Fondo");
         var pr = fondo != null ? fondo.GetComponent<PanelRedondeado>() : null;
         if (pr != null) { ancho = pr.ancho; alto = pr.alto; y = fondo.localPosition.y; }
-        var mat = KitVacuna.Plano(new Color(0.16f, 0.18f, 0.21f));
-        var borde = KitVacuna.Plano(new Color(0.37f, 0.83f, 1f));
-        KitVacuna.Caja(t, "Carcasa", new Vector3(0f, y, 0.022f), new Vector3(ancho + 0.04f, alto + 0.04f, 0.04f), mat);
-        KitVacuna.Caja(t, "Canto", new Vector3(0f, y, 0.0025f), new Vector3(ancho + 0.025f, alto + 0.025f, 0.003f), borde);
-        KitVacuna.Caja(t, "Asa", new Vector3(0f, y - alto / 2f - 0.045f, 0.022f), new Vector3(0.22f, 0.05f, 0.04f), mat);
-        foreach (var c in t.GetComponentsInChildren<Collider>(true)) if (c.name == "Carcasa" || c.name == "Canto" || c.name == "Asa") Destroy(c);
+        var borde = Opaco(new Color(0.37f, 0.83f, 1f));
+        const float g = 0.008f;   // ancho del marco
+        var canto = new GameObject("Canto").transform;
+        canto.SetParent(t, false);
+        KitVacuna.Caja(canto, "Arriba", new Vector3(0f, y + alto / 2f + g / 2f, 0.002f), new Vector3(ancho + 2f * g, g, 0.004f), borde);
+        KitVacuna.Caja(canto, "Abajo", new Vector3(0f, y - alto / 2f - g / 2f, 0.002f), new Vector3(ancho + 2f * g, g, 0.004f), borde);
+        KitVacuna.Caja(canto, "Izq", new Vector3(-ancho / 2f - g / 2f, y, 0.002f), new Vector3(g, alto, 0.004f), borde);
+        KitVacuna.Caja(canto, "Der", new Vector3(ancho / 2f + g / 2f, y, 0.002f), new Vector3(g, alto, 0.004f), borde);
+        foreach (var c in canto.GetComponentsInChildren<Collider>(true)) Destroy(c);
+
+        // "JUEGO EN PAUSA": copia del título AJUSTES (misma fuente y orden de dibujo), en blanco, encima del marco.
+        TMP_Text titulo = null;
+        foreach (var tx in t.GetComponentsInChildren<TMP_Text>(true)) if (tx.text == "AJUSTES") { titulo = tx; break; }
+        if (titulo != null && rotuloPausa == null)
+        {
+            rotuloPausa = Instantiate(titulo.gameObject, t).GetComponent<TMP_Text>();
+            rotuloPausa.name = "Pausa";
+            rotuloPausa.text = "<b>II  JUEGO EN PAUSA</b>";
+            rotuloPausa.color = Color.white;
+            rotuloPausa.alignment = TextAlignmentOptions.Center;
+            rotuloPausa.rectTransform.sizeDelta = new Vector2(ancho, 0.06f);
+            rotuloPausa.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            var lp = titulo.rectTransform.localPosition;
+            rotuloPausa.rectTransform.localPosition = new Vector3(0f, y + alto / 2f + g + 0.035f, lp.z);
+            rotuloPausa.gameObject.SetActive(pausado);
+        }
+    }
+
+    static Material Opaco(Color c)
+    {
+        var sh = Shader.Find("Standard");
+        var m = sh != null ? new Material(sh) : new Material(KitVacuna.Plano(c));
+        m.color = c;
+        m.renderQueue = 2000;   // siempre antes que los paneles transparentes: nunca los tapa
+        return m;
     }
 
     public void Pulsar(string id)

@@ -561,7 +561,7 @@ public static class ContenidoVacuna
     public const string Bloqueada =
         "<color=#FFD25A><b>MISIÓN BLOQUEADA</b></color>\nPrimero completa en este centro la <b>MISIÓN 1 · ¿Qué hay en las muestras?</b> y la <b>MISIÓN 2 · ¿Qué la detiene?</b>: " +
         "descubrirás que el virus del brote no se ve al microscopio y que los antibióticos no le hacen nada. Entonces fabricarás aquí la vacuna.\n" +
-        "<color=#8FD8FF>Sigue las flechas del suelo hasta el BANCO DE MUESTRAS (1).</color>";
+        "<color=#8FD8FF>Sigue la LUZ GUÍA de Baymax hasta el BANCO DE MUESTRAS (1).</color>";
 
     // ------------------------------------------------------------------ preguntas de comprensión (HEART · Retention)
     // Las mismas 4 preguntas ANTES de empezar (sin corregir: para saber qué sabía el estudiante) y AL TERMINAR (con

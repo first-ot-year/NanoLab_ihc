@@ -267,7 +267,7 @@ public class VentanaIntro : MonoBehaviour
         {
             titulo = "¿DÓNDE EMPIEZO?",
             texto = "Sigue las <b>balizas numeradas</b>:  <b>1</b> Microscopios · <b>2</b> Cepario · <b>3</b> Alto riesgo (virus en 3D)\n" +
-                    "Para recuperar tus recuerdos ve al <color=#FFD25A><b>4 · CENTRO DE EXPERIMENTACIÓN</b></color> y sigue las flechas del suelo hasta el " +
+                    "Para recuperar tus recuerdos ve al <color=#FFD25A><b>4 · CENTRO DE EXPERIMENTACIÓN</b></color> y sigue la LUZ GUÍA de Baymax hasta el " +
                     "BANCO DE MUESTRAS (MISIÓN 1); después vienen la MISIÓN 2 y el <b>LABORATORIO DE VACUNAS</b> (MISIÓN 3). Cada misión guarda un <b>checkpoint</b>.\n" +
                     "Para la sala de alto riesgo pasa antes por la <b>cabina de descontaminación</b> (11 s, quédate quieto). ¡Suerte, Baymax!",
         },

@@ -206,10 +206,9 @@ public class DebugReto : MonoBehaviour
             micro.DejarDeObservar();
         }
         Comprobar(rm.Actual == EtapaReto.Investigacion, "Con las 3 muestras comparadas > etapa Investigación");
-        Comprobar(micro.Monitor != null && HUDMicroscopio.Instancia.Laterales != null && HUDMicroscopio.Instancia.Laterales.IsChildOf(micro.Monitor.transform),
-                  "Las características y el cuaderno se leen en el monitor junto al microscopio; el ocular solo enseña la muestra (presencia)");
-        yield return null;
-        Momento?.Invoke("presencia_monitor");
+        // Revisión del profesor: sin monitores al lado; las características y el ZOOM se ven en el propio ocular.
+        Comprobar(FindObjectsOfType<MonitorMicroscopio>().Length == 0, "Sin monitores junto a los microscopios: todo se ve por el ocular, con ZOOM");
+        Comprobar(FindObjectsOfType<MicroscopioOptico>().Count(m => m.modoReto) >= 4, $"Dos microscopios por mesa en MICROSCOPÍA (3): {FindObjectsOfType<MicroscopioOptico>().Count(m => m.modoReto)}");
 
         // 3c) Panel CONCLUSIONES: clasificar A, B y C (un error a propósito).
         var conc = rm.conclusiones;
@@ -288,7 +287,7 @@ public class DebugReto : MonoBehaviour
             rm.terminal.Elegir(opcionIncorrecta);
             int pasosM2 = EquiposCentro.Obligatorios && EquiposCentro.Autoclave != null ? 6 : 5;
             Comprobar(rm.PasoMision == 1 && rm.PasosMision == pasosM2 && rm.Hipotesis == rm.reto.muestra && rm.Metricas.Datos.errores == errM2,
-                      $"MISIÓN 2 · paso 1 de {pasosM2}; con la A identificada, la fila 1 de la terminal ya no cuenta errores (H5)");
+                      $"MISIÓN 2 · paso 1 de {pasosM2}; con la A identificada, la pregunta 1 de la terminal ya no cuenta errores (H5)");
             Momento?.Invoke("mision1_completa");
             yield return null;   // RetoManager entrega el aviso de la misión al frame siguiente
             Comprobar(brazalete != null && brazalete.HayPendiente && brazalete.Pendiente.Contains("MISIÓN 1 COMPLETA"),
@@ -419,7 +418,12 @@ public class DebugReto : MonoBehaviour
                   $"Intento {n}: hipótesis {rm.Hipotesis?.nombre} registrada; sin estrategia sigue en Hipótesis");
         yield return null;
         if (n == 1) Momento?.Invoke("terminal_1_hipotesis");
-        rm.terminal.botonesEstrategia[estrategia].Activar();   // lo que hace el rayo al pulsar el gatillo
+        // Una pregunta a la vez: con la hipótesis hecha, los MISMOS 3 botones pasan a ser las estrategias.
+        int boton = rm.terminal.BotonDeEstrategia(estrategia);
+        Comprobar(rm.terminal.Pregunta == 2 && boton >= 0 && boton < TerminalHipotesis.NumBotones &&
+                  (rm.terminal.botonesEstrategia == null || rm.terminal.botonesEstrategia.All(b => b == null || !b.gameObject.activeInHierarchy)),
+                  $"Intento {n}: la terminal pasa a la PREGUNTA 2 con 3 botones (la estrategia \"{s.corto}\" en el botón {(char)('A' + Mathf.Max(0, boton))}); la fila 2 ya no está");
+        rm.terminal.botones[Mathf.Max(0, boton)].Activar();   // lo que hace el rayo al pulsar el gatillo
         Comprobar(rm.EstrategiaElegida == s && rm.Actual == EtapaReto.Preparacion,
                   $"Intento {n}: estrategia \"{s.nombre}\" elegida con el rayo > etapa Preparación");
         yield return null;
@@ -459,9 +463,20 @@ public class DebugReto : MonoBehaviour
         while (camara.Ocupada && Time.time - t0 < 20f) yield return null;
         Momento?.Invoke($"camara_intento{n}");
         bool exito = rm.reto.Eficacia(rm.reto.agentes[agente]) >= rm.reto.umbralExito;
-        Comprobar(rm.Actual == EtapaReto.Analisis && camara.portaDespues.gameObject.activeSelf && rm.placa.Tratada, $"Intento {n}: resultado {(exito ? "EFICAZ" : "SIN EFECTO")} > etapa Análisis, portaobjetos DESPUÉS entregado");
+        Comprobar(camara.pantalla.text.Contains(exito ? "POR QUÉ FUNCIONÓ" : "POR QUÉ NO FUNCIONÓ") && camara.pantalla.text.Contains(rm.reto.agentes[agente].accion),
+                  $"Intento {n}: la cámara explica por qué {(exito ? "funcionó" : "no funcionó")} el agente {rm.reto.agentes[agente].sigla}");
+        Comprobar(BiohazardEvent.Instancia == null || !BiohazardEvent.Activo, $"Intento {n}: sin evento sorpresa de bioseguridad (revisión del profesor)");
+        if (!exito)
+        {
+            // Revisión del profesor (9-10): tras un fallo no se manda al microscopio; se vuelve a la terminal.
+            Comprobar(rm.Actual == EtapaReto.Hipotesis && !camara.portaDespues.gameObject.activeSelf && rm.ObjetivoActual.Contains("TERMINAL"),
+                      $"Intento {n}: SIN EFECTO > vuelve a la TERMINAL (5) sin pasar por el microscopio (objetivo: \"{rm.ObjetivoActual}\")");
+            float tp = Time.time;
+            while (rm.placa.Tratada && Time.time - tp < 5f) yield return null;   // la placa se regenera tras dejar ver el resultado
+            yield break;
+        }
+        Comprobar(rm.Actual == EtapaReto.Analisis && camara.portaDespues.gameObject.activeSelf && rm.placa.Tratada, $"Intento {n}: resultado EFICAZ > etapa Análisis, portaobjetos DESPUÉS entregado");
         Comprobar(!rm.PuedeFormular(out _), $"Intento {n}: no se puede formular otra cápsula sin analizar");
-        if (n == 1 && BiohazardEvent.Instancia != null) yield return Bioseguridad(rm, camara, micro, porta);
 
         porta.ColocarEn(porta.transform.position + Vector3.up * 0.3f, Quaternion.identity);
         camara.portaDespues.Encajar(micro.platina);

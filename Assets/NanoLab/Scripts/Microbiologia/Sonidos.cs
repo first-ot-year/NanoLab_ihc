@@ -3,6 +3,7 @@ using UnityEngine;
 // Sonidos de interfaz sintetizados por código (no necesitan archivos de audio).
 public static class Sonidos
 {
+    static AudioClip exito, fracaso, capsula;
     static AudioClip clic, carga, encaje, scan, logro, error, gota, etapa, pista, camara, fallo, tintineo, abrir, cerrar, modoVista, modoMuestra, puerta;
 
     public static void Clic(Vector3 p) => Reproducir(ref clic, "clic", p, 0.5f, 0.05f, 1800f);
@@ -16,6 +17,11 @@ public static class Sonidos
     public static void Pista(Vector3 p) => Reproducir(ref pista, "pista", p, 0.5f, 0.35f, 880f, 740f, 880f);
     public static void Camara(Vector3 p) => Reproducir(ref camara, "camara", p, 0.6f, 1.6f, 110f, 130f, 150f, 170f, 190f, 210f, 230f, 250f);
     public static void Fallo(Vector3 p) => Reproducir(ref fallo, "fallo", p, 0.7f, 0.6f, 392f, 330f, 262f);
+    // Resultado del experimento (revisión del profesor: que el resultado se OIGA): fanfarria que sube o caída grave.
+    public static void Exito(Vector3 p) => Reproducir(ref exito, "exito", p, 0.95f, 1.3f, 523f, 659f, 784f, 1047f, 784f, 1047f, 1319f);
+    public static void Fracaso(Vector3 p) => Reproducir(ref fracaso, "fracaso", p, 0.9f, 1.0f, 330f, 311f, 294f, 247f, 196f);
+    // Cápsula formulada: "pop" corto que sube.
+    public static void Capsula(Vector3 p) => Reproducir(ref capsula, "capsula", p, 0.8f, 0.28f, 440f, 880f, 1320f);
     // Puerta corredera neumática: zumbido grave que baja.
     public static void Puerta(Vector3 p) => Reproducir(ref puerta, "puerta", p, 0.5f, 0.7f, 150f, 135f, 120f, 105f);
     // Puerta, tapa o cajón (Compartimento): sube al abrir, baja al cerrar.

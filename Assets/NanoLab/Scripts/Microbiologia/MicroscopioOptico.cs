@@ -20,8 +20,6 @@ public class MicroscopioOptico : MonoBehaviour
     static MicroscopioOptico activo;
     Material holoAzul;
     float ejeAnterior;
-    MonitorMicroscopio monitor;   // monitor físico a su lado (se crea la primera vez que se mira por él)
-    public MonitorMicroscopio Monitor => monitor;
 
     void Start() => holoAzul = Resources.Load<Material>("NanoLab/Holograma_Azul");
 
@@ -46,8 +44,6 @@ public class MicroscopioOptico : MonoBehaviour
     {
         activo = this;
         var hud = HUDMicroscopio.Obtener(ojo, holoAzul);
-        if (monitor == null) monitor = MonitorMicroscopio.Crear(ocular, ojo);
-        hud.UsarMonitor(monitor.Pantalla);
         // Sin teñir = examen en fresco: las bacterias se ven vivas y moviéndose.
         var pa = platina.Actual;
         bool fresco = pa != null && pa.PasosTincion == 0 && !pa.TincionErronea && !pa.Despues && !pa.DeCaso;
@@ -91,10 +87,17 @@ public class MicroscopioOptico : MonoBehaviour
         // A: zoom + / B o Y: zoom - (al tope suena un aviso corto).
         if (OVRInput.GetDown(OVRInput.Button.One)) Zoom(hud.CambiarAumento(+1));
         if (OVRInput.GetDown(OVRInput.Button.Two) || OVRInput.GetDown(OVRInput.Button.Four)) Zoom(hud.CambiarAumento(-1));
-        // Joystick izquierdo: mover la muestra (o girar el virus). Joystick derecho: zoom fino y pestañas del monitor.
-        // (Ya no hay modo "mover la vista": los paneles de texto están en el monitor, no en el ocular.)
+        // X: el joystick izquierdo pasa de mover la muestra a mover la vista (para ver los paneles laterales).
+        if (OVRInput.GetDown(OVRInput.Button.Three))
+        {
+            hud.AlternarModo();
+            Sonidos.Modo(ocular.position, hud.ModoVista);
+            Vibrar(OVRInput.Controller.LTouch, hud.ModoVista ? 0.6f : 0.35f);
+        }
+        // Joystick izquierdo: mover la muestra (o girar el virus) o la vista. Joystick derecho: pestañas.
         var eje = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch);
-        hud.Mover(eje);
+        if (hud.ModoVista) hud.MoverVista(eje);
+        else hud.Mover(eje);
         var der = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch);
         // Joystick derecho arriba/abajo: zoom fino continuo (zoom + / zoom -).
         if (Mathf.Abs(der.y) > Mathf.Abs(der.x)) hud.ZoomContinuo(der.y);

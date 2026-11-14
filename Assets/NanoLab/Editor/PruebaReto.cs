@@ -98,14 +98,6 @@ public static class PruebaReto
                 ML.Capturar(dir, nombre, new Vector3(15.25f, 1.6f, 14.75f), new Vector3(0f, -0.22f, 1f));
                 ML.Capturar(dir, nombre + "_pantalla", new Vector3(14.95f, 1.42f, 15.6f), new Vector3(0f, -0.3f, 1f));
             }
-            else if (nombre == "presencia_monitor")
-            {
-                var m = Object.FindObjectsOfType<MicroscopioOptico>().FirstOrDefault(x => x.Monitor != null);
-                if (m == null) return;
-                var t = m.Monitor.transform;
-                ML.Capturar(dir, nombre, t.position - t.forward * 0.75f + Vector3.up * 0.12f, t.position - (t.position - t.forward * 0.75f + Vector3.up * 0.12f));
-                ML.Capturar(dir, nombre + "_lejos", t.position - t.forward * 1.4f + Vector3.up * 0.35f, t.position - (t.position - t.forward * 1.4f + Vector3.up * 0.35f));
-            }
             else if (nombre == "presencia_brazalete")
             {
                 var b = Object.FindObjectsOfType<Transform>().FirstOrDefault(x => x.name == "BrazaleteBaymax");

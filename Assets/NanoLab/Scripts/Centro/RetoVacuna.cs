@@ -1131,7 +1131,7 @@ public class RetoVacuna : MonoBehaviour
         if (eq == null || !EquiposCentro.Obligatorios) return basico;
         var primero = new SubPaso($"Ve al {eq.titulo} ({eq.guia.numero}) del centro y pulsa {eq.accion}: sin eso no hay material para este paso",
                                   () => T(eq.boton), () => eq.Hecho || Resuelta).Con(I.Pulsar, () => T(eq.boton))
-            .Nino($"Sigue las flechas del suelo hasta el {eq.titulo} y PULSA su botón amarillo", $"PULSA {eq.accion}");
+            .Nino($"Sigue la LUZ GUÍA hasta el {eq.titulo} y PULSA su botón amarillo", $"PULSA {eq.accion}");
         var l = new List<SubPaso> { primero };
         l.AddRange(basico);
         return l.ToArray();
@@ -1899,7 +1899,7 @@ public class RetoVacuna : MonoBehaviour
 
     string Indicacion()
     {
-        if (FaltaEquipo(out var eq)) return $"Antes: sigue las flechas del suelo hasta el {eq.titulo} ({eq.guia.numero}) y pulsa {eq.accion}. Allí está el material de este paso.";
+        if (FaltaEquipo(out var eq)) return $"Antes: sigue la LUZ GUÍA hasta el {eq.titulo} ({eq.guia.numero}) y pulsa {eq.accion}. Allí está el material de este paso.";
         switch (Actual)
         {
             case EtapaVacuna.Antigeno: return "Toca con la mano una parte del virus holográfico del mostrador (o apúntala con el rayo + gatillo). Grip junto al virus para girarlo.";

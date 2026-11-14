@@ -39,6 +39,16 @@ public class CamaraExperimental : MonoBehaviour
     {
         mpb = new MaterialPropertyBlock();
         if (bandeja != null) bandejaFuera = bandeja.localPosition;
+        // La pantalla ahora explica el resultado (textos más largos): se encoge la letra si no cabe.
+        if (pantalla != null)
+        {
+            var sd = pantalla.rectTransform.sizeDelta;
+            if (sd.y < 0.3f) pantalla.rectTransform.sizeDelta = new Vector2(sd.x, 0.38f);
+            pantalla.enableAutoSizing = true;
+            pantalla.fontSizeMax = pantalla.fontSize;
+            pantalla.fontSizeMin = pantalla.fontSize * 0.45f;
+            pantalla.overflowMode = TMPro.TextOverflowModes.Truncate;
+        }
         Reiniciar();
     }
 
@@ -47,6 +57,7 @@ public class CamaraExperimental : MonoBehaviour
         if (activar != null) activar.Pulsado += Activar;
         if (zonaPlaca != null) zonaPlaca.Cambio += AlCambiarZona;
         if (zonaCapsula != null) zonaCapsula.Cambio += AlCambiarZona;
+        if (zonaCapsula != null) zonaCapsula.Cambio += AlCambiarCapsula;
         RetoManager.Cambio += RefrescarBoton;
         RefrescarBoton();
     }
@@ -56,10 +67,25 @@ public class CamaraExperimental : MonoBehaviour
         if (activar != null) activar.Pulsado -= Activar;
         if (zonaPlaca != null) zonaPlaca.Cambio -= AlCambiarZona;
         if (zonaCapsula != null) zonaCapsula.Cambio -= AlCambiarZona;
+        if (zonaCapsula != null) zonaCapsula.Cambio -= AlCambiarCapsula;
         RetoManager.Cambio -= RefrescarBoton;
     }
 
     void AlCambiarZona(Encajable _) => RefrescarBoton();
+
+    // Al encajar la cápsula: suena y la pantalla recuerda qué hace ese agente (para saber qué se está probando).
+    void AlCambiarCapsula(Encajable _)
+    {
+        if (Ocupada || zonaCapsula == null || zonaCapsula.Actual == null) return;
+        var c = zonaCapsula.Actual.GetComponent<Capsula>();
+        var rm = RetoManager.Instancia;
+        if (c == null || c.Agente < 0 || rm == null || rm.reto == null) return;
+        var a = rm.reto.agentes[c.Agente];
+        Sonidos.Encaje(zonaCapsula.transform.position);
+        ManosRig.Vibrar(zonaCapsula.transform.position, 0.4f, 0.06f);
+        if (pantalla != null)
+            pantalla.text = $"Cápsula <b>{a.sigla}</b> en su ranura\n<size=62%>{a.accion}</size>\n<size=75%><color=#8FD8FF>{(zonaPlaca != null && zonaPlaca.Actual != null ? "Pulsa ACTIVAR" : "Pon la placa de la MUESTRA A en la bandeja")}</color></size>";
+    }
 
     // ACTIVAR se ve gris mientras falta la placa, la cápsula o aún no toca experimentar.
     void RefrescarBoton()
@@ -132,7 +158,8 @@ public class CamaraExperimental : MonoBehaviour
         yield return MoverCompuerta(false);   // cámara sellada durante la prueba
 
         // 2) La cápsula se libera sobre la placa.
-        if (pantalla != null) pantalla.text = $"Liberando agente <b>{a.sigla}</b>...";
+        if (pantalla != null) pantalla.text = $"Liberando agente <b>{a.sigla}</b>...\n<size=60%>{a.accion}</size>";
+        Sonidos.Rocio(puntoLiberacion != null ? puntoLiberacion.position : placa.transform.position, 1f);
         PonerColor(a.color);
         if (niebla != null)
         {
@@ -146,9 +173,12 @@ public class CamaraExperimental : MonoBehaviour
         // 3) Incubación simulada (24 h comprimidas en unos segundos).
         Sonidos.Camara(transform.position);
         var anim = StartCoroutine(placa.Tratar(eficacia, 3.2f));
+        int horaSonada = 0;
         for (float t = 0; t < 1f; t += Time.deltaTime / 3.4f)
         {
-            if (pantalla != null) pantalla.text = $"Incubación simulada\n<size=140%><b>{Mathf.RoundToInt(t * 24):00} h</b></size> / 24 h";
+            int horas = Mathf.RoundToInt(t * 24);
+            if (horas / 6 > horaSonada) { horaSonada = horas / 6; Sonidos.Clic(transform.position + Vector3.up); }   // tic cada 6 h
+            if (pantalla != null) pantalla.text = $"Incubación simulada · agente <b>{a.sigla}</b>\n<size=140%><b>{horas:00} h</b></size> / 24 h\n<size=60%>{a.accion}</size>";
             PonerColor(Color.Lerp(a.color, Reposo, Mathf.PingPong(t * 4f, 1f)));
             yield return null;
         }
@@ -162,27 +192,34 @@ public class CamaraExperimental : MonoBehaviour
         if (iconoExito != null) iconoExito.SetActive(exito);
         if (iconoFallo != null) iconoFallo.SetActive(!exito);
         if (luzResultado != null) { luzResultado.color = exito ? Verde : Rojo; luzResultado.enabled = true; }
-        if (exito) Sonidos.Logro(transform.position); else Sonidos.Fallo(transform.position);
+        if (exito) Sonidos.Exito(transform.position); else Sonidos.Fracaso(transform.position);
         ManosRig.Vibrar(transform.position, exito ? 0.6f : 1f, exito ? 0.15f : 0.35f);
         string texto = exito ? $"EFICAZ · Halo de inhibición alrededor del agente {a.sigla}"
                              : eficacia > 0.05f ? $"SIN EFECTO CLARO · Las colonias siguen ahí ({a.sigla})"
                                                 : $"SIN EFECTO · Las colonias siguieron creciendo ({a.sigla})";
         if (resultado != null) { resultado.text = texto; resultado.color = exito ? Verde : Rojo; }
-        if (pantalla != null) pantalla.text = "Toma el portaobjetos DESPUÉS\ny compáralo en el MICROSCOPIO (3)";
+        // Revisión del profesor: decir POR QUÉ (qué hace la cápsula y por qué sirve o no con esta bacteria) y, si falló,
+        // no mandar al microscopio: se vuelve a la TERMINAL (5) a repensar la estrategia.
+        rm.ResultadoExperimento(agente, eficacia);
+        string porQue = rm.ExplicacionResultado ?? a.accion;
+        if (pantalla != null)
+            pantalla.text = exito
+                ? $"<b>¿POR QUÉ FUNCIONÓ?</b>\n<size=62%>{porQue}</size>\n<size=75%><color=#8FD8FF>Toma el portaobjetos DESPUÉS y compáralo en el MICROSCOPIO (3)</color></size>"
+                : $"<b>¿POR QUÉ NO FUNCIONÓ?</b>\n<size=62%>{porQue}</size>\n<size=75%><color=#8FD8FF>Vuelve a la TERMINAL (5) y elige otra estrategia</color></size>";
+        Aviso.Mostrar($"<b>{(exito ? "¿POR QUÉ FUNCIONÓ?" : "¿POR QUÉ NO FUNCIONÓ?")}</b>\n{porQue}", transform.position + Vector3.up * 1.4f, exito ? Aviso.Tipo.Ok : Aviso.Tipo.Pista, 12f);
 
-        // 5) Sale la bandeja y se entrega el portaobjetos DESPUÉS.
+        // 5) Sale la bandeja; solo si funcionó se entrega el portaobjetos DESPUÉS para comparar al microscopio.
         yield return MoverCompuerta(true);
         yield return MoverBandeja(bandejaDentro, bandejaFuera, 0.9f);
         yield return MoverCompuerta(false);
         placaEnc.Bloquear(false);
-        if (portaDespues != null)
+        if (portaDespues != null && exito)
         {
             portaDespues.gameObject.SetActive(true);
             portaDespues.ColocarEn(anclajeDespues.position, anclajeDespues.rotation);
             portaDespues.PrepararDespues(rm.reto.muestra);
-            Aviso.Mostrar("Portaobjetos DESPUÉS listo: obsérvalo en el MICROSCOPIO (3).", anclajeDespues.position + Vector3.up * 0.15f, Aviso.Tipo.Info, 6f);
+            Sonidos.Carga(anclajeDespues.position);
         }
-        rm.ResultadoExperimento(agente, eficacia);
         Ocupada = false;
         RefrescarBoton();
     }
