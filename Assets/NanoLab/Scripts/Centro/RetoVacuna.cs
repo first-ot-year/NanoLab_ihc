@@ -1430,7 +1430,7 @@ public class RetoVacuna : MonoBehaviour
             case EtapaVacuna.Intro:
                 ventana.Mostrar(true, $"{C.Codigo} · {C.Titulo.ToUpper()}", Misiones.VacunaDesbloqueada ? "Pulsa CONTINUAR (verde) para empezar" : "Bloqueada: primero las misiones 1 y 2", Misiones.VacunaDesbloqueada ? I.Pulsar : I.Ninguno);
                 return;
-            case EtapaVacuna.Cierre: ventana.Mostrar(true, "¡CASO RESUELTO!", "Mira tu informe o pulsa REPETIR para volver a jugar", I.Ninguno); return;
+            case EtapaVacuna.Cierre: ventana.Mostrar(true, "¡MISIÓN COMPLETA!", "Mira tu informe o pulsa REPETIR para volver a jugar", I.Ninguno); return;
         }
         if (plan.Length == 0) { ventana.Mostrar(false, "", "", I.Ninguno); return; }
         int n = (int)Actual, i = PasoActualDelPlan();
@@ -1551,7 +1551,7 @@ public class RetoVacuna : MonoBehaviour
         Sonidos.Error(pos);
         ManosRig.Vibrar(pos, 0.3f, 0.1f);
         // Tras dos fallos en el mismo paso, se ofrece la pista (no se da sola: el estudiante decide).
-        if (n + 1 == 2) Aviso.Mostrar("¿Atascado? Pulsa AYUDA (amarillo): te enseña el gesto.", pista.transform.position + Vector3.up * 0.3f, Aviso.Tipo.Pista, 4f);
+        if (n + 1 == 2) Aviso.Mostrar("¿Atascado? Pulsa AYUDA (amarillo): te enseña el gesto.", pista.transform.position + Vector3.up * 0.3f, Aviso.Tipo.Info, 4f);
     }
 
     void Registrar(string que, bool bien)
@@ -1646,7 +1646,7 @@ public class RetoVacuna : MonoBehaviour
             case EtapaVacuna.Titulo: lista = !vistoMicro ? C.PistasMicroPlaca : microOk < PreguntasMicro ? PreguntaMicro().pistas : C.PistasTitulo; break;
             case EtapaVacuna.Fases: lista = C.PistasFases; break;
             case EtapaVacuna.Eficacia: lista = PreguntaEficacia().pistas; break;
-            default: lista = new[] { Actual == EtapaVacuna.Intro ? "Pulsa el botón verde CONTINUAR para empezar el caso." : "Caso resuelto: lee tu informe o pulsa REPETIR." }; break;
+            default: lista = new[] { Actual == EtapaVacuna.Intro ? "Pulsa el botón verde CONTINUAR para empezar la misión." : "Misión completa: lee tu informe o pulsa REPETIR." }; break;
         }
         nivelPista.TryGetValue(Actual, out int n);
         string p = lista[Mathf.Min(n, lista.Length - 1)];
@@ -1684,7 +1684,7 @@ public class RetoVacuna : MonoBehaviour
         if (cab != null)
         {
             var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-            Aviso.Mostrar($"{C.Codigo} RESUELTO · ¡Creaste una vacuna! Baymax recupera un recuerdo científico ({RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total})" + (cp ? "\nCHECKPOINT GUARDADO" : ""),
+            Aviso.Mostrar($"{C.Codigo} COMPLETA · ¡Creaste una vacuna! Baymax recupera un recuerdo científico ({RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total})" + (cp ? "\nCHECKPOINT GUARDADO" : ""),
                 cab.position + frente * 0.9f + Vector3.down * 0.1f, Aviso.Tipo.Ok, 6f);
         }
         Refrescar();
@@ -1882,6 +1882,10 @@ public class RetoVacuna : MonoBehaviour
         return sb.ToString();
     }
 
+    // Para la tarjeta de objetivo (tecla Y), que en la misión 3 enseña el paso de la vacuna.
+    public string TituloActual => TituloEtapa();
+    public string ObjetivoActual => EnCuestionario ? "Responde la pregunta con las letras del mostrador." : Indicacion();
+
     string Indicacion()
     {
         switch (Actual)
@@ -1967,7 +1971,7 @@ public class RetoVacuna : MonoBehaviour
             }
             case EtapaVacuna.Cierre:
             {
-                titulo.text = $"{C.Codigo} RESUELTO · ¡CREASTE UNA VACUNA!";
+                titulo.text = $"{C.Codigo} COMPLETA · ¡CREASTE UNA VACUNA!";
                 enunciado.text = $"<color=#8FD8FF><b>Lo que aprendiste</b></color>\n<size=85%>{C.Aprendido}</size>\n<size=80%>{C.EnElCuerpo}</size>";
                 opcionesTxt.text = "";
                 var sb = new StringBuilder();

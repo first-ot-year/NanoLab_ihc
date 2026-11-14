@@ -95,6 +95,7 @@ Las respuestas se pasan a `Herramientas/plantilla_likert.csv` (una fila por part
 | Intervenciones del facilitador | hora · paso · qué se dijo |
 | Pasos donde dudó más de 1 min | |
 | ¿Usó AYUDA? ¿PASO A PASO? | |
+| ¿Abrió AYUDA desde el botón menú (☰)? ¿Saltó el tutorial? | sí / no · sí / no |
 | ¿Miró las muestras B y C sin indicación? ¿Puso la placa de la vacuna en el microscopio sin indicación? | sí / no · sí / no |
 | ¿Encontró la cámara experimental y el panel CONCLUSIONES siguiendo las flechas? | sí / no |
 | Problemas técnicos (agarre, encaje, texto ilegible, tirones) | |

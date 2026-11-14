@@ -335,7 +335,12 @@ public class GestorPartida : MonoBehaviour
                 {
                     var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
                     string origen = Partida.DesdeRespaldo ? "\n<size=80%>(desde la copia de respaldo: la última se había dañado)</size>" : "";
-                    Aviso.Mostrar($"Partida cargada ({d.fecha}).\nMuestras: {d.muestras.Count} · Recuerdos: {d.recuerdos.Count}/{RecuerdosBaymax.Total}{origen}", cab.position + f * 1f, Aviso.Tipo.Ok, 4f);
+                    // Reconocer, no recordar: al volver se dice por dónde se iba.
+                    string sigue = rm != null && rm.Actual != EtapaReto.Cierre
+                        ? $"\n<size=85%>{rm.CodigoMision} · paso {rm.PasoMision} de {rm.PasosMision}: {rm.ObjetivoCorto}</size>" +
+                          (rm.RetomadaAntes ? "\n<size=80%>Lo que llevabas en las manos no se guarda: repite el último paso.</size>" : "")
+                        : "";
+                    Aviso.Mostrar($"Partida cargada ({d.fecha}).\nMuestras: {d.muestras.Count} · Recuerdos: {d.recuerdos.Count}/{RecuerdosBaymax.Total}{origen}{sigue}", cab.position + f * 1f, Aviso.Tipo.Ok, 8f);
                 }
             }
         }

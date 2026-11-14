@@ -257,14 +257,14 @@ public class Portaobjetos : MonoBehaviour
         var aviso = transform.position + Vector3.up * 0.12f;
         if (muestra == null)
         {
-            Aviso.Mostrar("Primero haz el frotis: toca la placa de la muestra con este portaobjetos.", aviso, Aviso.Tipo.Error);
-            Sonidos.Error(transform.position);
+            Aviso.Mostrar("Primero haz el frotis: toca la placa de la muestra con este portaobjetos.", aviso, Aviso.Tipo.Falta);
+            Sonidos.Pista(transform.position);
             return;
         }
         if (Despues) return;
         if (TincionErronea)
         {
-            Aviso.Mostrar("Tinción NO válida. Límpialo con el desinfectante y empieza otra vez: 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
+            Aviso.Mostrar("Tinción NO válida. Límpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
             Sonidos.Error(transform.position);
             return;
         }
@@ -280,7 +280,7 @@ public class Portaobjetos : MonoBehaviour
             string porQue = r == 3 && esperado <= 2 ? "Sin cristal violeta fijado con lugol, el alcohol decolora TODAS las células y el resultado engaña."
                           : r == 4 ? "La safranina va al final, después de decolorar con alcohol."
                           : $"Te saltaste el paso {esperado} ({Reactivos[esperado]}).";
-            Aviso.Mostrar($"Orden incorrecto. {porQue}\nLímpialo con el desinfectante y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
+            Aviso.Mostrar($"Orden incorrecto. {porQue}\nLímpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
             Sonidos.Error(transform.position);
             ManosRig.Vibrar(transform.position, 0.8f, 0.2f);
         }
@@ -325,7 +325,14 @@ public class Portaobjetos : MonoBehaviour
                 frotis.SetPropertyBlock(mpb);
             }
         }
-        if (etiqueta != null) etiqueta.text = muestra == null ? "LIMPIO" : etiquetaTexto ?? muestra.nombre;
+        if (etiqueta != null)
+        {
+            // Visibilidad del estado: el propio portaobjetos dice cómo va la tinción.
+            string et = muestra == null ? "LIMPIO" : etiquetaTexto ?? muestra.nombre;
+            if (muestra != null && !Despues && (PasosTincion > 0 || TincionErronea))
+                et += "\n<size=60%>" + (TincionErronea ? "TINCIÓN NO VÁLIDA" : TincionCompleta ? "GRAM COMPLETA" : $"GRAM {PasosTincion}/4") + "</size>";
+            etiqueta.text = et;
+        }
     }
 
     IEnumerator AnimarFrotis()

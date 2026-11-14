@@ -41,12 +41,14 @@ public static class MontarAjustes
         menu.sentado = Izq(p, "NO", 0.08f, -0.07f, 0.22f, 0.27f, Color.white, false);
 
         botones.Add(Boton(p, "calibrar", "RECALIBRAR ALTURA", "recalibrar la altura", -0.13f, -0.165f, 0.3f));
-        botones.Add(Boton(p, "cerrar", "CERRAR", "cerrar los ajustes", 0.17f, -0.165f, 0.18f));
-        // Partida guardada en el visor (se guarda sola; aquí se fuerza o se empieza de cero).
+        // Ayuda bajo demanda: qué toca ahora, controles y glosario (AvisoInicio.MostrarAyuda).
+        botones.Add(Boton(p, "ayuda", "AYUDA", "ver la ayuda y los controles", 0.17f, -0.165f, 0.24f));
+        // Partida guardada en el visor (se guarda sola; aquí se fuerza). Checkpoint: se crea al terminar cada misión.
         botones.Add(Boton(p, "guardar", "GUARDAR PARTIDA", "guardar la partida", -0.13f, -0.255f, 0.3f));
-        botones.Add(Boton(p, "nueva", "NUEVA PARTIDA", "empezar una partida nueva", 0.17f, -0.255f, 0.24f));
-        // Checkpoint: se crea al terminar cada reto; vuelve a ese avance y a ese sitio.
-        botones.Add(Boton(p, "checkpoint", "VOLVER AL CHECKPOINT", "volver al último checkpoint", 0f, -0.345f, 0.4f));
+        botones.Add(Boton(p, "checkpoint", "VOLVER AL CHECKPOINT", "volver al último checkpoint", 0.17f, -0.255f, 0.24f));
+        // Lo que borra el avance va en otra fila que lo que lo guarda, y en rojo (prevención de errores).
+        botones.Add(Boton(p, "nueva", "NUEVA PARTIDA", "empezar una partida nueva", -0.13f, -0.345f, 0.3f, new Color(1f, 0.45f, 0.4f)));
+        botones.Add(Boton(p, "cerrar", "CERRAR", "cerrar los ajustes", 0.17f, -0.345f, 0.24f));
         menu.partida = MI.Texto(p, "", 0f, -0.4f, 0.58f, 0.2f, Tenue, false, TextAlignmentOptions.Center);
         MI.Texto(p, "Sentado en una silla real: activa el modo sentado y la vista sube a la de alguien de pie.\nToca los botones o apúntalos con el rayo.",
             0f, -0.45f, 0.58f, 0.18f, Tenue, false, TextAlignmentOptions.Center);
@@ -54,7 +56,10 @@ public static class MontarAjustes
         // Los paneles son transparentes (no escriben profundidad): con un orden de dibujo mayor que el de
         // los rótulos y balizas, nada de lo que hay detrás se cuela por encima del panel.
         foreach (var r in p.GetComponentsInChildren<Renderer>(true))
+        {
             r.sortingOrder += r.GetComponent<TMP_Text>() != null ? 40 : 30;
+            if (PrefabUtility.IsPartOfPrefabInstance(r)) PrefabUtility.RecordPrefabInstancePropertyModifications(r);   // los bloques poke
+        }
 
         menu.panel = p.gameObject;
         menu.botones = botones.ToArray();
@@ -77,6 +82,58 @@ public static class MontarAjustes
         return barra;
     }
 
+    // Bloque "poke" oficial del Interaction SDK de Meta (el mismo prefab que los botones de las estaciones): el botón
+    // se pulsa con la punta del dedo o del mando y se hunde. Sin el prefab, el botón queda plano (respaldo).
+    static void Poke(GameObject go, BotonMenu b, float ancho, bool peligro)
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PokePrefab);
+        if (prefab == null) { Debug.LogWarning("[Ajustes] Falta el prefab PokeInteractable del Interaction SDK: botones planos."); return; }
+        var pk = (GameObject)PrefabUtility.InstantiatePrefab(prefab, go.transform);
+        pk.name = "Poke";
+        // El bloque se pulsa hacia su +z: hacia dentro del panel, que se lee desde -z (igual que AvisoInicio.BotonPoke).
+        pk.transform.localPosition = Vector3.zero;
+        pk.transform.localRotation = Quaternion.identity;
+        pk.transform.localScale = new Vector3(ancho, 0.06f, 0.05f);
+        var color = pk.GetComponentInChildren<Oculus.Interaction.InteractableColorVisual>(true);
+        if (color != null)
+        {
+            var so = new SerializedObject(color);
+            void Estado(string campo, Color c, float t)
+            {
+                so.FindProperty(campo + ".Color").colorValue = c;
+                so.FindProperty(campo + ".ColorTime").floatValue = t;
+            }
+            Estado("_normalColorState", peligro ? new Color(0.45f, 0.16f, 0.15f, 1f) : new Color(0.14f, 0.3f, 0.42f, 1f), 0.15f);
+            Estado("_hoverColorState", peligro ? new Color(0.8f, 0.3f, 0.26f, 1f) : new Color(0.3f, 0.75f, 0.95f, 1f), 0.08f);
+            Estado("_selectColorState", new Color(0.45f, 1f, 0.65f, 1f), 0.03f);
+            Estado("_disabledColorState", new Color(0.25f, 0.28f, 0.3f, 1f), 0.1f);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            PrefabUtility.RecordPrefabInstancePropertyModifications(color);
+        }
+        // Mismo orden de dibujo que el fondo plano del botón (el bucle final de Construir le suma el del panel).
+        foreach (var r in pk.GetComponentsInChildren<Renderer>(true)) r.sortingOrder = 2;
+        // La etiqueta, 1,5 mm por delante de la cara que se hunde (PokeInteractableVisual), en su lado -z (el del
+        // usuario). Se mide solo esa cara: el prefab entero es más hondo y la etiqueta quedaría flotando delante.
+        // Se mide en el marco del botón (el panel cuelga del rig, que está girado: los bounds del mundo no valen).
+        var cara = EstiloNanoLab.CaraPoke(pk);
+        float frente = float.MaxValue;
+        if (cara != null)
+            foreach (var r in cara.GetComponentsInChildren<Renderer>(true))
+            {
+                var lb = r.localBounds;
+                for (int i = 0; i < 8; i++)
+                {
+                    var esquina = lb.center + Vector3.Scale(lb.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                    frente = Mathf.Min(frente, go.transform.InverseTransformPoint(r.transform.TransformPoint(esquina)).z);
+                }
+            }
+        if (frente < float.MaxValue)
+        {
+            b.etiqueta.transform.localPosition = new Vector3(0f, 0f, frente - 0.0015f);
+        }
+        b.fondo.gameObject.SetActive(false);   // el bloque poke es ahora el cuerpo del botón
+    }
+
     // Texto alineado a la izquierda cuyo borde izquierdo está en x.
     static TextMeshPro Izq(Transform p, string s, float x, float y, float ancho, float tam, Color c, bool negrita)
     {
@@ -84,7 +141,10 @@ public static class MontarAjustes
         return t;
     }
 
-    internal static BotonMenu Boton(Transform p, string id, string texto, string accion, float x, float y, float ancho)
+    const string PokePrefab = "Packages/com.meta.xr.sdk.interaction/Runtime/Prefabs/Poke/PokeInteractable.prefab";
+
+    // 'borde': color para los botones que borran avance (NUEVA PARTIDA).
+    internal static BotonMenu Boton(Transform p, string id, string texto, string accion, float x, float y, float ancho, Color? borde = null)
     {
         var go = new GameObject("Boton_" + id);
         go.transform.SetParent(p, false);
@@ -93,8 +153,9 @@ public static class MontarAjustes
         b.id = id;
         b.accion = accion;
         b.alcanceRayo = 2f;
-        b.fondo = MI.Panel(go.transform, "Fondo", 0f, 0f, 0f, ancho, 0.06f, 0.012f, FondoBoton, Cian, 0.002f, 2);
-        b.etiqueta = MI.Texto(go.transform, texto, 0f, 0f, ancho, texto.Length <= 2 ? 0.4f : 0.22f, Color.white, true, TextAlignmentOptions.Center);
+        b.fondo = MI.Panel(go.transform, "Fondo", 0f, 0f, 0f, ancho, 0.06f, 0.012f, FondoBoton, borde ?? Cian, 0.002f, 2);
+        b.etiqueta = MI.Texto(go.transform, texto, 0f, 0f, ancho, texto.Length <= 2 ? 0.4f : texto.Length > 17 ? 0.19f : 0.22f, Color.white, true, TextAlignmentOptions.Center);
+        Poke(go, b, ancho, borde.HasValue);
         var col = go.AddComponent<BoxCollider>();
         col.isTrigger = true;   // solo para el rayo: no empuja nada
         col.size = new Vector3(ancho, 0.06f, 0.02f);

@@ -26,7 +26,7 @@ public class AvisoInicio : MonoBehaviour
         new Tarjeta { titulo = "MOVERTE", texto = "<b>Joystick izquierdo:</b> caminar\n<b>Joystick derecho:</b> girar\n<b>Grip o gatillo:</b> agarrar objetos" },
         new Tarjeta { titulo = "EL MICROSCOPIO", texto = "1. Coge un <b>portaobjetos</b>\n2. Toca una muestra\n3. Déjalo en la <b>platina</b>\n4. Acerca la cara al ocular" },
         new Tarjeta { titulo = "¿DÓNDE EMPIEZO?", texto = "Ve al <b>Centro de Experimentación</b> (puerta de la derecha) y sigue las flechas del suelo: la <b>MISIÓN 1</b> empieza en el BANCO DE MUESTRAS (1)." },
-        new Tarjeta { titulo = "MENÚ Y CHECKPOINT", texto = "<b>Botón menú</b> (mando izq.): volumen, modo sentado y volver al checkpoint.\n<size=80%>Contenido educativo simplificado.</size>" },
+        new Tarjeta { titulo = "MENÚ Y CHECKPOINT", texto = "<b>Botón menú</b> (mando izq.): volumen, modo sentado, ayuda y volver al checkpoint.\n<size=80%>Contenido educativo simplificado.</size>" },
     };
 
     [Tooltip("Distancia del aviso a los ojos (m).")]
@@ -41,8 +41,10 @@ public class AvisoInicio : MonoBehaviour
     static readonly Color Acento = new Color(0.12f, 0.62f, 0.85f);
 
     GameObject raiz;
-    TextMeshPro titulo, texto, contador, boton, botonAtras;
-    GameObject goSiguiente, goAtras;
+    TextMeshPro titulo, texto, contador, boton, botonAtras, botonSaltar;
+    GameObject goSiguiente, goAtras, goSaltar;
+    const int MaxPuntos = 8;   // tarjetas del mazo más largo (tutorial: 6, ayuda: 7)
+    bool avisarAyuda;          // se abrió sin tutorial (ya había partida): al cerrar se dice dónde está la ayuda
     const float AnchoSiguiente = 0.17f, AnchoAtras = 0.09f;
     PanelRedondeado[] puntos;
     Tarjeta[] actuales;
@@ -70,7 +72,46 @@ public class AvisoInicio : MonoBehaviour
         Invoke(nameof(MostrarInicio), 0.8f);   // el seguimiento de la cabeza tarda un instante
     }
 
-    void MostrarInicio() => Mostrar(true);
+    // Quien ya tiene partida guardada no repite el tutorial (flexibilidad): lo tiene en el menú > AYUDA.
+    void MostrarInicio()
+    {
+        bool nuevo = !Partida.Existe;
+        avisarAyuda = !nuevo;
+        Mostrar(nuevo);
+    }
+
+    // AYUDA del menú: qué toca hacer ahora, controles, cómo pedir pistas, glosario y partida.
+    public void MostrarAyuda()
+    {
+        var rm = RetoManager.Instancia;
+        string ahora = rm != null
+            ? (rm.Actual == EtapaReto.Cierre ? "" : $"<b>{rm.CodigoMision} · paso {rm.PasoMision} de {rm.PasosMision}</b>\n") + rm.ObjetivoCorto
+            : "Ve al <b>Centro de Experimentación</b> y sigue las flechas del suelo.";
+        var av = Aviso.Ultimos;
+        if (av.Count > 0)
+        {
+            string u = av[av.Count - 1].texto.Replace("\n", " ");
+            if (u.Length > 120) u = u.Substring(0, 117) + "...";
+            ahora += $"\n<size=75%><color=#5B6B7A>Último aviso: {u}</color></size>";
+        }
+        var mazo = new[]
+        {
+            new Tarjeta { titulo = "¿QUÉ HAGO AHORA?", texto = ahora },
+            new Tarjeta { titulo = "CONTROLES", texto = "<b>Joystick izq.:</b> caminar · <b>der.:</b> girar\n<b>Grip o gatillo:</b> agarrar\n<b>Botones:</b> tócalos, o apúntalos y aprieta el gatillo\n<b>Y:</b> ver tu objetivo · <b>Botón menú:</b> ajustes y ayuda" },
+            new Tarjeta { titulo = "EN EL MICROSCOPIO", texto = "<b>A:</b> más aumento · <b>B o Y:</b> menos\n<b>Joystick izq.:</b> mover la muestra\n<b>Joystick der.:</b> pestañas y zoom fino\n<b>X:</b> mover la vista\nAparta la cara del ocular para salir." },
+            new Tarjeta { titulo = "SI TE ATASCAS", texto = "Cada estación tiene un botón <b>PISTA</b>.\nEn la vacuna, <b>AYUDA</b> enseña el gesto y <b>PASO A PASO</b> te guía.\nEquivocarte no resta: cada error explica por qué." },
+            new Tarjeta { titulo = "PALABRAS DEL LABORATORIO", texto = "<b>Frotis:</b> capa fina de muestra sobre el portaobjetos.\n<b>Tinción de Gram:</b> colorantes que dejan las bacterias violetas (Gram +) o rosas (Gram -).\n<b>Platina:</b> la base del microscopio donde va el portaobjetos." },
+            new Tarjeta { titulo = "MÁS PALABRAS", texto = "<b>Hifas:</b> los filamentos de un hongo.\n<b>Pared:</b> capa que rodea a la bacteria; la penicilina la rompe.\n<b>Antígeno:</b> la parte del virus que la vacuna enseña a reconocer." },
+            new Tarjeta { titulo = "TU PARTIDA", texto = "Se guarda sola al avanzar. Cada misión deja un <b>checkpoint</b>.\nEn el menú: GUARDAR, VOLVER AL CHECKPOINT o NUEVA PARTIDA.\n<size=80%>Contenido educativo simplificado.</size>" },
+        };
+        actuales = mazo;
+        conTutorial = false;
+        avisarAyuda = false;
+        Ir(0);
+    }
+
+    // Lo cierra sin más (pruebas automáticas).
+    public void CerrarAhora() { if (raiz != null) raiz.SetActive(false); }
 
     // Al volver a ponerse el visor: solo el aviso (si el tutorial estaba abierto, sigue donde iba).
     void AlPonerseCasco()
@@ -103,13 +144,17 @@ public class AvisoInicio : MonoBehaviour
         var t = actuales[i];
         titulo.text = t.titulo;
         texto.text = t.texto;
-        bool tut = actuales == Tutorial;
-        int n = tut ? Tutorial.Length : 0;
+        bool tut = actuales != Bienvenida;   // un mazo de varias tarjetas: el tutorial o la ayuda
+        bool esAyuda = tut && actuales != Tutorial;
+        int n = tut ? actuales.Length : 0;
         contador.text = tut ? $"{i + 1} / {n}" : "";
         // La etiqueta dice lo que pasa al pulsar (no un "Continuar" genérico, que suena a cerrar).
         bool ultimaTarjeta = i == actuales.Length - 1 && !(actuales == Bienvenida && conTutorial);
         if (actuales == Bienvenida) boton.text = conTutorial ? "Ya lo veo bien  ›" : "Ya lo veo bien";
-        else boton.text = ultimaTarjeta ? "Empezar a jugar" : "Siguiente  ›";
+        else boton.text = ultimaTarjeta ? (esAyuda ? "Cerrar" : "Empezar a jugar") : "Siguiente  ›";
+        // Saltar el tutorial o cerrar la ayuda desde cualquier tarjeta (control y libertad del usuario).
+        goSaltar.SetActive(tut && !ultimaTarjeta);
+        botonSaltar.text = esAyuda ? "Cerrar" : "Saltar";
         // "‹ Atrás" solo cuando hay una tarjeta anterior del tutorial; entonces el botón principal se aparta a la derecha.
         bool atras = tut && i > 0;
         goAtras.SetActive(atras);
@@ -117,7 +162,8 @@ public class AvisoInicio : MonoBehaviour
         goSiguiente.transform.localPosition = new Vector3(atras ? 0.05f : 0f, y, goSiguiente.transform.localPosition.z);
         for (int k = 0; k < puntos.Length; k++)
         {
-            puntos[k].gameObject.SetActive(tut);
+            puntos[k].gameObject.SetActive(tut && k < n);
+            puntos[k].transform.localPosition = new Vector3((k - (n - 1) / 2f) * 0.018f, -Lado / 2f + 0.016f, -0.001f);
             puntos[k].color = k == i ? Acento : new Color(0.75f, 0.82f, 0.88f, 1f);
             puntos[k].Aplicar();
         }
@@ -127,7 +173,7 @@ public class AvisoInicio : MonoBehaviour
     void Atras()
     {
         if (Time.unscaledTime - ultimo < 0.3f || Time.unscaledTime - mostradoEn < 0.25f) return;
-        if (actuales != Tutorial || indice == 0) return;
+        if (actuales == Bienvenida || indice == 0) return;
         ultimo = Time.unscaledTime;
         Ir(indice - 1);
     }
@@ -138,8 +184,27 @@ public class AvisoInicio : MonoBehaviour
         ultimo = Time.unscaledTime;
         if (indice < actuales.Length - 1) { Ir(indice + 1); return; }
         if (actuales == Bienvenida && conTutorial) { conTutorial = false; actuales = Tutorial; Ir(0); return; }
+        Terminar();
+    }
+
+    // Botón "Saltar" (tutorial) o "Cerrar" (ayuda): con las mismas guardas que Siguiente, para que una pulsación no cuente dos veces.
+    void Cerrar()
+    {
+        if (Time.unscaledTime - ultimo < 0.3f || Time.unscaledTime - mostradoEn < 0.25f) return;
+        ultimo = Time.unscaledTime;
+        Terminar();
+    }
+
+    void Terminar()
+    {
         raiz.SetActive(false);
         Sonidos.Etapa(raiz.transform.position);
+        if (!avisarAyuda) return;
+        avisarAyuda = false;
+        var cab = ManosRig.Cabeza;
+        if (cab == null) return;
+        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
+        Aviso.Mostrar("Tutorial y controles: botón menú (mando izq.) > AYUDA.", cab.position + f * 0.9f + Vector3.down * 0.3f, Aviso.Tipo.Info, 5f);
     }
 
     void Update()
@@ -204,17 +269,25 @@ public class AvisoInicio : MonoBehaviour
         titulo.fontSizeMax = 0.26f;
         texto = Texto("Texto", new Vector3(0f, -0.005f, -0.003f), 0.19f, false, Tinta, fuente, 0.15f);
         texto.alignment = TextAlignmentOptions.Center;
+        // Las tarjetas de ayuda traen más texto: se encoge en lugar de pisar los botones.
+        texto.enableAutoSizing = true;
+        texto.fontSizeMax = 0.19f;
+        texto.fontSizeMin = 0.12f;
 
         // Botón principal (oscuro, lleno) y botón secundario "‹ Atrás" (claro): se distinguen a simple vista.
         goSiguiente = BotonPoke("BotonSiguiente", new Vector3(0f, -h + 0.05f, -0.001f), AnchoSiguiente, Tinta, Acento, Color.white, mat, fuente, out boton, Siguiente);
         goAtras = BotonPoke("BotonAtras", new Vector3(-0.105f, -h + 0.05f, -0.001f), AnchoAtras, new Color(0.82f, 0.89f, 0.95f), new Color(0.7f, 0.85f, 0.97f), Tinta, mat, fuente, out botonAtras, Atras);
         botonAtras.text = "‹  Atrás";
         goAtras.SetActive(false);
+        // "Saltar" / "Cerrar": arriba a la izquierda, pequeño y claro (no compite con el botón principal).
+        goSaltar = BotonPoke("BotonSaltar", new Vector3(-h + 0.055f, h - 0.045f, -0.001f), 0.085f, new Color(0.82f, 0.89f, 0.95f), new Color(0.7f, 0.85f, 0.97f), Tinta, mat, fuente, out botonSaltar, Cerrar);
+        botonSaltar.text = "Saltar";
+        goSaltar.SetActive(false);
         // Progreso arriba a la derecha (no compite con los botones).
         contador = Texto("Contador", new Vector3(h - 0.04f, h - 0.03f, -0.003f), 0.14f, false, new Color(0.4f, 0.5f, 0.6f), fuente, 0.03f);
         contador.rectTransform.sizeDelta = new Vector2(0.06f, 0.03f);
 
-        puntos = new PanelRedondeado[Tutorial.Length];
+        puntos = new PanelRedondeado[MaxPuntos];
         for (int i = 0; i < puntos.Length; i++)
             puntos[i] = Quad("Punto" + i, new Vector3((i - (puntos.Length - 1) / 2f) * 0.018f, -h + 0.016f, -0.001f), 0.009f, 0.009f, 0.0045f, Acento, Color.clear, 0f, mat, 1);
     }

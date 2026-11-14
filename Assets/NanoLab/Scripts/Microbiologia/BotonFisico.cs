@@ -22,6 +22,9 @@ public class BotonFisico : Apuntable
     public event System.Action Pulsado;
     public bool Presionado => seleccionado || Time.time < hastaRayo;
     public bool Activo { get; private set; }
+    // Deshabilitado: la tapa y la etiqueta se ven grises (aún no se puede usar). Al pulsarlo no destella, pero sí
+    // avisa a su dueño, que explica qué falta: un botón nunca se queda mudo (prevención de errores).
+    public bool Habilitado { get; private set; } = true;
 
     static readonly Color Reposo = new Color(0.85f, 0.95f, 1f);
     static readonly Color Encima = new Color(0.45f, 0.95f, 1f);
@@ -29,6 +32,8 @@ public class BotonFisico : Apuntable
     static readonly Color LedApagado = new Color(0.08f, 0.12f, 0.16f);
     static readonly Color LedEncendido = new Color(0.3f, 1f, 0.5f);
     static readonly Color TapaVerde = new Color(0.35f, 1f, 0.5f, 1f);
+    static readonly Color TapaGris = new Color(0.32f, 0.36f, 0.4f, 1f);
+    static readonly Color EtiquetaGris = new Color(0.55f, 0.62f, 0.68f);
 
     PokeInteractable poke;
     InteractableColorVisual colorTapa;
@@ -58,6 +63,7 @@ public class BotonFisico : Apuntable
         if (etiqueta != null) escalaEtiqueta = etiqueta.transform.localScale;
         mpb = new MaterialPropertyBlock();
         PintarLed();
+        if (!Habilitado) AplicarColorTapa();   // lo deshabilitaron antes de este Awake
     }
 
     void OnEnable() { if (poke != null) poke.WhenStateChanged += AlCambiarEstado; }
@@ -87,6 +93,12 @@ public class BotonFisico : Apuntable
     {
         if (Time.time - ultimo < 0.2f) return;
         ultimo = Time.time;
+        if (!Habilitado)
+        {
+            ManosRig.Vibrar(transform.position, 0.2f, 0.03f);
+            Pulsado?.Invoke();
+            return;
+        }
         destello = 1f;
         verde = 1f;
         PonerVerde(true);
@@ -110,8 +122,25 @@ public class BotonFisico : Apuntable
     {
         if (colorTapa == null || si == tapaVerde) return;
         tapaVerde = si;
-        var encimaReposo = Color.Lerp(colorReposo * 1.8f, Color.white, 0.2f); encimaReposo.a = 1f;
-        colorTapa.InjectOptionalNormalColorState(new InteractableColorVisual.ColorState { Color = si ? TapaVerde : colorReposo, ColorTime = si ? 0.05f : 0.4f });
+        AplicarColorTapa();
+    }
+
+    public void Habilitar(bool si)
+    {
+        if (Habilitado == si) return;
+        Habilitado = si;
+        AplicarColorTapa();
+    }
+
+    // Colores del InteractableColorVisual del SDK de Meta según el estado: verde (recién pulsado o activo),
+    // el color del botón (reposo) o gris (deshabilitado).
+    void AplicarColorTapa()
+    {
+        if (colorTapa == null) return;
+        bool si = tapaVerde;
+        var normal = Habilitado ? colorReposo : TapaGris;
+        var encimaReposo = Habilitado ? Color.Lerp(normal * 1.8f, Color.white, 0.2f) : Color.Lerp(TapaGris, Color.white, 0.15f); encimaReposo.a = 1f;
+        colorTapa.InjectOptionalNormalColorState(new InteractableColorVisual.ColorState { Color = si ? TapaVerde : normal, ColorTime = si ? 0.05f : 0.4f });
         colorTapa.InjectOptionalHoverColorState(new InteractableColorVisual.ColorState { Color = si ? Color.Lerp(TapaVerde, Color.white, 0.25f) : encimaReposo, ColorTime = 0.08f });
         if (colorTapa.isActiveAndEnabled) { colorTapa.enabled = false; colorTapa.enabled = true; }
     }
@@ -151,7 +180,7 @@ public class BotonFisico : Apuntable
         destello = Mathf.MoveTowards(destello, 0f, Time.deltaTime * 4f);
         if (etiqueta != null)
         {
-            var c = Presionado || verde > 0.3f || Activo ? Pulsando : encima ? Encima : Reposo;
+            var c = !Habilitado ? EtiquetaGris : Presionado || verde > 0.3f || Activo ? Pulsando : encima ? Encima : Reposo;
             etiqueta.color = Color.Lerp(etiqueta.color, c, Time.deltaTime * 15f);
             etiqueta.transform.localScale = escalaEtiqueta * (1f + 0.18f * destello);
         }

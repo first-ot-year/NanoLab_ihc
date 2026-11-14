@@ -67,7 +67,12 @@ public class RetoManager : MonoBehaviour
     string ultimaEstrategia;
     bool ultimoCoherente;
     string pistaFallo, pistaPendiente;
-    bool checkpointPendiente;
+    // Guía: estado de los portaobjetos (adónde hay que ir de verdad) y fichas abiertas.
+    bool portaCogido;                            // ya se agarró un portaobjetos en esta partida
+    float tSub;
+    int claveSub = -1;
+    readonly HashSet<string> fichasVistas = new HashSet<string>();   // no se pierden al cambiar de métricas
+    public bool RetomadaAntes { get; private set; }   // la partida cargada se retomó en un paso anterior al guardado
     string avisoMision;                          // "MISIÓN n COMPLETA…": se muestra al apartar la cara del ocular
     bool fallosClasificacion, fallosExplicacion; // para la métrica R: ¿acertó a la primera?
     string respuestaConclusiones;
@@ -126,11 +131,20 @@ public class RetoManager : MonoBehaviour
         dentro = ahora;
         // Actividad del estudiante mientras la misión está en marcha (Engagement: tiempo inactivo).
         if (dentro && Actual != EtapaReto.Cierre) metricas.Muestrear(cab, ManosRig.ManoIzq, ManosRig.ManoDer, Time.deltaTime);
+        // Agarrar, limpiar o cargar un portaobjetos no lanza eventos del reto: se sondea para que el objetivo y las
+        // flechas lleven siempre a donde toca (p. ej. al banco si el portaobjetos quedó limpio).
+        if (Time.time >= tSub)
+        {
+            tSub = Time.time + 0.25f;
+            if (Portaobjetos.AlgunoAgarrado) portaCogido = true;
+            int k = ClaveSubpaso();
+            if (k != claveSub) { bool primera = claveSub < 0; claveSub = k; if (!primera) Refrescar(false); }
+        }
         if (cab == null || MicroscopioOptico.AlgunoActivo) return;
         var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
         if (avisoMision != null)
         {
-            Aviso.Mostrar(avisoMision, cab.position + frente * 0.9f + Vector3.down * 0.05f, Aviso.Tipo.Ok, 8f);
+            Aviso.Mostrar(avisoMision, cab.position + frente * 0.9f + Vector3.down * 0.05f, Aviso.Tipo.Ok, 10f);
             Sonidos.Logro(cab.position);
             avisoMision = null;
         }
@@ -139,13 +153,6 @@ public class RetoManager : MonoBehaviour
             Aviso.Mostrar(pistaPendiente, cab.position + frente * 0.9f + Vector3.down * 0.2f, Aviso.Tipo.Pista, 10f);
             Sonidos.Pista(cab.position);
             pistaPendiente = null;
-        }
-        if (checkpointPendiente)
-        {
-            // Se avisa al apartar la cara del ocular (con el HUD delante no se vería).
-            Aviso.Mostrar("CHECKPOINT GUARDADO\nPara volver aquí: botón de menú del mando izq. > CHECKPOINT.",
-                cab.position + frente * 0.9f + Vector3.down * 0.42f, Aviso.Tipo.Ok, 6f);
-            checkpointPendiente = false;
         }
     }
 
@@ -156,7 +163,9 @@ public class RetoManager : MonoBehaviour
         switch (e)
         {
             case EtapaReto.Exploracion: return "En el BANCO (1) hay 3 muestras. Coge un portaobjetos de la mesa de TINCIÓN (2) y toca con él la placa de la MUESTRA A (herida de piel) para hacer el frotis.";
-            case EtapaReto.Tincion: return "Tiñe el frotis de la MUESTRA A: toca los goteros en orden 1 > 2 > 3 > 4 (tinción de Gram).";
+            case EtapaReto.Tincion:
+                if (PortaCon(reto.muestra) == null) return "Tu portaobjetos quedó limpio. Vuelve al BANCO (1), toca otra vez la MUESTRA A y repite la tinción 1 > 2 > 3 > 4.";
+                return "Tiñe el frotis de la MUESTRA A: toca los goteros en orden 1 > 2 > 3 > 4 (tinción de Gram).";
             case EtapaReto.Observacion:
             {
                 int ev = Evidencias.Count(x => x);
@@ -191,9 +200,113 @@ public class RetoManager : MonoBehaviour
         if (aConclusiones && conclusiones != null) return conclusiones.guia;
         if (Actual == EtapaReto.Cierre) return null;   // ya no hay estación: lo siguiente es la vacuna (MISIÓN 3)
         int est = EstacionDeEtapa[(int)Actual];
-        if (Actual == EtapaReto.Hipotesis && Hipotesis == null) est = 4;
+        // 0 banco, 1 tinción, 2 microscopía, 4 terminal: según lo que el jugador lleva de verdad.
+        switch (Actual)
+        {
+            case EtapaReto.Exploracion: est = portaCogido ? 0 : 1; break;
+            case EtapaReto.Tincion: est = PortaCon(reto.muestra) == null ? 0 : 1; break;
+            case EtapaReto.Observacion:
+                if (!Evidencias.All(x => x)) est = PortaCon(reto.muestra) != null ? 2 : 0;
+                else { var pend = Pendiente; est = pend != null && PortaCon(pend) == null ? 0 : 2; }
+                break;
+            case EtapaReto.Hipotesis: est = 4; break;
+        }
         return est < estaciones.Length ? estaciones[est] : null;
     }
+
+    // ------------------------------------------------------------------ paso de la misión y objetivo corto
+
+    // Paso dentro de la misión (lo enseña la tarjeta de objetivo): la misión 1 tiene 6 y la misión 2, 5.
+    static readonly string[] PasosM1 = { "FROTIS", "TINCIÓN", "OBSERVAR", "CLASIFICAR", "CONSULTAR", "IDENTIFICAR" };
+    static readonly string[] PasosM2 = { "ESTRATEGIA", "PREPARAR", "EXPERIMENTAR", "COMPARAR", "EXPLICAR" };
+    public int PasosMision => Mision == 1 ? PasosM1.Length : PasosM2.Length;
+    public int PasoMision
+    {
+        get
+        {
+            switch (Actual)
+            {
+                case EtapaReto.Exploracion: return 1;
+                case EtapaReto.Tincion: return 2;
+                case EtapaReto.Observacion: return 3;
+                case EtapaReto.Investigacion: return Clasificadas < 3 ? 4 : 5;
+                case EtapaReto.Hipotesis: return Hipotesis == null ? 6 : 1;
+                case EtapaReto.Preparacion: return 2;
+                case EtapaReto.Experimento: return 3;
+                case EtapaReto.Analisis: return ExitoAnalizado ? 5 : 4;
+                default: return PasosM2.Length;
+            }
+        }
+    }
+    public string NombrePaso => (Mision == 1 ? PasosM1 : PasosM2)[Mathf.Clamp(PasoMision - 1, 0, PasosMision - 1)];
+
+    // Portaobjetos de la misión que lleva esa muestra (no el DESPUÉS de la cámara).
+    Portaobjetos PortaCon(MuestraData m)
+    {
+        if (m == null) return null;
+        foreach (var p in Portaobjetos.Todos) if (p != null && p.DeCaso && !p.Despues && p.muestra == m) return p;
+        return null;
+    }
+
+    // Muestra que falta por comparar con la A (primero la B, luego la C).
+    MuestraData Pendiente => !VistoHongo ? muestraHongo : !VistoVirus ? muestraVirus : null;
+
+    int ClaveSubpaso()
+    {
+        if (Actual > EtapaReto.Observacion) return 0;
+        var a = PortaCon(reto.muestra);
+        var pend = Pendiente;
+        return 1 + (portaCogido ? 1 : 0) + (a != null ? 2 : 0) + (a != null && a.TincionErronea ? 4 : 0)
+                 + (a != null ? a.PasosTincion * 8 : 0) + (pend != null && PortaCon(pend) != null ? 64 : 0);
+    }
+
+    // Una sola frase con la acción de ahora (tarjeta de objetivo y ayuda). El texto largo, 'Objetivo', va en los carteles.
+    public string ObjetivoCorto
+    {
+        get
+        {
+            switch (Actual)
+            {
+                case EtapaReto.Exploracion:
+                    return portaCogido ? "Toca la MUESTRA A del BANCO (1) con tu portaobjetos."
+                                       : "Coge un portaobjetos en la mesa de TINCIÓN (2).";
+                case EtapaReto.Tincion:
+                {
+                    var pa = PortaCon(reto.muestra);
+                    if (pa == null) return "Tu portaobjetos está limpio: vuelve a tocar la MUESTRA A en el BANCO (1).";
+                    if (pa.TincionErronea) return "Tinción no válida: límpialo con el DESINFECTANTE de TINCIÓN (2).";
+                    return $"Tiñe la MUESTRA A: goteros 1 > 2 > 3 > 4 (vas {pa.PasosTincion}/4).";
+                }
+                case EtapaReto.Observacion:
+                {
+                    int ev = Evidencias.Count(x => x);
+                    if (ev < Evidencias.Length)
+                        return PortaCon(reto.muestra) != null ? $"Mira la MUESTRA A en un MICROSCOPIO (3): evidencias {ev}/{Evidencias.Length}."
+                                                             : "Te quedaste sin la MUESTRA A teñida: repite el frotis en el BANCO (1).";
+                    var pend = Pendiente;
+                    if (pend == null) return Objetivo(Actual);
+                    string letra = pend == muestraHongo ? "B" : "C";
+                    return PortaCon(pend) != null ? $"Mira la MUESTRA {letra} en un MICROSCOPIO (3)."
+                                                  : $"Carga la MUESTRA {letra} en el BANCO (1) con un portaobjetos limpio.";
+                }
+                case EtapaReto.Investigacion:
+                    return Clasificadas < 3 ? $"Clasifica las muestras en el panel CONCLUSIONES ({Clasificadas}/3)."
+                                            : "Abre una ficha en la BIBLIOTECA (4) y compárala con la MUESTRA A.";
+                case EtapaReto.Hipotesis:
+                    return Hipotesis == null ? "TERMINAL (5), fila 1: ¿qué bacteria es la MUESTRA A?"
+                                             : "TERMINAL (5), fila 2: elige qué estructura atacar.";
+                case EtapaReto.Preparacion: return "PRENSA (6): encaja el vial de tu estrategia y pulsa FORMULAR.";
+                case EtapaReto.Experimento: return "CÁMARA (7): pon la placa A y la cápsula, y pulsa ACTIVAR.";
+                case EtapaReto.Analisis:
+                    return ExitoAnalizado ? $"Explica el resultado en el panel CONCLUSIONES ({Explicadas}/2)."
+                                          : "Lleva el portaobjetos DESPUÉS a un MICROSCOPIO (3).";
+                default: return "Ve al LABORATORIO DE VACUNAS: la MISIÓN 3 está desbloqueada.";
+            }
+        }
+    }
+
+    // La tarjeta de objetivo vuelve a enseñar el estado de este gestor (la usa GuiaReto al salir de la misión 3).
+    public void RefrescarGuia() => Refrescar(false);
 
     void Avanzar(EtapaReto e)
     {
@@ -218,7 +331,18 @@ public class RetoManager : MonoBehaviour
         string titulo = Actual == EtapaReto.Cierre ? "MISIONES 1 y 2 COMPLETAS" : $"{CodigoMision} · {TituloMision.ToUpper()}";
         string estado = $"Intentos: {Intentos}   ·   Pistas: {Pistas}" + (pistaFallo != null && Actual == EtapaReto.Hipotesis ? $"\n<color=#FFD25A>PISTA: {pistaFallo}</color>" : "");
         foreach (var p in paneles) if (p != null) p.Mostrar(CicloDeEtapa[(int)Actual], titulo, obj, estado);
-        if (guia != null) guia.Etapa(Actual, titulo, obj, destino, true);
+        if (guia != null)
+        {
+            bool fin = Actual == EtapaReto.Cierre;
+            guia.Etapa(fin ? 999 : Mision * 100 + PasoMision, titulo, ObjetivoCorto, destino, true,
+                       PasoMision, fin ? 0 : PasosMision, fin ? "MISIÓN 3 DESBLOQUEADA" : NombrePaso);
+            if (fin)
+            {
+                // Ya no hay estación: las flechas llevan al laboratorio de vacunas hasta que se termine la misión 3.
+                var rv = RetoVacuna.Instancia;
+                guia.DestinoLibre(rv != null && rv.Actual != EtapaVacuna.Cierre ? rv.transform : null, "LABORATORIO DE VACUNAS", 2.6f);
+            }
+        }
         if (terminal != null) terminal.Refrescar();
         RefrescarConclusiones();
         if (conSonido && ManosRig.Cabeza != null) Sonidos.Etapa(ManosRig.Cabeza.position);
@@ -255,6 +379,7 @@ public class RetoManager : MonoBehaviour
             default: e = todas && VistoHongo && VistoVirus ? EtapaReto.Investigacion : EtapaReto.Exploracion; break;
         }
         if (e >= EtapaReto.Investigacion && !todas) e = EtapaReto.Exploracion;
+        RetomadaAntes = e < etapa;   // lo que se llevaba en las manos no se guarda: se vuelve a un paso anterior
         if (e == EtapaReto.Exploracion && Actual == EtapaReto.Exploracion && !Evidencias.Any(x => x)) return;
         // La clasificación de CONCLUSIONES no se guarda aparte: a partir de la Hipótesis ya estaba hecha.
         Clasificadas = e >= EtapaReto.Hipotesis ? 3 : 0;
@@ -399,6 +524,7 @@ public class RetoManager : MonoBehaviour
 
     public void FichaConsultada(string id)
     {
+        fichasVistas.Add(id);
         metricas.Agregar(metricas.Datos.fichasConsultadas, id);
         metricas.Indagacion("Ficha: " + id);
         Sonidos.Clic(transform.position);
@@ -446,7 +572,7 @@ public class RetoManager : MonoBehaviour
         if (m != reto.muestra)
         {
             metricas.Error("Identificacion");
-            Aviso.Mostrar($"AÚN NO. {PorQueNo(m)}", SobreTerminal, Aviso.Tipo.Error, 8f);
+            Aviso.Mostrar(PorQueNo(m), SobreTerminal, Aviso.Tipo.Error, 8f);
             Refrescar(false);
             return false;
         }
@@ -460,11 +586,21 @@ public class RetoManager : MonoBehaviour
     }
 
     // Por qué una identificación no encaja con las evidencias de la A (forma, agrupación, Gram).
-    string PorQueNo(MuestraData m)
+    // Rasgos de la ficha de una bacteria que se comparan con las evidencias: forma y resultado de Gram.
+    public string RasgosFicha(MuestraData m)
     {
+        if (m == null) return "";
         string forma = m.caracteristicas?.FirstOrDefault(d => d.clave == "Forma").valor ?? "";
         string gram = m.gramPositiva ? "Gram + (violeta)" : "Gram - (rosa)";
-        return $"La ficha de {m.nombre} dice: {(string.IsNullOrEmpty(forma) ? "" : forma.ToLower() + ", ")}{gram}. " +
+        return (string.IsNullOrEmpty(forma) ? "" : forma.ToLower() + ", ") + gram;
+    }
+
+    // ¿Se abrió ya la ficha de esta opción en la biblioteca? (la terminal la resume para no tener que recordarla)
+    public bool FichaVistaDe(MuestraData m) => m != null && fichasVistas.Contains(m.nombre);
+
+    string PorQueNo(MuestraData m)
+    {
+        return $"La ficha de {m.nombre} dice: {RasgosFicha(m)}. " +
                $"Tus evidencias de la MUESTRA A: {string.Join(" · ", reto.evidencias.Select(e => e.valor))}. ¿Qué ficha coincide?";
     }
 
@@ -585,8 +721,9 @@ public class RetoManager : MonoBehaviour
             metricas.Datos.postAciertos = fallosClasificacion ? Mathf.Max(0, metricas.Datos.postAciertos) : 3;
             metricas.Guardar(true);
         }
+        // Un solo aviso (antes eran tres apilados): misión, recuerdo y que el progreso quedó guardado.
         avisoMision = $"MISIÓN 1 COMPLETA · ¡Es {reto.muestra.nombre}!\nRECUERDO CIENTÍFICO {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}\n<size=70%>{Misiones.TextoRecuerdo1}</size>";
-        checkpointPendiente = Partida.GuardarCheckpoint(Misiones.Codigo1);
+        if (Partida.GuardarCheckpoint(Misiones.Codigo1)) avisoMision += "\n<size=70%>Progreso guardado (checkpoint).</size>";
         EmpezarMision2(true);
     }
 
@@ -617,7 +754,7 @@ public class RetoManager : MonoBehaviour
         avisoMision = $"MISIÓN 2 COMPLETA · RECUERDO CIENTÍFICO {RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}\n<size=70%>{Misiones.TextoRecuerdo2}</size>\n" +
                       "<size=80%><color=#FFD25A>MISIÓN 3 DESBLOQUEADA: ve al LABORATORIO DE VACUNAS.</color></size>";
         // Checkpoint: cada misión terminada deja un punto de guardado al que se puede volver.
-        checkpointPendiente = Partida.GuardarCheckpoint(Misiones.Codigo2);
+        if (Partida.GuardarCheckpoint(Misiones.Codigo2)) avisoMision += "\n<size=70%>Progreso guardado (checkpoint).</size>";
     }
 
     // ------------------------------------------------------------------ panel CONCLUSIONES
@@ -778,11 +915,20 @@ public class RetoManager : MonoBehaviour
                 "Busca el BANCO DE MUESTRAS (zona 1): la placa de la izquierda es la MUESTRA A. Coge un portaobjetos de la mesa de TINCIÓN (2) y toca la placa con él.",
                 reto.pistasExploracion != null && reto.pistasExploracion.Length > 1 ? reto.pistasExploracion[1] : "Lleva el portaobjetos en la mano y tócalo con la placa: el frotis aparece en el vidrio.",
             }; break;
-            case EtapaReto.Tincion: lista = reto.pistasTincion; break;
+            case EtapaReto.Tincion:
+            {
+                // Recuperarse del error: la pista dice todos los pasos (también que hay que repetir el frotis).
+                var pa = PortaCon(reto.muestra);
+                lista = pa == null ? new[] { "Tu portaobjetos está limpio. Vuelve al BANCO (1) y toca otra vez la placa de la MUESTRA A." }
+                      : pa.TincionErronea ? new[] { "La tinción no es válida. Toca el DESINFECTANTE con el portaobjetos, vuelve a tocar la MUESTRA A en el BANCO (1) y aplica los goteros 1 > 2 > 3 > 4 en orden." }
+                      : reto.pistasTincion;
+                break;
+            }
             case EtapaReto.Observacion:
                 lista = Evidencias.All(x => x)
                     ? new[] { "Ya tienes las evidencias de la A. Limpia un portaobjetos con el desinfectante (o coge otro), toca la placa B o el tubo C del BANCO (1) y míralo al microscopio.",
-                              "La B y la C no hace falta teñirlas. Míralas una detrás de otra: el HUD te deja comparar con la anterior." }
+                              "La B y la C no hace falta teñirlas. Míralas una detrás de otra: el HUD te deja comparar con la anterior.",
+                              "Puedes llevar dos portaobjetos a la vez, uno en cada mano: carga la B en uno y la C en otro." }
                     : reto.pistasObservacion; break;
             case EtapaReto.Investigacion:
                 lista = Clasificadas < 3
@@ -827,7 +973,8 @@ public class RetoManager : MonoBehaviour
         respuestaConclusiones = null; avisoMision = null;
         nivelPista.Clear();
         ultimaEstrategia = null; ultimoCoherente = false;
-        ultimoAgente = -1; ultimaEficacia = 0f; pistaFallo = null; pistaPendiente = null; checkpointPendiente = false;
+        ultimoAgente = -1; ultimaEficacia = 0f; pistaFallo = null; pistaPendiente = null;
+        portaCogido = false; claveSub = -1; fichasVistas.Clear(); RetomadaAntes = false;
         if (camara != null) camara.Reiniciar();
         if (placa != null)
         {
@@ -883,7 +1030,7 @@ public class RetoManager : MonoBehaviour
             guia = "",
         };
         Comparar(ref d, p.muestra);
-        if (d.antes == null) d.guia = "• ¿Qué forma tiene lo que ves?\n• ¿Es más grande o más pequeño que una bacteria (~1 µm)?\n• ¿Hay algún microbio?\n\n<color=#8FD8FF>A: más aumento   B / Y: menos   Joystick izq.: mover la muestra   X: mover la vista</color>";
+        if (d.antes == null) d.guia = "• ¿Qué forma tiene lo que ves?\n• ¿Es más grande o más pequeño que una bacteria (~1 µm)?\n• ¿Hay algún microbio?\n\n<color=#8FD8FF>A: más aumento   B / Y: menos   Joystick izq.: mover la muestra   X: mover la vista   Aparta la cara: salir</color>";
         return d;
     }
 
@@ -901,7 +1048,7 @@ public class RetoManager : MonoBehaviour
             colorRiesgo = revelado ? (Color?)null : new Color(1f, 0.75f, 0.3f),
             cuadernoTitulo = "CUADERNO DE EVIDENCIAS",
             obsTitulo = "QUÉ ESTÁS VIENDO",
-            guia = "• ¿Qué forma tienen las células?\n• ¿Están sueltas, en cadenas o en racimos?\n• ¿De qué color quedaron tras la tinción de Gram?\n\n<color=#8FD8FF>A: más aumento   B / Y: menos   Joystick izq.: mover la muestra   X: mover la vista</color>",
+            guia = "• ¿Qué forma tienen las células?\n• ¿Están sueltas, en cadenas o en racimos?\n• ¿De qué color quedaron tras la tinción de Gram?\n\n<color=#8FD8FF>A: más aumento   B / Y: menos   Joystick izq.: mover la muestra   X: mover la vista   Aparta la cara: salir</color>",
         };
         var claves = new List<string> { "Origen", "Tinción" };
         var valores = new List<string> { reto.origen, tincion };
@@ -933,7 +1080,7 @@ public class RetoManager : MonoBehaviour
         else if (p.TincionErronea)
         {
             d.obs = "El orden de los reactivos fue incorrecto: el color que ves puede engañarte (un falso Gram -). No sirve como evidencia.";
-            d.aviso = "TINCIÓN NO VÁLIDA · Limpia el portaobjetos y repite 1 > 2 > 3 > 4";
+            d.aviso = "TINCIÓN NO VÁLIDA · Límpialo, repite el frotis de la A y tiñe 1 > 2 > 3 > 4";
             d.colorAviso = new Color(1f, 0.45f, 0.4f);
         }
         else if (!p.TincionCompleta)

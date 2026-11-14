@@ -12,10 +12,25 @@ public class PanelResumen : MonoBehaviour
 
     MaterialPropertyBlock mpb;
 
-    void OnEnable() { if (reiniciar != null) reiniciar.Pulsado += Reiniciar; }
-    void OnDisable() { if (reiniciar != null) reiniciar.Pulsado -= Reiniciar; }
+    void OnEnable() { if (reiniciar != null) reiniciar.Pulsado += PedirReinicio; }
+    void OnDisable() { if (reiniciar != null) reiniciar.Pulsado -= PedirReinicio; }
 
-    void Reiniciar() { if (RetoManager.Instancia != null) RetoManager.Instancia.Reiniciar(); }
+    // REINICIAR borra el avance de las misiones 1 y 2: pide una segunda pulsación (control y libertad del usuario).
+    public void PedirReinicio()
+    {
+        var rm = RetoManager.Instancia;
+        if (rm == null) return;
+        var pos = reiniciar != null ? reiniciar.transform.position + Vector3.up * 0.3f : transform.position + Vector3.up * 1.4f;
+        if (rm.Actual != EtapaReto.Exploracion && !Confirmacion.Pedir("reiniciar-misiones"))
+        {
+            Aviso.Mostrar("¿Repetir las misiones 1 y 2 desde el principio? Se borra su avance; tus recuerdos se conservan.\nPulsa REINICIAR otra vez para confirmar.",
+                pos, Aviso.Tipo.Pista, Confirmacion.Segundos);
+            Sonidos.Pista(pos);
+            return;
+        }
+        rm.Reiniciar();
+        Aviso.Mostrar("Misiones 1 y 2 reiniciadas. Empieza en la mesa de TINCIÓN (2).", pos, Aviso.Tipo.Ok);
+    }
 
     public void Pendiente(RetoData reto)
     {

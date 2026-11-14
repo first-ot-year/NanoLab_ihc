@@ -73,6 +73,20 @@ public static class AplicarNovedades
         Debug.Log("[E4] Listo: Microbiología guardada con la terminal de hipótesis y estrategia (sin hornear la luz).");
     }
 
+    // Heurísticas de Nielsen: panel ☰ con AYUDA, lo que borra avance separado de lo que guarda y botones "poke" de Meta.
+    // Solo rehace el panel del rig; el resto de la escena queda igual (sin hornear la luz).
+    [MenuItem("NanoLab/Aplicar heurísticas (panel ☰ con AYUDA y botones poke)", false, 5)]
+    public static void AplicarHeuristicas()
+    {
+        if (Application.isPlaying) { Debug.LogWarning("[Heurísticas] Sal del modo Play antes de aplicar los cambios."); return; }
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+        var s = EditorSceneManager.OpenScene(Microbiologia, OpenSceneMode.Single);
+        Panel();
+        EditorSceneManager.MarkSceneDirty(s);
+        EditorSceneManager.SaveScene(s);
+        Debug.Log("[Heurísticas] Listo: panel ☰ rehecho con AYUDA y botones poke (sin hornear la luz).");
+    }
+
     // Rehace el panel ☰ del rig con los botones de partida y checkpoint.
     static void Panel()
     {

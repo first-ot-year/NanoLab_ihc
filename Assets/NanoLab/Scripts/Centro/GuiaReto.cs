@@ -12,8 +12,7 @@ using UnityEngine;
 // La crea RetoManager; todo se construye por código.
 public class GuiaReto : MonoBehaviour
 {
-    static readonly string[] NombresEtapa =
-        { "EXPLORACIÓN", "TINCIÓN", "OBSERVACIÓN", "INVESTIGACIÓN", "HIPÓTESIS", "PREPARACIÓN", "EXPERIMENTO", "ANÁLISIS", "CIERRE" };
+    const int MaxPuntos = 9;   // misión 1: 6 pasos · misión 2: 5 · misión 3 (vacuna): 9
 
     const float W = 0.42f, H = 0.24f;
     const float SegundosVisible = 8f, DistanciaLlegada = 1.6f, Paso = 0.45f;
@@ -42,6 +41,11 @@ public class GuiaReto : MonoBehaviour
     int etapa = -1;
     string textoObjetivo, nombreEstacion;
     int numeroEstacion;
+    float radioLlegada = DistanciaLlegada;   // a qué distancia se da por llegado (más grande para el laboratorio de vacunas)
+    // Misión 3: con las misiones 1 y 2 terminadas, la tarjeta enseña el paso de la vacuna (la tecla Y sirve en las tres).
+    bool espejoVacuna;
+    float tVacuna;
+    string pasoVacuna;
 
     public static GuiaReto Crear()
     {
@@ -52,37 +56,90 @@ public class GuiaReto : MonoBehaviour
 
     // ------------------------------------------------------------------ API para RetoManager
 
-    public void Etapa(EtapaReto e, string titulo, string obj, EstacionGuia estacion, bool conAviso)
+    // 'clave' identifica el paso (cambia con la misión y con el subpaso); 'pasoN' de 'total' es lo que se enseña.
+    public void Etapa(int clave, string titulo, string obj, EstacionGuia estacion, bool conAviso, int pasoN, int total, string nombrePaso)
     {
-        int i = (int)e;
-        bool nueva = i != etapa;
-        etapa = i;
+        bool nueva = clave != etapa;
+        etapa = clave;
+        var antes = destino;
         textoObjetivo = obj;
         destino = estacion != null ? (estacion.puntoBaliza != null ? estacion.puntoBaliza : estacion.transform) : null;
         numeroEstacion = estacion != null ? estacion.numero : 0;
         nombreEstacion = estacion != null ? estacion.titulo : "";
-        if (nueva) llegado = false;
+        radioLlegada = DistanciaLlegada;
+        // El mismo paso puede cambiar de sitio (p. ej. del microscopio al banco para cargar la muestra B).
+        bool otroDestino = destino != antes;
+        if (nueva || otroDestino) llegado = false;
 
         caso.text = titulo;
-        paso.text = $"PASO {i + 1} DE {NombresEtapa.Length}  ·  {NombresEtapa[Mathf.Clamp(i, 0, NombresEtapa.Length - 1)]}";
+        paso.text = total > 0 ? $"PASO {pasoN} DE {total}  ·  {nombrePaso}" : nombrePaso;
         objetivo.text = obj;
         RefrescarDestino();
-        for (int k = 0; k < puntos.Length; k++)
-        {
-            puntos[k].color = k < i ? new Color(0.35f, 0.75f, 0.5f, 1f) : k == i ? Acento : new Color(0.78f, 0.84f, 0.9f, 1f);
-            puntos[k].Aplicar();
-        }
+        Puntos(pasoN, total);
         if (etiquetaMeta != null) etiquetaMeta.text = numeroEstacion > 0 ? $"<b>{numeroEstacion}</b>  {nombreEstacion}" : nombreEstacion;
         if (nueva && conAviso && dentro) Mostrar(SegundosVisible);
+        else if (otroDestino && dentro) Mostrar(5f);
+        if (espejoVacuna) tVacuna = 0f;   // la tarjeta estaba enseñando la misión 3: se vuelve a poner enseguida
+    }
+
+    // Puntos de progreso: solo los 'total' del recorrido actual, alineados a la derecha.
+    void Puntos(int pasoN, int total)
+    {
+        for (int k = 0; k < puntos.Length; k++)
+        {
+            bool ver = k < total;
+            if (puntos[k].gameObject.activeSelf != ver) puntos[k].gameObject.SetActive(ver);
+            if (!ver) continue;
+            puntos[k].transform.localPosition = new Vector3(W / 2f - 0.025f - (total - 1 - k) * 0.014f, H / 2f - 0.052f, -0.001f);
+            puntos[k].color = k < pasoN - 1 ? new Color(0.35f, 0.75f, 0.5f, 1f) : k == pasoN - 1 ? Acento : new Color(0.78f, 0.84f, 0.9f, 1f);
+            puntos[k].Aplicar();
+        }
+    }
+
+    // Destino que no es una estación numerada (el laboratorio de vacunas al terminar las misiones 1 y 2).
+    public void DestinoLibre(Transform t, string nombre, float radio)
+    {
+        if (destino != t) llegado = false;
+        destino = t;
+        numeroEstacion = 0;
+        nombreEstacion = nombre;
+        radioLlegada = radio;
+        if (etiquetaMeta != null) etiquetaMeta.text = nombre;
+        RefrescarDestino();
+    }
+
+    // La tarjeta enseña el paso de la vacuna mientras la misión 3 está en marcha.
+    void EspejoVacuna(RetoManager rm)
+    {
+        var rv = RetoVacuna.Instancia;
+        bool si = rm != null && rm.Actual == EtapaReto.Cierre && rv != null && rv.Actual >= EtapaVacuna.Antigeno && rv.Actual <= EtapaVacuna.Eficacia;
+        if (!si)
+        {
+            if (espejoVacuna) { espejoVacuna = false; pasoVacuna = null; if (rm != null) rm.RefrescarGuia(); }
+            return;
+        }
+        espejoVacuna = true;
+        string t = $"{Misiones.Codigo3} · {ContenidoVacuna.Titulo.ToUpper()}";
+        string p = $"PASO {(int)rv.Actual} DE 9  ·  {rv.TituloActual}";
+        string o = rv.ObjetivoActual;
+        if (caso.text == t && paso.text == p && objetivo.text == o && destino == null) return;
+        bool nuevoPaso = pasoVacuna != p;
+        pasoVacuna = p;
+        caso.text = t; paso.text = p; objetivo.text = o;
+        destino = null;   // en la vacuna guían la franja de la mesa y el apartado AHORA, no las flechas
+        RefrescarDestino();
+        Puntos((int)rv.Actual, 9);
+        if (nuevoPaso && dentro) Mostrar(SegundosVisible);
     }
 
     void RefrescarDestino()
     {
         if (destinoTxt == null) return;
+        const string pie = "<color=#7A8C9C>Y: ocultar  ·  botón menú: ayuda</color>";
         string donde = numeroEstacion > 0 ? $"{numeroEstacion} · {nombreEstacion}" : nombreEstacion;
-        destinoTxt.text = llegado
-            ? $"<color=#2E9E5B><b>Estás en {donde}</b></color>     <color=#7A8C9C>Y: ocultar</color>"
-            : $"Sigue las flechas del suelo hasta <b>{donde}</b>     <color=#7A8C9C>Y: ocultar</color>";
+        destinoTxt.text = destino == null || string.IsNullOrEmpty(donde) ? pie
+            : llegado ? $"<color=#2E9E5B><b>Estás en {donde}</b></color>   {pie}"
+            : $"Sigue las flechas hasta <b>{donde}</b>   {pie}";
     }
 
     // ------------------------------------------------------------------ cada frame
@@ -95,6 +152,7 @@ public class GuiaReto : MonoBehaviour
         bool micro = MicroscopioOptico.AlgunoActivo;
         if (ahora && !dentro) Mostrar(SegundosVisible);       // al entrar al centro: recordar el objetivo
         dentro = ahora;
+        if (dentro && Time.time >= tVacuna) { tVacuna = Time.time + 0.5f; EspejoVacuna(rm); }
 
         // Y: ver u ocultar la tarjeta (con el microscopio Y es "menos aumento").
         if (dentro && !micro && OVRInput.GetDown(OVRInput.Button.Four))
@@ -170,7 +228,7 @@ public class GuiaReto : MonoBehaviour
         if (haciaCab.sqrMagnitude > 1e-4f) etiquetaMeta.transform.rotation = Quaternion.LookRotation(haciaCab.normalized, Vector3.up);
         etiquetaMeta.gameObject.SetActive(!llegado);
 
-        bool cerca = largo < DistanciaLlegada;
+        bool cerca = largo < radioLlegada;
         if (cerca && !llegado)
         {
             llegado = true;
@@ -179,7 +237,7 @@ public class GuiaReto : MonoBehaviour
             Sonidos.Etapa(b);
             ManosRig.Vibrar(b, 0.3f, 0.08f);
         }
-        else if (!cerca && largo > DistanciaLlegada + 1f && llegado)
+        else if (!cerca && largo > radioLlegada + 1f && llegado)
         {
             llegado = false;   // se alejó: vuelve la ruta
             RefrescarDestino();
@@ -191,7 +249,7 @@ public class GuiaReto : MonoBehaviour
         var rot = Quaternion.LookRotation(Vector3.down, dir);
         int n = 0;
         if (!llegado)
-            for (float s = 0.7f; s < largo - 1f && n < flechas.Length; s += Paso, n++)
+            for (float s = 0.7f; s < largo - Mathf.Max(1f, radioLlegada - 0.6f) && n < flechas.Length; s += Paso, n++)
             {
                 var fl = flechas[n];
                 fl.enabled = true;
@@ -225,8 +283,12 @@ public class GuiaReto : MonoBehaviour
         objetivo = Texto(tarjeta.transform, "Objetivo", new Vector3(0.008f, -0.01f, -0.003f), 0.155f, false, Tinta, fuente, W - 0.06f, TextAlignmentOptions.Left);
         objetivo.rectTransform.sizeDelta = new Vector2(W - 0.06f, 0.11f);
         objetivo.verticalAlignment = VerticalAlignmentOptions.Middle;
+        // Un objetivo largo se encoge en lugar de salirse de la tarjeta.
+        objetivo.enableAutoSizing = true;
+        objetivo.fontSizeMax = 0.155f;
+        objetivo.fontSizeMin = 0.105f;
         destinoTxt = Texto(tarjeta.transform, "Destino", new Vector3(0.008f, -H / 2f + 0.03f, -0.003f), 0.12f, false, Tinta, fuente, W - 0.06f, TextAlignmentOptions.Left);
-        puntos = new PanelRedondeado[NombresEtapa.Length];
+        puntos = new PanelRedondeado[MaxPuntos];
         for (int i = 0; i < puntos.Length; i++)
             puntos[i] = Quad(tarjeta.transform, "Punto" + i, new Vector3(W / 2f - 0.025f - (puntos.Length - 1 - i) * 0.014f, H / 2f - 0.052f, -0.001f),
                              0.008f, 0.008f, 0.004f, Acento, Color.clear, 0f, mat, 1);

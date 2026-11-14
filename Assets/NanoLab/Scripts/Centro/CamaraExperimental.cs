@@ -42,8 +42,34 @@ public class CamaraExperimental : MonoBehaviour
         Reiniciar();
     }
 
-    void OnEnable() { if (activar != null) activar.Pulsado += Activar; }
-    void OnDisable() { if (activar != null) activar.Pulsado -= Activar; }
+    void OnEnable()
+    {
+        if (activar != null) activar.Pulsado += Activar;
+        if (zonaPlaca != null) zonaPlaca.Cambio += AlCambiarZona;
+        if (zonaCapsula != null) zonaCapsula.Cambio += AlCambiarZona;
+        RetoManager.Cambio += RefrescarBoton;
+        RefrescarBoton();
+    }
+
+    void OnDisable()
+    {
+        if (activar != null) activar.Pulsado -= Activar;
+        if (zonaPlaca != null) zonaPlaca.Cambio -= AlCambiarZona;
+        if (zonaCapsula != null) zonaCapsula.Cambio -= AlCambiarZona;
+        RetoManager.Cambio -= RefrescarBoton;
+    }
+
+    void AlCambiarZona(Encajable _) => RefrescarBoton();
+
+    // ACTIVAR se ve gris mientras falta la placa, la cápsula o aún no toca experimentar.
+    void RefrescarBoton()
+    {
+        if (activar == null) return;
+        var placa = zonaPlaca != null && zonaPlaca.Actual != null ? zonaPlaca.Actual.GetComponent<PlacaCaso>() : null;
+        var capsula = zonaCapsula != null && zonaCapsula.Actual != null ? zonaCapsula.Actual.GetComponent<Capsula>() : null;
+        var rm = RetoManager.Instancia;
+        activar.Habilitar(!Ocupada && placa != null && capsula != null && capsula.Agente >= 0 && (rm == null || rm.PuedeExperimentar(out _)));
+    }
 
     public void Reiniciar()
     {
@@ -59,6 +85,7 @@ public class CamaraExperimental : MonoBehaviour
         if (portaDespues != null) portaDespues.gameObject.SetActive(false);
         PonerColor(Reposo);
         if (pantalla != null) pantalla.text = "1. Placa en la bandeja\n2. Cápsula en su ranura\n3. Pulsa ACTIVAR";
+        RefrescarBoton();
         if (resultado != null) resultado.text = "";
     }
 
@@ -75,8 +102,8 @@ public class CamaraExperimental : MonoBehaviour
         if (falta == null && rm != null && !rm.PuedeExperimentar(out var motivo)) falta = motivo;
         if (falta != null)
         {
-            Aviso.Mostrar(falta, aviso, Aviso.Tipo.Error);
-            Sonidos.Error(transform.position);
+            Aviso.Mostrar(falta, aviso, Aviso.Tipo.Falta);
+            Sonidos.Pista(transform.position);
             return;
         }
         StartCoroutine(Secuencia(placa, capsula));
@@ -85,6 +112,7 @@ public class CamaraExperimental : MonoBehaviour
     IEnumerator Secuencia(PlacaCaso placa, Capsula capsula)
     {
         Ocupada = true;
+        RefrescarBoton();
         var rm = RetoManager.Instancia;
         int agente = capsula.Agente;
         var a = rm.reto.agentes[agente];
@@ -156,6 +184,7 @@ public class CamaraExperimental : MonoBehaviour
         }
         rm.ResultadoExperimento(agente, eficacia);
         Ocupada = false;
+        RefrescarBoton();
     }
 
     // La compuerta sube (abrir) o baja (cerrar) con sonido de puerta y un golpe suave al terminar.

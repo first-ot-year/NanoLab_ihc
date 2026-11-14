@@ -263,7 +263,7 @@ public class CabinaDescontaminacion : MonoBehaviour
         Parar();
         estado = Estado.Espera;
         tEnCabina = 0f;
-        Avisar("Descontaminación interrumpida.\nVuelve al centro de la cabina y quédate quieto.", Aviso.Tipo.Error);
+        Avisar("Descontaminación interrumpida.\nVuelve al centro de la cabina y quédate quieto.", Aviso.Tipo.Falta);
         Sonidos.Error(puerta);
     }
 

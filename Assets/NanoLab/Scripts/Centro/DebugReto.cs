@@ -70,6 +70,16 @@ public class DebugReto : MonoBehaviour
         FuenteMuestra Gotero(int r) => fuentes.FirstOrDefault(f => f.reactivo == r);
         var desinfectante = fuentes.FirstOrDefault(f => f.esDesinfectante);
 
+        // Heurísticas de Nielsen: la tarjeta de objetivo dice el paso de la misión y adónde ir de verdad.
+        Comprobar(rm.Mision == 1 && rm.PasoMision == 1 && rm.PasosMision == 6 && rm.ObjetivoCorto.Contains("TINCIÓN"),
+                  $"La tarjeta de objetivo empieza en MISIÓN 1 · paso 1 de 6 y manda a coger un portaobjetos (H1, H2): \"{rm.ObjetivoCorto}\"");
+        // Poke de Meta (Interaction SDK): los botones de las misiones 1 y 2.
+        var botonesMision = rm.terminal.botones.Concat(rm.terminal.botonesEstrategia ?? new BotonFisico[0])
+            .Concat(new[] { prensa.formular, camara.activar, rm.resumen != null ? rm.resumen.reiniciar : null })
+            .Concat(rm.conclusiones.botones).Where(b => b != null).ToArray();
+        int conPoke = botonesMision.Count(b => b.GetComponentInChildren<Oculus.Interaction.PokeInteractable>(true) != null);
+        Comprobar(conPoke == botonesMision.Length, $"Los botones de las misiones 1 y 2 son poke de Meta (Interaction SDK): {conPoke}/{botonesMision.Length}");
+
         // 0) Introducción (RF-01) y tolerancia al error (RNF-04): un portaobjetos que cae al suelo vuelve solo.
         var indicador = FindObjectOfType<IndicadorRecuerdos>();
         Comprobar(indicador != null && indicador.texto != null && indicador.texto.text.Contains($"{RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}"),
@@ -101,13 +111,25 @@ public class DebugReto : MonoBehaviour
         porta.ColocarEn(porta.transform.position + Vector3.up * 0.2f, Quaternion.identity);
         desinfectante.Aplicar(porta);
         Comprobar(porta.muestra == null, "El desinfectante limpia el portaobjetos");
+        Comprobar(rm.Actual == EtapaReto.Tincion && rm.ObjetivoCorto.Contains("BANCO"),
+                  $"Con el portaobjetos limpio, el objetivo manda a repetir el frotis en el BANCO (H9): \"{rm.ObjetivoCorto}\"");
         fuentePlaca.Aplicar(porta);
         for (int r = 1; r <= 4; r++) Gotero(r).Aplicar(porta);
         Comprobar(porta.TincionCompleta && rm.Actual == EtapaReto.Observacion, "Tinción de Gram completa > etapa Observación");
+        // Prevención de errores (H5): la tinción válida no se pierde por rozar otra muestra ni el desinfectante.
+        var fuenteMoho = fuentes.FirstOrDefault(f => f.muestra == rm.muestraHongo);
+        if (fuenteMoho != null) fuenteMoho.Aplicar(porta);
+        Comprobar(fuenteMoho != null && porta.muestra == rm.reto.muestra && porta.TincionCompleta,
+                  "Tocar la MUESTRA B con el portaobjetos teñido de la A no borra la tinción (H5)");
+        desinfectante.Aplicar(porta);
+        Comprobar(porta.muestra == rm.reto.muestra && porta.TincionCompleta,
+                  "El desinfectante pide confirmar antes de borrar una tinción válida sin observar (H5)");
         Momento?.Invoke("tincion_completa");
 
         // 2) Hipótesis antes de tiempo: debe rechazarse.
         Comprobar(!rm.PuedeHipotesis(out _), "La terminal rechaza una hipótesis sin evidencias");
+        Comprobar(rm.terminal.botones.All(b => b == null || !b.Habilitado) && rm.terminal.botonesEstrategia.All(b => b == null || !b.Habilitado),
+                  "Los botones de la terminal se ven deshabilitados mientras no se pueden usar (H5)");
 
         // 3) Microscopio: evidencias a 400x y 1000x.
         porta.Encajar(micro.platina);
@@ -218,6 +240,10 @@ public class DebugReto : MonoBehaviour
             rm.terminal.Elegir(opcionCorrecta);
             Comprobar(rm.Hipotesis == rm.reto.muestra && rm.Mision == 2 && Misiones.Tiene(Misiones.Recuerdo1) && rm.Metricas.Datos.caso == Misiones.Codigo2,
                       $"MISIÓN 1 completa al identificar {rm.reto.muestra.nombre}: recuerdo 1, métricas de la misión 2");
+            int errM2 = rm.Metricas.Datos.errores;
+            rm.terminal.Elegir(opcionIncorrecta);
+            Comprobar(rm.PasoMision == 1 && rm.PasosMision == 5 && rm.Hipotesis == rm.reto.muestra && rm.Metricas.Datos.errores == errM2,
+                      "MISIÓN 2 · paso 1 de 5; con la A identificada, la fila 1 de la terminal ya no cuenta errores (H5)");
             Momento?.Invoke("mision1_completa");
             // MISIÓN 2: estrategia buena y un vial que no la sigue: la prensa avisa antes de formular.
             yield return Intento(rm, opcionCorrecta, estrategiaCorrecta, incorrecto, viales, prensa, camara, micro, porta);
@@ -253,6 +279,9 @@ public class DebugReto : MonoBehaviour
         Paso($"Pista en cierre: {pista}");
         Comprobar(Tiene(rm.resumen) && rm.resumen.izquierda.text.Contains(rm.reto.estrategias[estrategiaCorrecta].nombre.ToLower()),
                   "El informe del caso muestra hipótesis · estrategia · agente de cada intento y el aviso de contenido simplificado (RNF-06)");
+        if (rm.resumen != null) rm.resumen.PedirReinicio();
+        Comprobar(rm.Actual == EtapaReto.Cierre, "REINICIAR pide confirmación antes de borrar el avance de las misiones 1 y 2 (H3)");
+        Comprobar(Aviso.Ultimos.Count > 0, $"Los avisos importantes quedan en el historial que enseña la AYUDA (H6): {Aviso.Ultimos.Count}");
         yield return null;
         Momento?.Invoke("archivo");
         yield return ProbarPartida(rm);

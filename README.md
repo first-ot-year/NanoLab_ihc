@@ -118,6 +118,8 @@ Cuatro capas integradas en el propio laboratorio (interfaz diegética):
 - **Comprender el estado:** feedback redundante en al menos dos canales (color + forma, sonido + texto, vibración).
 - **Reflexionar:** comparación antes/después en el microscopio y resumen final de decisiones e intentos.
 
+La interacción se revisó con las **10 heurísticas de Nielsen** antes del piloto (tarjeta con el paso de la misión, flechas según lo que el jugador lleva, botones deshabilitados en gris, confirmación de lo que borra avance, ayuda bajo demanda) y todos los botones usan la **poke interaction** del Meta XR Interaction SDK: [Docs/Heuristicas_Nielsen.md](Docs/Heuristicas_Nielsen.md).
+
 **Dirección visual:** laboratorio claro (blanco, gris, acero) con acentos funcionales (magenta, cian, violeta, naranja) siempre acompañados de iconos o etiquetas. La vista microscópica usa una paleta azul oscura para marcar la transición entre explorar y analizar.
 
 ## Stack técnico
@@ -192,6 +194,7 @@ El proyecto incluye scripts de Editor que regeneran las escenas desde los assets
 |---|---|
 | `NanoLab/Montar TODO (Microbiología)` | Convierte modelos, crea fichas de muestras y regenera la sala (sobrescribe cambios manuales y vuelve a hornear la luz) |
 | `NanoLab/Aplicar E4 (terminal de hipótesis y estrategia)` | Sobre la escena guardada y sin hornear: rehace la terminal (5) con las dos filas de botones, el tablero de agentes de la prensa (con la estrategia de cada agente) y el reto `Caso01` (estrategias y pistas). No toca el resto de Microbiología |
+| `NanoLab/Aplicar heurísticas (panel ☰ con AYUDA y botones poke)` | Sobre la escena guardada y sin hornear: rehace el panel ☰ con el botón AYUDA, NUEVA PARTIDA separada de GUARDAR y los 11 botones como poke de Meta ([Docs/Heuristicas_Nielsen.md](Docs/Heuristicas_Nielsen.md)) |
 | `NanoLab/Aplicar novedades (puertas, compuerta, colisiones, panel ☰)` | Sobre la escena guardada y sin hornear: pone la puerta corredera automática del Centro, la compuerta de la cámara experimental y la ventana de introducción paso a paso; rehace el panel ☰ (con el checkpoint) y los bloqueos de los muebles |
 | `NanoLab/Reconstruir solo el centro de experimentación` | Regenera únicamente el Centro de Experimentación |
 | `NanoLab/Montar cámara de descontaminación (BSL-3)` | Cambia la cabina de la puerta del BSL-3 por una esclusa con dos puertas correderas y ciclo de descontaminación (niebla, luz UV-C, extracción), sin volver a hornear la luz |

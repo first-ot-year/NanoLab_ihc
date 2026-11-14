@@ -117,7 +117,7 @@ public class DebugLocomocion : MonoBehaviour
         else log.AppendLine("(sin música en la escena)");
 
         var menu = MenuAjustes.Instancia;
-        Comprobar(menu != null && menu.panel != null && menu.botones != null && menu.botones.Length == 10 && !menu.Abierto,
+        Comprobar(menu != null && menu.panel != null && menu.botones != null && menu.botones.Length == 11 && !menu.Abierto,
                   $"Panel ☰ de ajustes montado en el rig ({(menu != null && menu.botones != null ? menu.botones.Length : 0)} botones), cerrado al empezar");
         if (menu != null && menu.panel != null)
         {
@@ -129,6 +129,16 @@ public class DebugLocomocion : MonoBehaviour
             bool baja = Mathf.Abs(AjustesNanoLab.VolumenMusica - 0.8f) < 0.001f;
             menu.Pulsar("cerrar");
             Comprobar(abierto && baja && !menu.Abierto, "El panel se abre, sus botones cambian el volumen (100 % > 80 %) y CERRAR lo cierra");
+            // Heurística 10: ayuda bajo demanda desde el panel.
+            if (AvisoInicio.Instancia != null) AvisoInicio.Instancia.CerrarAhora();
+            menu.Abrir(true);
+            menu.Pulsar("ayuda");
+            bool ayudaAbierta = AvisoInicio.Instancia != null && AvisoInicio.Instancia.Abierto;
+            Comprobar(menu.botones.Any(b => b != null && b.id == "ayuda") && ayudaAbierta && !menu.Abierto,
+                      "AYUDA del panel ☰ abre la ayuda con el objetivo actual, los controles y el glosario (H10)");
+            if (AvisoInicio.Instancia != null) AvisoInicio.Instancia.CerrarAhora();
+            int poke = menu.botones.Count(b => b != null && b.GetComponentInChildren<Oculus.Interaction.PokeInteractable>(true) != null);
+            Comprobar(poke == menu.botones.Length, $"Los botones del panel ☰ son poke de Meta (Interaction SDK): {poke}/{menu.botones.Length}");
         }
 
         // Modo sentado: sin visor la cabeza se toma a 1.15 m, así que la vista sube 0.45 m.

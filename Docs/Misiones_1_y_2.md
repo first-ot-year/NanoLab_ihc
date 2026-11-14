@@ -52,8 +52,10 @@ La muestra B reproduce lo que vio Alexander Fleming en 1928: una placa de bacter
 
 ## Guía, ayudas y accesibilidad
 
-- **Flechas del suelo y tarjeta de objetivo** (`GuiaReto`, tecla Y): llevan a la estación del paso actual, también al panel CONCLUSIONES. Cada estación tiene su cartel con **PISTA** (pistas graduales por paso).
-- **Errores sin castigo:** toda respuesta equivocada explica por qué; nada bloquea el reintento.
+- **Flechas del suelo y tarjeta de objetivo** (`GuiaReto`, tecla Y): la tarjeta dice **MISIÓN n · PASO x DE y** (misión 1: 6 pasos; misión 2: 5) y una sola frase con la acción de ahora. Las flechas siguen lo que el jugador lleva de verdad: primero a la mesa de TINCIÓN a por un portaobjetos, luego al BANCO; vuelven al banco si el portaobjetos quedó limpio o falta cargar la B o la C. También llevan al panel CONCLUSIONES y, al terminar, al laboratorio de vacunas. Cada estación tiene su cartel con **PISTA** (pistas graduales por paso).
+- **Errores sin castigo:** toda respuesta equivocada explica por qué; nada bloquea el reintento. Los avisos distinguen "AÚN NO" (equivocación) de "FALTA UN PASO" (todavía no se puede; no cuenta como error).
+- **Prevención de errores:** los botones que aún no se pueden usar se ven grises; una muestra teñida no se borra por rozar otra placa ni el desinfectante (pide tocarlo otra vez); REINICIAR pide una segunda pulsación.
+- **Ayuda bajo demanda:** botón menú > **AYUDA** (qué hago ahora, controles, glosario). Detalle de la revisión en [Heuristicas_Nielsen.md](Heuristicas_Nielsen.md).
 - Todo se puede hacer de pie o sentado (taburetes frente a los microscopios).
 
 ## Métricas (una sesión por misión)
