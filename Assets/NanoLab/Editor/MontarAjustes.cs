@@ -26,7 +26,7 @@ public static class MontarAjustes
         var p = new GameObject(Nombre).transform;
         p.SetParent(rigRoot.transform, false);
 
-        MI.Panel(p, "Fondo", 0f, -0.105f, 0f, 0.62f, 0.77f, 0.03f, Fondo, Cian, 0.003f, 0);
+        MI.Panel(p, "Fondo", 0f, -0.15f, 0f, 0.62f, 0.86f, 0.03f, Fondo, Cian, 0.003f, 0);
         Izq(p, "AJUSTES", -0.27f, 0.225f, 0.3f, 0.4f, Cian, true);
         MI.Texto(p, "Botón menú del mando izq. para cerrar", 0.145f, 0.225f, 0.29f, 0.2f, Tenue, false, TextAlignmentOptions.Right);
 
@@ -40,7 +40,7 @@ public static class MontarAjustes
         botones.Add(Boton(p, "sentado", "CAMBIAR", "cambiar el modo sentado", 0f, -0.07f, 0.13f));
         menu.sentado = Izq(p, "NO", 0.08f, -0.07f, 0.22f, 0.27f, Color.white, false);
 
-        botones.Add(Boton(p, "calibrar", "RECALIBRAR ALTURA", "recalibrar la altura", -0.13f, -0.165f, 0.3f));
+        botones.Add(Boton(p, "calibrar", "AJUSTAR ALTURA", "poner la vista a tu altura", -0.13f, -0.165f, 0.3f));
         // Ayuda bajo demanda: qué toca ahora, controles y glosario (AvisoInicio.MostrarAyuda).
         botones.Add(Boton(p, "ayuda", "AYUDA", "ver la ayuda y los controles", 0.17f, -0.165f, 0.24f));
         // Partida guardada en el visor (se guarda sola; aquí se fuerza). Checkpoint: se crea al terminar cada misión.
@@ -49,9 +49,11 @@ public static class MontarAjustes
         // Lo que borra el avance va en otra fila que lo que lo guarda, y en rojo (prevención de errores).
         botones.Add(Boton(p, "nueva", "NUEVA PARTIDA", "empezar una partida nueva", -0.13f, -0.345f, 0.3f, new Color(1f, 0.45f, 0.4f)));
         botones.Add(Boton(p, "cerrar", "CERRAR", "cerrar los ajustes", 0.17f, -0.345f, 0.24f));
-        menu.partida = MI.Texto(p, "", 0f, -0.4f, 0.58f, 0.2f, Tenue, false, TextAlignmentOptions.Center);
+        // TEMPORAL (pruebas): reinicia la partida de un toque, sin confirmación. NUEVA PARTIDA hace lo mismo pidiendo confirmar.
+        botones.Add(Boton(p, "reiniciar", "REINICIAR PARTIDA", "reiniciar la partida", 0f, -0.435f, 0.4f, new Color(1f, 0.45f, 0.4f)));
+        menu.partida = MI.Texto(p, "", 0f, -0.49f, 0.58f, 0.2f, Tenue, false, TextAlignmentOptions.Center);
         MI.Texto(p, "Sentado en una silla real: activa el modo sentado y la vista sube a la de alguien de pie.\nToca los botones o apúntalos con el rayo.",
-            0f, -0.45f, 0.58f, 0.18f, Tenue, false, TextAlignmentOptions.Center);
+            0f, -0.54f, 0.58f, 0.18f, Tenue, false, TextAlignmentOptions.Center);
 
         // Los paneles son transparentes (no escriben profundidad): con un orden de dibujo mayor que el de
         // los rótulos y balizas, nada de lo que hay detrás se cuela por encima del panel.

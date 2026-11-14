@@ -73,9 +73,11 @@ Esta entrega **cierra los huecos entre lo que se prometió en el hito 1 y lo que
 | RNF-07 | Accesibilidad básica | Should | Volumen, modo sentado y sillas | PL | 🟡 VR |
 | RNF-08 | 72 FPS | Must | Iluminación horneada, piezas por paso, mallas combinadas; `MedidorRendimiento` para medirlo | JSON, OVR Metrics Tool | 🟡 medir en VR |
 
+**12/11/2026 · Todo el mobiliario del centro:** la incubadora (9), la cabina de bioseguridad (10), el autoclave (11), el ultracongelador (12) y la incubadora CO2 (13) son pasos guiados de las misiones (ver [Misiones_1_y_2.md](Misiones_1_y_2.md)). Prueba en Unity: misiones 1 y 2 `CORRECTO` (75 comprobaciones) y misión 3 `CORRECTO`.
+
 ## Lo que solo se puede cerrar con el visor y con personas
 
-1. **Abrir Unity** y correr `NanoLab/Probar misiones 1 y 2` y `NanoLab/Probar reto de vacuna`: ambos deben terminar en `RESULTADO: CORRECTO` / `TODO CORRECTO`.
+1. ✅ **Pruebas automáticas en Unity** (12/11/2026, con `NanoLab/Capturas paso a paso (3 misiones)`): misiones 1 y 2 `CORRECTO` (67 comprobaciones) y misión 3 `CORRECTO`. Para repetirlas: `NanoLab/Probar misiones 1 y 2` y `NanoLab/Probar reto de vacuna`.
 2. **Compilar y abrir en el Quest** y recorrer las 3 misiones: dónde quedaron la cámara y el panel CONCLUSIONES (se eligen al empezar; mirar la consola: `[Misiones] … cámara (x, y, z), panel CONCLUSIONES …`), el frotis de las muestras B y C, la lectura del HUD comparativo y del panel.
 3. **Medir el rendimiento** en el recorrido completo (JSON de sesión y `rendimiento_*.json`, y si se quiere OVR Metrics Tool). Meta: `fpsMedio` ≥ 68 a 72 Hz y `porcentajeLentos` < 5 %.
 4. **Piloto** con 5-8 personas siguiendo [Piloto_HEART.md](Piloto_HEART.md) y análisis con `analizar_metricas.py`.

@@ -31,7 +31,7 @@ public class MenuAjustes : MonoBehaviour
 
     void Update()
     {
-        if (OVRInput.GetDown(OVRInput.Button.Start, OVRInput.Controller.LTouch) || OVRInput.GetDown(OVRInput.Button.Start))
+        if (OVRInput.GetDown(OVRInput.Button.Start, OVRInput.Controller.LTouch) || OVRInput.GetDown(OVRInput.Button.Start) || TeclaMenu())
             Abrir(!Abierto);
         // Se cierra solo si el usuario se aleja de él (p. ej. caminando por la habitación real).
         var cab = ManosRig.Cabeza;
@@ -43,6 +43,9 @@ public class MenuAjustes : MonoBehaviour
         if (panel == null) return;
         if (abrir)
         {
+            // Un solo panel delante de la cara: se cierran la ayuda y los avisos.
+            if (AvisoInicio.Instancia != null && AvisoInicio.Instancia.Abierto) AvisoInicio.Instancia.CerrarAhora();
+            Aviso.OcultarTodos();
             var cab = ManosRig.Cabeza;
             if (cab != null)
             {
@@ -71,9 +74,15 @@ public class MenuAjustes : MonoBehaviour
                 AjustesNanoLab.ModoSentado = !AjustesNanoLab.ModoSentado;
                 break;
             case "calibrar":
-                if (JugadorNanoLab.Instancia != null) JugadorNanoLab.Instancia.CalibrarSentado();
-                AjustesNanoLab.ModoSentado = true;
-                break;
+                // Antes dejaba SIEMPRE el modo sentado activado: pulsarlo otra vez no bajaba nunca la vista.
+                // Ahora solo vuelve a medir si el modo sentado ya está activo; si no, deja la vista a la altura real.
+                if (AjustesNanoLab.ModoSentado && JugadorNanoLab.Instancia != null) JugadorNanoLab.Instancia.CalibrarSentado();
+                if (JugadorNanoLab.Instancia != null) JugadorNanoLab.Instancia.AlSuelo();
+                if (partida != null) partida.text = AjustesNanoLab.ModoSentado
+                    ? "<color=#7CF29A><b>Altura recalibrada (modo sentado)</b></color>"
+                    : "<color=#7CF29A><b>Vista a tu altura real. Para subirla, activa el MODO SENTADO</b></color>";
+                Sonidos.Logro(panel.transform.position);
+                return;
             case "guardar":
                 bool ok = Partida.GuardarManual();
                 if (partida != null) partida.text = ok ? "<color=#7CF29A><b>Partida guardada</b></color>" : "<color=#FF7A7A><b>No se pudo guardar. Inténtalo otra vez o libera espacio en el visor</b></color>";
@@ -104,6 +113,12 @@ public class MenuAjustes : MonoBehaviour
                 Abrir(false);
                 UnityEngine.SceneManagement.SceneManager.LoadScene("Microbiologia");
                 return;
+            case "reiniciar":
+                // TEMPORAL (pruebas): como NUEVA PARTIDA pero de un solo toque. Borra el avance y recarga la escena.
+                Partida.Borrar();
+                Abrir(false);
+                UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+                return;
             case "ayuda":
                 // Ayuda bajo demanda: qué toca ahora, controles, glosario (heurística 10).
                 Abrir(false);
@@ -113,6 +128,22 @@ public class MenuAjustes : MonoBehaviour
         }
     }
 
+
+    // En el PC (Editor sin visor, p. ej. Meta XR Simulator): M o Esc abren y cierran el panel.
+    static bool TeclaMenu()
+    {
+#if UNITY_EDITOR
+        if (OVRManager.isHmdPresent) return false;
+#if ENABLE_INPUT_SYSTEM
+        var kb = UnityEngine.InputSystem.Keyboard.current;
+        return kb != null && (kb.mKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame);
+#else
+        return Input.GetKeyDown(KeyCode.M) || Input.GetKeyDown(KeyCode.Escape);
+#endif
+#else
+        return false;
+#endif
+    }
 
     string EstadoPartida()
     {

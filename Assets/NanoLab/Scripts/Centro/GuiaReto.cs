@@ -113,6 +113,9 @@ public class GuiaReto : MonoBehaviour
     {
         var rv = RetoVacuna.Instancia;
         bool si = rm != null && rm.Actual == EtapaReto.Cierre && rv != null && rv.Actual >= EtapaVacuna.Antigeno && rv.Actual <= EtapaVacuna.Eficacia;
+        // Un equipo del centro (ultracongelador, incubadora CO2) que hace falta para la vacuna: manda su guía (Externo),
+        // con flechas hasta él; el espejo de la vacuna no la pisa.
+        if (si && rm.GuiaExternaActiva) return;
         if (!si)
         {
             if (espejoVacuna) { espejoVacuna = false; pasoVacuna = null; if (rm != null) rm.RefrescarGuia(); }
@@ -130,6 +133,25 @@ public class GuiaReto : MonoBehaviour
         RefrescarDestino();
         Puntos((int)rv.Actual, 9);
         if (nuevoPaso && dentro) Mostrar(SegundosVisible);
+    }
+
+    // Meta fuera del ciclo de las misiones 1 y 2 (en la MISIÓN 3: un equipo del centro). Mismas flechas y tarjeta.
+    public void Externo(string titulo, string pasoTxt, string obj, EstacionGuia estacion)
+    {
+        bool nueva = estacion == null || destino != (estacion.puntoBaliza != null ? estacion.puntoBaliza : estacion.transform);
+        textoObjetivo = obj;
+        destino = estacion != null ? (estacion.puntoBaliza != null ? estacion.puntoBaliza : estacion.transform) : null;
+        numeroEstacion = estacion != null ? estacion.numero : 0;
+        nombreEstacion = estacion != null ? estacion.titulo : "";
+        radioLlegada = DistanciaLlegada;
+        if (nueva) llegado = false;
+        etapa = -1;   // al volver a Etapa(...) cuenta como paso nuevo
+        caso.text = titulo;
+        paso.text = pasoTxt;
+        objetivo.text = obj;
+        RefrescarDestino();
+        if (etiquetaMeta != null) etiquetaMeta.text = numeroEstacion > 0 ? $"<b>{numeroEstacion}</b>  {nombreEstacion}" : nombreEstacion;
+        if (nueva && dentro) Mostrar(SegundosVisible);
     }
 
     void RefrescarDestino()
@@ -162,7 +184,7 @@ public class GuiaReto : MonoBehaviour
             if (cab != null) Sonidos.Clic(cab.position);
         }
 
-        bool verTarjeta = dentro && !micro && (fijada || Time.time < hastaOcultar);
+        bool verTarjeta = dentro && !micro && !Aviso.HayPanelAbierto && (fijada || Time.time < hastaOcultar);
         escalaTarjeta = Mathf.MoveTowards(escalaTarjeta, verTarjeta ? 1f : 0f, Time.deltaTime * 5f);
         tarjeta.SetActive(escalaTarjeta > 0.01f);
         if (tarjeta.activeSelf)

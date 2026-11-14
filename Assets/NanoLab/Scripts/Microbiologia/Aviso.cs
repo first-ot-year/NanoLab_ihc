@@ -29,6 +29,18 @@ public static class Aviso
         if (duracion <= 0f) duracion = auto;
         else if (tipo == Tipo.Error || tipo == Tipo.Falta) duracion = Mathf.Max(duracion, auto);
         Registrar(texto, tipo);
+        // Con el menú ☰ o la ayuda abiertos no se pinta nada encima (queda en el historial de la AYUDA).
+        if (HayPanelAbierto) return;
+
+        // Los avisos delante de la cara van siempre al mismo sitio, por encima de la tarjeta de objetivo
+        // (que va abajo): uno solo a la vez, el nuevo sustituye al anterior.
+        var cab = ManosRig.Cabeza;
+        bool deCara = cab != null && (pos - cab.position).sqrMagnitude < 1.3f * 1.3f;
+        if (deCara)
+        {
+            var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up);
+            if (f.sqrMagnitude > 1e-4f) pos = cab.position + f.normalized * 0.95f + Vector3.up * 0.08f;
+        }
 
         if (raiz == null)
         {
@@ -37,11 +49,22 @@ public static class Aviso
         }
         // Reutiliza el aviso que ya está en ese sitio (no se apilan) o el más antiguo.
         Item elegido = null;
-        foreach (var it in pool) if (it != null && it.Activo && (it.transform.position - pos).sqrMagnitude < 0.09f) { elegido = it; break; }
+        foreach (var it in pool) if (it != null && it.Activo && ((it.transform.position - pos).sqrMagnitude < 0.36f || (deCara && it.DeCara))) { elegido = it; break; }
         if (elegido == null) foreach (var it in pool) if (it != null && !it.Activo) { elegido = it; break; }
         if (elegido == null && pool.Count < 5) { elegido = Crear(); pool.Add(elegido); }
         if (elegido == null) { elegido = pool[0]; foreach (var it in pool) if (it.Inicio < elegido.Inicio) elegido = it; }
         elegido.Mostrar(texto, pos, tipo, duracion);
+        elegido.DeCara = deCara;
+    }
+
+    // Menú ☰ o tarjetas de ayuda abiertos: lo demás se aparta para no taparlos.
+    public static bool HayPanelAbierto =>
+        (MenuAjustes.Instancia != null && MenuAjustes.Instancia.Abierto) || (AvisoInicio.Instancia != null && AvisoInicio.Instancia.Abierto);
+
+    // Al abrir el menú o la ayuda se quitan los avisos que hubiera flotando.
+    public static void OcultarTodos()
+    {
+        foreach (var it in pool) if (it != null && it.Activo) it.gameObject.SetActive(false);
     }
 
     // Los avisos importantes (todo menos la información de paso) se guardan para poder releerlos.
@@ -106,6 +129,7 @@ public static class Aviso
         public PanelRedondeado fondo;
         public float Inicio { get; private set; }
         public bool Activo => gameObject.activeSelf;
+        public bool DeCara;   // aviso delante de la cara (solo uno a la vez)
         float fin;
         Color color;
 

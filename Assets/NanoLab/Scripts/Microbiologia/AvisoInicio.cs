@@ -83,6 +83,7 @@ public class AvisoInicio : MonoBehaviour
     // AYUDA del menú: qué toca hacer ahora, controles, cómo pedir pistas, glosario y partida.
     public void MostrarAyuda()
     {
+        Aviso.OcultarTodos();
         var rm = RetoManager.Instancia;
         string ahora = rm != null
             ? (rm.Actual == EtapaReto.Cierre ? "" : $"<b>{rm.CodigoMision} · paso {rm.PasoMision} de {rm.PasosMision}</b>\n") + rm.ObjetivoCorto

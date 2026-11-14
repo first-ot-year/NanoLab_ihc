@@ -117,7 +117,7 @@ public class DebugLocomocion : MonoBehaviour
         else log.AppendLine("(sin música en la escena)");
 
         var menu = MenuAjustes.Instancia;
-        Comprobar(menu != null && menu.panel != null && menu.botones != null && menu.botones.Length == 11 && !menu.Abierto,
+        Comprobar(menu != null && menu.panel != null && menu.botones != null && menu.botones.Length == 12 && !menu.Abierto,
                   $"Panel ☰ de ajustes montado en el rig ({(menu != null && menu.botones != null ? menu.botones.Length : 0)} botones), cerrado al empezar");
         if (menu != null && menu.panel != null)
         {

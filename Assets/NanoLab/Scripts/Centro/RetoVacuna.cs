@@ -503,6 +503,7 @@ public class RetoVacuna : MonoBehaviour
     {
         var aviso = pos + Vector3.up * 0.15f;
         if (Actual != EtapaVacuna.Sintesis) { Aviso.Mostrar("Ahora no hace falta añadir nada al tubo.", aviso, Aviso.Tipo.Info, 2.5f); return false; }
+        if (FaltaEquipo(out var eqT)) { Aviso.Mostrar($"Faltan el molde de ADN y la enzima T7: están en el {eqT.titulo} ({eqT.guia.numero}). Ve y pulsa {eqT.accion}.", aviso, Aviso.Tipo.Error, 4f); Sonidos.Error(aviso); return false; }
         if (Resuelta || incubando) { Aviso.Mostrar("El ARNm ya se está fabricando.", aviso, Aviso.Tipo.Info, 2.5f); return false; }
         TerminarPresentacion();
         if (!p.correcta)
@@ -766,6 +767,7 @@ public class RetoVacuna : MonoBehaviour
     {
         var aviso = pos + Vector3.up * 0.15f;
         if (Actual != EtapaVacuna.Neutralizacion) { Aviso.Mostrar("Ahora no hace falta añadir nada a la placa.", aviso, Aviso.Tipo.Info, 2.5f); return false; }
+        if (FaltaEquipo(out var eqP)) { Aviso.Mostrar($"Faltan las células Vero: están en la {eqP.titulo} ({eqP.guia.numero}). Ve y pulsa {eqP.accion}.", aviso, Aviso.Tipo.Error, 4f); Sonidos.Error(aviso); return false; }
         if (placa.Animando) { Aviso.Mostrar("Espera a que termine el paso anterior.", aviso, Aviso.Tipo.Info, 2f); return false; }
         int paso = C.PasoDeReactivo(p.id);
         if (paso < 0) { Aviso.Mostrar("Ese reactivo no es de este ensayo.", aviso, Aviso.Tipo.Info, 2.5f); return true; }
@@ -1119,7 +1121,30 @@ public class RetoVacuna : MonoBehaviour
     bool EnMolde(PiezaVacuna b) => b != null && huecosMolde.Contains(b.Encajable.Encajada);
 
     // Acciones del paso, en orden. La primera sin hacer es la actual: la flecha la señala y el plan la resalta.
+    // Equipo del centro que hace falta antes del paso (ULTRACONGELADOR en la síntesis, INCUBADORA CO2 en el ensayo).
+    static EquipoCentro EquipoDe(EtapaVacuna e) =>
+        e == EtapaVacuna.Sintesis ? EquiposCentro.Ultracongelador : e == EtapaVacuna.Neutralizacion ? EquiposCentro.IncubadoraCO2 : null;
+
+    bool FaltaEquipo(out EquipoCentro eq)
+    {
+        eq = EquipoDe(Actual);
+        return eq != null && !EquiposCentro.Listo(eq) && !Resuelta;
+    }
+
     SubPaso[] Plan(EtapaVacuna e)
+    {
+        var basico = PlanBasico(e);
+        var eq = EquipoDe(e);
+        if (eq == null || !EquiposCentro.Obligatorios) return basico;
+        var primero = new SubPaso($"Ve al {eq.titulo} ({eq.guia.numero}) del centro y pulsa {eq.accion}: sin eso no hay material para este paso",
+                                  () => T(eq.boton), () => eq.Hecho || Resuelta).Con(I.Pulsar, () => T(eq.boton))
+            .Nino($"Sigue las flechas del suelo hasta el {eq.titulo} y PULSA su botón amarillo", $"PULSA {eq.accion}");
+        var l = new List<SubPaso> { primero };
+        l.AddRange(basico);
+        return l.ToArray();
+    }
+
+    SubPaso[] PlanBasico(EtapaVacuna e)
     {
         var l = new List<SubPaso>();
         System.Func<Transform> holo = () => holograma != null ? T(holograma) : T(virus);
@@ -1607,6 +1632,7 @@ public class RetoVacuna : MonoBehaviour
 
     string QueFalta()
     {
+        if (FaltaEquipo(out var eq)) return $"Primero saca el material del {eq.titulo} ({eq.guia.numero}): pulsa {eq.accion}.";
         switch (Actual)
         {
             case EtapaVacuna.Antigeno: return "Primero toca la parte del virus holográfico que será tu antígeno.";
@@ -1702,6 +1728,7 @@ public class RetoVacuna : MonoBehaviour
         quizTerminado = false;
         aciertosPost = -1;
         ReiniciarMesa();
+        EquiposCentro.ReiniciarVacuna();
         Poner(EtapaVacuna.Antigeno);
     }
 
@@ -1888,6 +1915,7 @@ public class RetoVacuna : MonoBehaviour
 
     string Indicacion()
     {
+        if (FaltaEquipo(out var eq)) return $"Antes: sigue las flechas del suelo hasta el {eq.titulo} ({eq.guia.numero}) y pulsa {eq.accion}. Allí está el material de este paso.";
         switch (Actual)
         {
             case EtapaVacuna.Antigeno: return "Toca con la mano una parte del virus holográfico del mostrador (o apúntala con el rayo + gatillo). Grip junto al virus para girarlo.";
@@ -2066,9 +2094,20 @@ public class RetoVacuna : MonoBehaviour
         p.Encajable.Encajar(z, true);
     }
 
+    // Pruebas: pulsa el botón del equipo del centro que necesita el paso (si aún no se usó).
+    IEnumerator PrepararEquipo()
+    {
+        var eq = EquipoDe(Actual);
+        if (eq == null || eq.Hecho) yield break;
+        Momento?.Invoke("equipo_" + eq.guia.numero + "_antes");
+        yield return EquiposCentro.Usar(eq);
+        Momento?.Invoke("equipo_" + eq.guia.numero + "_hecho");
+    }
+
     // Un error típico del paso actual (cuenta como error).
     public IEnumerator Fallar()
     {
+        yield return PrepararEquipo();
         switch (Actual)
         {
             case EtapaVacuna.Antigeno: ElegirAntigeno(0); break;
@@ -2109,6 +2148,7 @@ public class RetoVacuna : MonoBehaviour
     // Resuelve el paso actual con las acciones correctas (desde cualquier estado).
     public IEnumerator Acertar()
     {
+        yield return PrepararEquipo();
         var espera = new WaitForSeconds(0.12f);
         switch (Actual)
         {

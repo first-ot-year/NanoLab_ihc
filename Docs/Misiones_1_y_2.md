@@ -50,6 +50,22 @@ La muestra B reproduce lo que vio Alexander Fleming en 1928: una placa de bacter
 4. **Microscopía (3):** portaobjetos DESPUÉS: **ANTES | DESPUÉS**. Si falló, pista y vuelta a la terminal (la estrategia se repiensa).
 5. **CONCLUSIONES:** con el agente eficaz, dos preguntas para explicar el resultado: *¿por qué funcionó?* (pared gruesa de peptidoglucano, por eso quedó violeta) y *¿serviría contra el virus del brote?* (no: los virus no tienen esa pared). Al acertar: **MISIÓN 2 COMPLETA**, recuerdo 2/3, checkpoint, informe en el **Archivo (8)** y **MISIÓN 3 desbloqueada**.
 
+## Todo el mobiliario del centro se usa (equipos 9 a 13)
+
+Los equipos que antes solo decoraban tienen ahora una consola (pantalla + botón amarillo, con el dedo o con el rayo) y un número en la guía. Cada uno es un paso obligatorio con sentido de laboratorio real; pulsarlo cuando no toca no penaliza: explica para qué sirve y cuándo se usa (`Scripts/Centro/EquiposCentro.cs`).
+
+Como en las estaciones 1-8, el paso se hace **con las manos**, no solo con el botón: la bandeja se queda fuera, y lo que hay que sacar late hasta que se toca. El autoclave no arranca hasta tener encima el portaobjetos DESPUÉS, y si falta, avisa con "FALTA UN PASO", que no cuenta como error. La tarjeta de objetivo cuenta estos pasos: **MISIÓN 1 · PASO x DE 7** (PLACAS, FROTIS, TINCIÓN, OBSERVAR, CLASIFICAR, CONSULTAR, IDENTIFICAR) y **MISIÓN 2 · PASO x DE 6** (… EXPLICAR, ESTERILIZAR). Durante la alarma de bioseguridad, la tarjeta pasa a **¡ALERTA DE BIOSEGURIDAD! · DESCONTAMINAR**. Fuera del centro, el objetivo empieza por "Ve al CENTRO DE EXPERIMENTACIÓN (rótulo 4)".
+
+| N.º | Equipo | Misión y paso | Qué bloquea hasta usarlo | Qué enseña |
+|---|---|---|---|---|
+| 9 | Incubadora 37 °C | M1, paso 1 de 7 (PLACAS): pulsar **SACAR PLACAS** y, cuando sale la bandeja, **tocar con la mano** las placas A y B | Las placas A y B no aparecen en el banco (no hay frotis) | Las bacterias crecen a la temperatura del cuerpo |
+| 10 | Cabina de bioseguridad | M1, antes de la muestra C: **ENCENDER FLUJO** | El hisopado C (ahora dentro de la cabina) no se abre | Un posible virus respiratorio se manipula con flujo de aire filtrado |
+| 11 | Autoclave 121 °C | M2, paso 6 de 6: **dejar el portaobjetos DESPUÉS** en la bandeja azul de encima y pulsar **ESTERILIZAR** | La misión 2 no se completa | Lo que tocó una muestra se esteriliza con vapor antes de tirarlo |
+| 12 | Ultracongelador -80 °C | M3, paso 3: **SACAR REACTIVOS** y tocar los tubos ADN, T7 y NTP de la bandeja | La pipeta no descarga en el tubo de síntesis | El molde de ADN y la enzima T7 se degradan sin frío |
+| 13 | Incubadora CO2 | M3, paso 6: **SACAR CÉLULAS** y tocar el frasco VERO de la bandeja | La pipeta no descarga en la placa del ensayo | Las células Vero necesitan 37 °C y 5 % de CO2 |
+
+Guía paso a paso: el objetivo de la tarjeta (botón Y), las flechas del suelo y el AHORA: de la pantalla del equipo apuntan al mueble que toca; en la Observación el orden es MUESTRA A (microscopio) > B (banco) > cabina > C > microscopio. En la misión 3 el plan del paso (y el modo PASO A PASO) empieza por el equipo, y las flechas del centro llevan hasta él.
+
 ## Guía, ayudas y accesibilidad
 
 - **Flechas del suelo y tarjeta de objetivo** (`GuiaReto`, tecla Y): la tarjeta dice **MISIÓN n · PASO x DE y** (misión 1: 6 pasos; misión 2: 5) y una sola frase con la acción de ahora. Las flechas siguen lo que el jugador lleva de verdad: primero a la mesa de TINCIÓN a por un portaobjetos, luego al BANCO; vuelven al banco si el portaobjetos quedó limpio o falta cargar la B o la C. También llevan al panel CONCLUSIONES y, al terminar, al laboratorio de vacunas. Cada estación tiene su cartel con **PISTA** (pistas graduales por paso).
@@ -82,3 +98,15 @@ La partida guarda la etapa, las evidencias de la A, la identificación, la estra
 | `Scripts/Centro/TerminalHipotesis.cs` | Fila 1 (misión 1: identificar) y fila 2 (misión 2: estrategia) |
 | `Scripts/Microbiologia/MuestraData.cs` | Tipo `Hongo` y `vistaOptica` (virus que se mira con el microscopio óptico) |
 | `Scripts/Centro/DebugReto.cs`, `Editor/PruebaReto.cs` | Prueba automática de las misiones 1 y 2 |
+
+## Versión corta (menos pasos, menos carga)
+
+Tras las pruebas con usuarios ("demasiados pasos, no sé dónde está la placa A, los paneles se tapan"):
+
+- **MISIÓN 1 · 5 pasos:** FROTIS, TINCIÓN, OBSERVAR, CLASIFICAR, IDENTIFICAR. La BIBLIOTECA (4) pasa a ser ayuda opcional: la terminal la sugiere si dudas.
+- **Muestras B y C ya preparadas** en la bandeja entre los dos microscopios: solo hay que ponerlas en la platina, sin ir y volver al BANCO. Se pueden seguir cargando a mano en el banco.
+- **MISIÓN 2 · 5 pasos:** la placa de la MUESTRA A se coloca sola en la bandeja de la CÁMARA (7). Solo hay que encajar la cápsula y pulsar ACTIVAR.
+- **Equipos 9-13 opcionales** (`EquiposCentro.Obligatorios = false`): no bloquean ni suman pasos. Si se pulsan, hacen su animación (bandeja y piezas que se tocan con la mano) y explican para qué sirven. Su pantalla solo se enciende al acercarse. Con `Obligatorios = true` vuelve la versión larga.
+- **Alarma de bioseguridad:** 2 manchas en vez de 4.
+- **Paneles:** al abrir el menú ☰ o la AYUDA se ocultan la tarjeta de objetivo y los avisos. Los avisos delante de la cara salen de uno en uno, por encima de la tarjeta.
+- **Girar con algo en la mano:** joystick derecho a los lados = 30°, hacia atrás = media vuelta. El giro del SDK se apagaba al agarrar algo con esa mano.
