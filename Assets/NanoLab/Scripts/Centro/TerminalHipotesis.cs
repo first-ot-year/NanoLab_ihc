@@ -45,6 +45,13 @@ public class TerminalHipotesis : MonoBehaviour
         var rm = RetoManager.Instancia;
         if (rm == null) return;
         if (!rm.PuedeHipotesis(out var motivo)) { Rechazar(motivo); return; }
+        // Con la A ya identificada, la fila 1 no vuelve a contar errores (pulsarla sin querer no ensucia las métricas).
+        if (rm.Hipotesis != null)
+        {
+            Aviso.Mostrar($"La MUESTRA A ya está identificada: {rm.Hipotesis.nombre}. Ahora decide la estrategia en la fila 2.", Encima, Aviso.Tipo.Info);
+            Sonidos.Clic(transform.position);
+            return;
+        }
         // Misión 1: la identificación se comprueba; si no encaja con las evidencias, RetoManager explica por qué.
         if (rm.RegistrarHipotesis(opciones[i])) Sonidos.Encaje(transform.position);
         else Sonidos.Error(transform.position);
@@ -63,8 +70,9 @@ public class TerminalHipotesis : MonoBehaviour
 
     void Rechazar(string motivo)
     {
-        Aviso.Mostrar(motivo, Encima, Aviso.Tipo.Error);
-        Sonidos.Error(transform.position);
+        // No es un error: todavía falta un paso (se dice cuál).
+        Aviso.Mostrar(motivo, Encima, Aviso.Tipo.Falta);
+        Sonidos.Pista(transform.position);
     }
 
     public void Refrescar()
@@ -72,6 +80,11 @@ public class TerminalHipotesis : MonoBehaviour
         var rm = RetoManager.Instancia;
         var h = rm != null ? rm.Hipotesis : null;
         var s = rm != null ? rm.EstrategiaElegida : null;
+        // Los botones que aún no se pueden usar se ven grises (al pulsarlos explican qué falta).
+        bool puedeH = rm != null && rm.Hipotesis == null && rm.PuedeHipotesis(out _);
+        bool puedeE = rm != null && rm.PuedeEstrategia(out _);
+        foreach (var b in botones) if (b != null) b.Habilitar(puedeH);
+        if (botonesEstrategia != null) foreach (var b in botonesEstrategia) if (b != null) b.Habilitar(puedeE);
         for (int i = 0; i < marcos.Length; i++) if (marcos[i] != null) marcos[i].enabled = opciones[i] == h;
         if (marcosEstrategia != null)
             for (int i = 0; i < marcosEstrategia.Length; i++) if (marcosEstrategia[i] != null) marcosEstrategia[i].enabled = rm != null && rm.Estrategia == i;
@@ -89,12 +102,26 @@ public class TerminalHipotesis : MonoBehaviour
         sb.AppendLine(h == null
             ? $"<b>MISIÓN 1 · ¿Qué bacteria es la MUESTRA A?</b>  <color=#FFD25A>[ PENDIENTE ]</color>"
             : $"MISIÓN 1 · La MUESTRA A es <b><color=#FFD25A>{h.nombre}</color></b>  <color=#39FF88>[ IDENTIFICADA ]</color>");
+        // Reconocer, no recordar: lo que decía cada ficha ya consultada, junto a su botón.
+        if (h == null && rm != null)
+        {
+            sb.Append("<size=62%>");
+            for (int i = 0; i < opciones.Length; i++)
+            {
+                if (opciones[i] == null) continue;
+                char letra = (char)('A' + i);
+                sb.AppendLine(rm.FichaVistaDe(opciones[i])
+                    ? $"<b>{letra}</b> · {opciones[i].nombre}: {rm.RasgosFicha(opciones[i])}"
+                    : $"<color=#8095AA><b>{letra}</b> · {opciones[i].nombre}: ficha sin consultar (BIBLIOTECA 4)</color>");
+            }
+            sb.Append("</size>");
+        }
         sb.AppendLine(s == null
             ? (h == null ? "<color=#8FA6BC>MISIÓN 2 · ¿Qué estructura atacarás?  (después de identificarla)</color>" : "<b>MISIÓN 2 · ¿Qué estructura atacarás?</b>  <color=#FFD25A>[ PENDIENTE ]</color>")
             : $"MISIÓN 2 · Estrategia: <b><color=#FFD25A>{s.nombre}</color></b>  <color=#39FF88>[ ELEGIDA ]</color>");
         sb.Append("<size=70%><color=#A9BED2>");
         sb.Append(h != null && s != null
-            ? "Ahora busca en la PRENSA (6) el vial que hace lo que decidiste y formula la cápsula. Puedes cambiar de idea antes de experimentar."
+            ? "Ahora busca en la PRENSA (6) el vial que hace lo que decidiste y formula la cápsula. Puedes cambiar la estrategia antes de experimentar."
             : "Elige según tus evidencias y las fichas de la BIBLIOTECA (4). La estrategia la puedes cambiar antes de experimentar.");
         sb.Append($"</color>\n<color=#7F93A8><i>{AvisoSimplificado}</i></color></size>");
         pantalla.text = sb.ToString();

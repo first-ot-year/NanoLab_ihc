@@ -34,7 +34,10 @@ public class HUDMicroscopio : MonoBehaviour
     static readonly Color TextoGris = new Color(0.55f, 0.66f, 0.78f, 1f);
 
     CanvasGroup grupo;
-    RawImage vista, micro;
+    RawImage vista, micro, antesOcular;
+    GameObject antesRecorte, antesAnillo;
+    TMP_Text antesTit;
+    RectTransform laterales;   // textos que van al monitor físico del microscopio
     TMP_Text subtitulo, zoomTxt, escalaTxt, tabTitulo, tabTexto, obsTxt, creditoTxt, riesgoTxt, microTitulo, obsTit, avisoTxt, guiaTxt;
     GameObject pestanas;
     TMP_Text riesgoEtq;
@@ -207,12 +210,7 @@ public class HUDMicroscopio : MonoBehaviour
         else
         {
             AplicarRecorte(1f / zoomActual);
-            if (comparando)
-            {
-                var r = vista.uvRect;
-                float h = r.width * 170f / 380f;
-                micro.uvRect = new Rect(r.x, r.y + (r.height - h) / 2f, r.width, h);
-            }
+            if (comparando) SincronizarAntes();
         }
         zoomTxt.text = TextoAumento(zoomActual);
         if (zoomRelleno != null)
@@ -262,12 +260,17 @@ public class HUDMicroscopio : MonoBehaviour
         if (s >= 0.999f) return;   // a poco aumento se ve la muestra entera
         pan += eje * (Time.deltaTime * s * 0.6f);   // más aumento, movimiento más fino
         AplicarRecorte(s);
-        if (comparando)
-        {
-            var r = vista.uvRect;
-            float h = r.width * 170f / 380f;
-            micro.uvRect = new Rect(r.x, r.y + (r.height - h) / 2f, r.width, h);
-        }
+        if (comparando) SincronizarAntes();
+    }
+
+    // La muestra de comparación sigue al mismo recorte que la vista (igual aumento y desplazamiento): en el segundo
+    // círculo del ocular y en el monitor.
+    void SincronizarAntes()
+    {
+        var r = vista.uvRect;
+        float h = r.width * 170f / 380f;
+        micro.uvRect = new Rect(r.x, r.y + (r.height - h) / 2f, r.width, h);
+        if (antesOcular != null) antesOcular.uvRect = r;
     }
 
     void AplicarRecorte(float s)
@@ -377,6 +380,7 @@ public class HUDMicroscopio : MonoBehaviour
 
         bool reto = proveedorReto != null;
         pestanas.SetActive(!reto);
+        MostrarAntesOcular(false);
         PonerRiesgo("Riesgo", null);
         micro.enabled = true;
         obsTit.text = "OBSERVACIONES";
@@ -412,13 +416,15 @@ public class HUDMicroscopio : MonoBehaviour
         {
             // Mismo recorte que la vista principal para comparar a igual aumento.
             micro.texture = d.antes;
-            var r = vista.uvRect;
-            float h = r.width * 170f / 380f;
-            micro.uvRect = new Rect(r.x, r.y + (r.height - h) / 2f, r.width, h);
+            antesOcular.texture = d.antes;
+            antesTit.text = d.antesTitulo;
+            MostrarAntesOcular(true);
+            SincronizarAntes();
             microTitulo.text = d.antesTitulo;
         }
         else
         {
+            MostrarAntesOcular(false);
             micro.enabled = false;
             microTitulo.text = "GUÍA DE OBSERVACIÓN";
             guiaTxt.text = d.guia;
@@ -598,6 +604,13 @@ public class HUDMicroscopio : MonoBehaviour
 
     // ---------------- Construcción ----------------
 
+    // Presencia: en el ocular (pegado al ojo, como un ocular real) solo queda la muestra: campo circular, retícula,
+    // escala, aumento, una línea de aviso y, si se compara, la otra muestra en un segundo círculo. Todo el texto
+    // (características, cuaderno, micrografía, observaciones, pestañas) va en "Laterales", que se cuelga del
+    // MONITOR físico junto al microscopio (UsarMonitor) y se lee al levantar la cabeza.
+    const float AnchoOcular = 900f, AltoOcular = 640f;
+    const float AnchoMonitor = 1000f, AltoMonitor = 660f;
+
     void Construir()
     {
         var canvas = gameObject.AddComponent<Canvas>();
@@ -608,35 +621,27 @@ public class HUDMicroscopio : MonoBehaviour
         grupo.interactable = false;
         grupo.blocksRaycasts = false;
         var rt = (RectTransform)transform;
-        rt.sizeDelta = new Vector2(1400, 640);
+        rt.sizeDelta = new Vector2(AnchoOcular, AltoOcular);
         var raiz = transform;
 
-        Img(raiz, "Fondo", 0, 0, 1400, 640, new Color(0.01f, 0.025f, 0.05f, 1f));   // opaco: no se transparenta el microscopio
-        var vin = Rect(raiz, "Vineta", 0, 0, 1400, 640).gameObject.AddComponent<RawImage>();
+        // ---------------- Ocular ----------------
+        Img(raiz, "Fondo", 0, 0, AnchoOcular, AltoOcular, new Color(0.01f, 0.025f, 0.05f, 1f));   // opaco: no se transparenta el microscopio
+        var vin = Rect(raiz, "Vineta", 0, 0, AnchoOcular, AltoOcular).gameObject.AddComponent<RawImage>();
         vin.texture = Vineta(); vin.raycastTarget = false;
-        // Borde de la lente del ocular (anillo tenue sobre la viñeta).
-        var lente = Rect(raiz, "Lente", 0, 0, 1400, 640).gameObject.AddComponent<RawImage>();
+        var lente = Rect(raiz, "Lente", 0, 0, AnchoOcular, AltoOcular).gameObject.AddComponent<RawImage>();
         lente.texture = Lente(); lente.color = new Color(0.45f, 0.85f, 1f, 0.35f); lente.raycastTarget = false;
 
-        // Cabecera
-        Txt(raiz, "Titulo", -420, 285, 560, 46, "ANÁLISIS MICROSCÓPICO", 34, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
-        subtitulo = Txt(raiz, "Subtitulo", -420, 250, 560, 30, "", 20, TextoClaro, TextAlignmentOptions.Left);
-        Img(raiz, "LineaTitulo", -420, 230, 560, 2, CianSuave);
-
-        // Zoom
+        // Aumento (arriba a la derecha del campo)
         Img(raiz, "ZoomFondo", 330, 262, 190, 74, Panel);
         Marco(raiz, 330, 262, 190, 74, CianSuave);
-        Esquinas(raiz, 330, 262, 190, 74);
         Txt(raiz, "ZoomEtq", 330, 285, 170, 20, "ZOOM   <color=#9FB4C4>A: +   B: -</color>", 15, Cian, TextAlignmentOptions.Left);
         zoomTxt = Txt(raiz, "Zoom", 330, 257, 170, 38, "", 30, Color.white, TextAlignmentOptions.Left, FontStyles.Bold);
-        // Barra de zoom: del objetivo menor al mayor.
         Img(raiz, "ZoomBarraFondo", 330, 236, AnchoBarraZoom, 6, new Color(1f, 1f, 1f, 0.15f));
         zoomRelleno = Img(raiz, "ZoomBarra", 330, 236, AnchoBarraZoom, 6, Cian).rectTransform;
 
         // Vista circular
         vista = Rect(raiz, "Vista", 0, 25, 440, 440).gameObject.AddComponent<RawImage>();
         vista.raycastTarget = false;
-        // Células del examen en fresco: encima de la muestra y debajo del recorte circular.
         celulasRaiz = Rect(raiz, "Celulas", 0, 25, 440, 440);
         for (int i = 0; i < MaxCelulas; i++)
         {
@@ -655,54 +660,72 @@ public class HUDMicroscopio : MonoBehaviour
         Img(raiz, "EscalaI", -75, -168, 3, 14, Color.white); Img(raiz, "EscalaD", 75, -168, 3, 14, Color.white);
         escalaTxt = Txt(raiz, "EscalaTxt", 0, -148, 200, 26, "", 20, Color.white, TextAlignmentOptions.Center);
 
-        // Panel izquierdo: características
-        Txt(raiz, "CaractTit", -480, 188, 400, 30, "CARACTERÍSTICAS PRINCIPALES", 21, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
-        Img(raiz, "CaractFondo", -480, 70, 420, 210, Panel);
-        Marco(raiz, -480, 70, 420, 210, CianSuave);
-        Esquinas(raiz, -480, 70, 420, 210);
+        // Comparación: la otra muestra (o el ANTES) en un segundo círculo, como un puente de comparación.
+        antesOcular = Rect(raiz, "AntesOcular", 345, 10, 190, 190).gameObject.AddComponent<RawImage>();
+        antesOcular.raycastTarget = false;
+        antesRecorte = Img(raiz, "AntesRecorte", 345, 10, 194, 194, new Color(0.01f, 0.025f, 0.05f, 1f), CirculoInverso()).gameObject;
+        antesAnillo = Img(raiz, "AntesAnillo", 345, 10, 206, 206, new Color(0.35f, 0.85f, 1f, 0.6f), Anillo()).gameObject;
+        antesTit = Txt(raiz, "AntesTit", 345, 128, 220, 24, "", 15, Cian, TextAlignmentOptions.Center, FontStyles.Bold);
+        MostrarAntesOcular(false);
+
+        // Una sola línea de aviso bajo el campo y la ayuda de los botones.
+        avisoTxt = Txt(raiz, "Aviso", 0, -258, 720, 56, "", 19, Color.white, TextAlignmentOptions.Center, FontStyles.Bold);
+        Txt(raiz, "Ayuda", 0, -305, 820, 20, "Joystick izq.: mover la muestra     Joystick der.: zoom fino y pestañas del monitor     A: más aumento     B / Y: menos     Aparta la cara: salir", 13, TextoGris, TextAlignmentOptions.Center);
+
+        // ---------------- Laterales: van al monitor del microscopio ----------------
+        laterales = Rect(raiz, "Laterales", 0, 0, AnchoMonitor, AltoMonitor);
+        var izq = Rect(laterales, "Izq", 210, 0, AnchoMonitor, AltoMonitor);
+        var der = Rect(laterales, "Der", -210, 0, AnchoMonitor, AltoMonitor);
+
+        Txt(izq, "Titulo", -420, 290, 560, 46, "ANÁLISIS MICROSCÓPICO", 34, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
+        subtitulo = Txt(izq, "Subtitulo", -270, 252, 860, 30, "", 20, TextoClaro, TextAlignmentOptions.Left);
+        Img(izq, "LineaTitulo", -60, 232, 840, 2, CianSuave);
+
+        Txt(izq, "CaractTit", -480, 188, 400, 30, "CARACTERÍSTICAS PRINCIPALES", 21, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
+        Img(izq, "CaractFondo", -480, 70, 420, 210, Panel);
+        Marco(izq, -480, 70, 420, 210, CianSuave);
+        Esquinas(izq, -480, 70, 420, 210);
         for (int i = 0; i < 6; i++)
         {
             float y = 155 - i * 28;
-            claves[i] = Txt(raiz, "Clave" + i, -585, y, 190, 28, "", 17, TextoGris, TextAlignmentOptions.Left);
-            valores[i] = Txt(raiz, "Valor" + i, -395, y, 230, 28, "", 17, TextoClaro, TextAlignmentOptions.Left);
+            claves[i] = Txt(izq, "Clave" + i, -585, y, 190, 28, "", 17, TextoGris, TextAlignmentOptions.Left);
+            valores[i] = Txt(izq, "Valor" + i, -395, y, 230, 28, "", 17, TextoClaro, TextAlignmentOptions.Left);
         }
-        riesgoEtq = Txt(raiz, "RiesgoEtq", -585, -18, 190, 30, "Riesgo:", 17, TextoGris, TextAlignmentOptions.Left);
-        riesgoFondo = Img(raiz, "RiesgoFondo", -395, -18, 220, 28, RiesgoFondoColor);
-        riesgoMarco = Marco(raiz, -395, -18, 220, 28, RiesgoMarcoColor);
-        riesgoTxt = Txt(raiz, "Riesgo", -395, -18, 210, 28, "", 16, new Color(1f, 0.6f, 0.6f), TextAlignmentOptions.Center, FontStyles.Bold);
+        riesgoEtq = Txt(izq, "RiesgoEtq", -585, -18, 190, 30, "Riesgo:", 17, TextoGris, TextAlignmentOptions.Left);
+        riesgoFondo = Img(izq, "RiesgoFondo", -395, -18, 220, 28, RiesgoFondoColor);
+        riesgoMarco = Marco(izq, -395, -18, 220, 28, RiesgoMarcoColor);
+        riesgoTxt = Txt(izq, "Riesgo", -395, -18, 210, 28, "", 16, new Color(1f, 0.6f, 0.6f), TextAlignmentOptions.Center, FontStyles.Bold);
 
-        // Panel izquierdo: pestaña actual
-        Img(raiz, "TabFondo", -480, -140, 420, 170, Panel);
-        Marco(raiz, -480, -140, 420, 170, CianSuave);
-        Esquinas(raiz, -480, -140, 420, 170);
-        tabTitulo = Txt(raiz, "TabTitulo", -480, -73, 390, 28, "", 20, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
-        tabTexto = Txt(raiz, "TabTexto", -480, -152, 390, 130, "", 16, TextoClaro, TextAlignmentOptions.TopLeft);
+        Img(izq, "TabFondo", -480, -140, 420, 170, Panel);
+        Marco(izq, -480, -140, 420, 170, CianSuave);
+        Esquinas(izq, -480, -140, 420, 170);
+        tabTitulo = Txt(izq, "TabTitulo", -480, -73, 390, 28, "", 20, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
+        tabTexto = Txt(izq, "TabTexto", -480, -152, 390, 130, "", 16, TextoClaro, TextAlignmentOptions.TopLeft);
         for (int i = 0; i < leyendaTxt.Length; i++)
         {
             float y = -103 - i * 25;
-            leyendaPunto[i] = Img(raiz, "LeyendaPunto" + i, -672, y, 14, 14, Color.white, Circulo());
-            leyendaTxt[i] = Txt(raiz, "Leyenda" + i, -462, y, 390, 24, "", 17, TextoClaro, TextAlignmentOptions.Left);
+            leyendaPunto[i] = Img(izq, "LeyendaPunto" + i, -672, y, 14, 14, Color.white, Circulo());
+            leyendaTxt[i] = Txt(izq, "Leyenda" + i, -462, y, 390, 24, "", 17, TextoClaro, TextAlignmentOptions.Left);
             leyendaPunto[i].gameObject.SetActive(false);
             leyendaTxt[i].gameObject.SetActive(false);
         }
 
-        // Panel derecho: micrografía real y observaciones
-        microTitulo = Txt(raiz, "MicroTit", 480, 188, 400, 30, "", 19, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
-        Img(raiz, "MicroFondo", 480, 70, 420, 210, Panel);
-        Marco(raiz, 480, 70, 420, 210, CianSuave);
-        Esquinas(raiz, 480, 70, 420, 210);
-        micro = Rect(raiz, "Micro", 480, 80, 380, 170).gameObject.AddComponent<RawImage>();
+        microTitulo = Txt(der, "MicroTit", 480, 188, 400, 30, "", 19, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
+        Img(der, "MicroFondo", 480, 70, 420, 210, Panel);
+        Marco(der, 480, 70, 420, 210, CianSuave);
+        Esquinas(der, 480, 70, 420, 210);
+        micro = Rect(der, "Micro", 480, 80, 380, 170).gameObject.AddComponent<RawImage>();
         micro.raycastTarget = false;
-        creditoTxt = Txt(raiz, "Credito", 480, -22, 390, 18, "", 10, TextoGris, TextAlignmentOptions.Left);
-        guiaTxt = Txt(raiz, "Guia", 480, 70, 390, 190, "", 17, TextoClaro, TextAlignmentOptions.TopLeft);
-        Img(raiz, "ObsFondo", 480, -140, 420, 170, Panel);
-        Marco(raiz, 480, -140, 420, 170, CianSuave);
-        Esquinas(raiz, 480, -140, 420, 170);
-        obsTit = Txt(raiz, "ObsTit", 480, -73, 390, 28, "OBSERVACIONES", 20, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
-        obsTxt = Txt(raiz, "Obs", 480, -152, 390, 130, "", 16, TextoClaro, TextAlignmentOptions.TopLeft);
+        creditoTxt = Txt(der, "Credito", 480, -22, 390, 18, "", 10, TextoGris, TextAlignmentOptions.Left);
+        guiaTxt = Txt(der, "Guia", 480, 70, 390, 190, "", 17, TextoClaro, TextAlignmentOptions.TopLeft);
+        Img(der, "ObsFondo", 480, -140, 420, 170, Panel);
+        Marco(der, 480, -140, 420, 170, CianSuave);
+        Esquinas(der, 480, -140, 420, 170);
+        obsTit = Txt(der, "ObsTit", 480, -73, 390, 28, "OBSERVACIONES", 20, Cian, TextAlignmentOptions.Left, FontStyles.Bold);
+        obsTxt = Txt(der, "Obs", 480, -152, 390, 130, "", 16, TextoClaro, TextAlignmentOptions.TopLeft);
 
-        // Pestañas (debajo de los paneles, entre ellos)
-        var pest = Rect(raiz, "Pestanas", 0, 0, 1400, 640);
+        // Pestañas (bajo los dos bloques)
+        var pest = Rect(laterales, "Pestanas", 0, 0, AnchoMonitor, AltoMonitor);
         pestanas = pest.gameObject;
         for (int i = 0; i < 4; i++)
         {
@@ -711,21 +734,37 @@ public class HUDMicroscopio : MonoBehaviour
             Marco(pest, x, -262, 162, 40, CianSuave);
             tabsTxt[i] = Txt(pest, "TabTxt" + i, x, -262, 158, 38, MuestraData.NombresPestanas[i], 15, TextoGris, TextAlignmentOptions.Center, FontStyles.Bold);
         }
-        // Aviso del reto: ocupa el hueco de las pestañas, que en modo reto se ocultan.
-        avisoTxt = Txt(raiz, "Aviso", 0, -258, 720, 56, "", 19, Color.white, TextAlignmentOptions.Center, FontStyles.Bold);
-
-        // Pie
-        Txt(raiz, "Pie", -520, -305, 360, 20, "LAB. DE BIOCIENCIAS  |  NANOLAB", 13, TextoGris, TextAlignmentOptions.Left);
-        Txt(raiz, "Ayuda", 0, -305, 820, 20, "Joystick izq.: mover la muestra     X: mover la vista     Joystick der.: arriba/abajo zoom +/-, lados pestañas     A: más aumento     B / Y: menos     Aléjate del ocular", 13, TextoGris, TextAlignmentOptions.Center);
-        // Indicador del modo (arriba, centrado): se resalta mientras se mueve la vista.
-        modoFondo = Img(raiz, "ModoFondo", 0, 302, 450, 26, Cian);
-        modoTxt = Txt(raiz, "Modo", 0, 302, 444, 24, "", 14, TextoGris, TextAlignmentOptions.Center, FontStyles.Bold);
-        RefrescarModo();
-        Img(raiz, "Led", 468, -305, 12, 12, new Color(0.25f, 1f, 0.5f), Circulo());
-        Txt(raiz, "Captura", 575, -305, 200, 20, "IMAGEN CAPTURADA", 13, new Color(0.25f, 1f, 0.5f), TextAlignmentOptions.Left);
+        Txt(laterales, "Pie", 0, -305, 900, 20, "MONITOR DEL MICROSCOPIO  ·  NANOLAB  ·  Joystick der. (mirando por el ocular): pestañas", 13, TextoGris, TextAlignmentOptions.Center);
 
         DibujarSiempreEncima();
+        laterales.gameObject.SetActive(false);   // hasta que haya un monitor donde colgarlos
         gameObject.SetActive(false);
+    }
+
+    // Cuelga los textos del monitor del microscopio que se está usando (se quedan allí al apartar la cara).
+    public void UsarMonitor(RectTransform pantalla)
+    {
+        if (laterales == null) return;
+        if (pantalla == null) { laterales.gameObject.SetActive(false); return; }
+        if (laterales.parent != pantalla)
+        {
+            laterales.SetParent(pantalla, false);
+            laterales.anchoredPosition = Vector2.zero;
+            laterales.localRotation = Quaternion.identity;
+            laterales.localScale = Vector3.one;
+        }
+        laterales.gameObject.SetActive(true);
+    }
+
+    public RectTransform Laterales => laterales;
+
+    void MostrarAntesOcular(bool si)
+    {
+        if (antesOcular == null) return;
+        antesOcular.enabled = si;
+        antesRecorte.SetActive(si);
+        antesAnillo.SetActive(si);
+        antesTit.gameObject.SetActive(si);
     }
 
     // El HUD está a 0,6 m de los ojos, pero el microscopio, la mesa o las manos quedan más cerca
@@ -740,6 +779,8 @@ public class HUDMicroscopio : MonoBehaviour
         var textos = new System.Collections.Generic.Dictionary<Material, Material>();
         foreach (var g in GetComponentsInChildren<Graphic>(true))
         {
+            // Los textos del monitor están en el mundo: con prueba de profundidad normal (si no, se verían a través de las paredes).
+            if (laterales != null && g.transform.IsChildOf(laterales)) continue;
             if (g is TMP_Text t)
             {
                 var src = t.fontSharedMaterial;

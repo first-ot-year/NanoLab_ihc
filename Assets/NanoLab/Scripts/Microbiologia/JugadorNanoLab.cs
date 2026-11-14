@@ -51,6 +51,9 @@ public class JugadorNanoLab : MonoBehaviour
 
     // Desplazamiento vertical de la vista que se aplica ahora (m).
     public float OffsetAltura { get; private set; }
+    // Lo que el MODO SENTADO sube la vista (no cuenta la de una silla). El avatar lo usa para crecer con los pies
+    // en el suelo real, en vez de subir entero y quedarse flotando.
+    public static float AlturaExtraVista => Instancia != null && Instancia.sentadoEn == null ? Instancia.OffsetAltura : 0f;
 
     public static bool Sentado(out Silla silla)
     {
@@ -103,8 +106,7 @@ public class JugadorNanoLab : MonoBehaviour
         // Se conserva hacia dónde se mira (antes, al volver a la entrada, quedaba de cara al espejo).
         Teletransportar(destino, Vector3.ProjectOnPlane(cab.forward, Vector3.up));
         tRevision = 1f;
-        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-        Aviso.Mostrar("Has vuelto al laboratorio.", destino + Vector3.up * 1.4f + f * 0.9f, Aviso.Tipo.Info, 3f);
+        Aviso.EnMuneca("Has vuelto al laboratorio: estabas fuera del suelo.", Aviso.Tipo.Info);
     }
 
     void Awake()
@@ -125,6 +127,7 @@ public class JugadorNanoLab : MonoBehaviour
         if (GetComponent<GestorPartida>() == null) gameObject.AddComponent<GestorPartida>();         // guardar y continuar la partida
         if (GetComponent<AdaptadorEscena>() == null) gameObject.AddComponent<AdaptadorEscena>();     // sin química, puerta del centro, tableros de cristal
         if (GetComponent<AvisoInicio>() == null) gameObject.AddComponent<AvisoInicio>();             // aviso cuadrado + tutorial corto (X para continuar)
+        if (GetComponent<BrazaleteBaymax>() == null) gameObject.AddComponent<BrazaleteBaymax>();     // objetivo y avisos en la muñeca (presencia)
         ConfigurarGrupos();
         ConfigurarLocomotor();
         ConfigurarAgarre();
@@ -166,10 +169,61 @@ public class JugadorNanoLab : MonoBehaviour
         AjustesNanoLab.AlturaSentado = alturaDePie - h;
     }
 
-    public void AplicarAltura()
+    // 'destino': si el jugador se acaba de mover a un sitio (p. ej. al levantarse de una silla), los pies se reajustan
+    // allí y no bajo la cabeza, que en ese frame aún está donde estaba.
+    public void AplicarAltura() => AplicarAltura(null);
+
+    void AplicarAltura(Vector3? destino)
     {
         if (sentadoEn != null) return;   // sentado en una silla manda la silla
+        float antes = OffsetAltura;
+        float y = AjustesNanoLab.ModoSentado ? AjustesNanoLab.AlturaSentado : 0f;
+        PonerOffset(y);
+        // El Locomotor de Meta solo aplica el HeightOffset al recolocar al jugador: al subirlo la vista sube, pero al
+        // bajarlo (quitar el modo sentado) la cápsula se encoge por abajo y la vista se quedaba arriba. Se vuelve a
+        // poner al jugador con los pies en el suelo, en el mismo sitio, para que el cambio se note en los dos sentidos.
+        if (locomotor != null && Mathf.Abs(y - antes) > 0.01f && isActiveAndEnabled)
+        {
+            StopCoroutine(nameof(Reasentar));
+            StartCoroutine(Reasentar(antes, destino));
+        }
+    }
+
+    // Vista a la altura que toca (real, o la del modo sentado) y pies en el suelo, aunque la altura no haya cambiado.
+    public void AlSuelo()
+    {
+        if (sentadoEn != null) return;
+        float antes = OffsetAltura;
         PonerOffset(AjustesNanoLab.ModoSentado ? AjustesNanoLab.AlturaSentado : 0f);
+        if (locomotor != null && isActiveAndEnabled) StartCoroutine(Reasentar(antes, null));
+    }
+
+    System.Collections.IEnumerator Reasentar(float offsetAnterior, Vector3? destino)
+    {
+        // Dos veces: al frame siguiente (el Locomotor ya tomó la nueva altura de la cápsula) y un poco después,
+        // por si la cápsula aún se estaba ajustando; así los pies acaban en el suelo, sin quedarse flotando.
+        for (int i = 0; i < 2; i++)
+        {
+            if (i == 0) yield return null; else yield return new WaitForSeconds(0.2f);
+            if (sentadoEn != null || rig == null || rig.centerEyeAnchor == null) yield break;
+            var cab = rig.centerEyeAnchor;
+            float porDefecto = i == 0 ? transform.position.y - offsetAnterior : transform.position.y - OffsetAltura;
+            var donde = destino.HasValue ? new Vector3(destino.Value.x, cab.position.y, destino.Value.z) : cab.position;
+            Mover(SueloBajo(donde, porDefecto), cab.forward);
+        }
+    }
+
+    // Punto del suelo bajo la cabeza (sin contar la cápsula del propio jugador ni los triggers).
+    Vector3 SueloBajo(Vector3 cabeza, float alturaPorDefecto)
+    {
+        float mejor = float.MaxValue, y = alturaPorDefecto;
+        foreach (var h in Physics.RaycastAll(cabeza, Vector3.down, 3.5f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            if (h.collider.transform.IsChildOf(transform) || h.normal.y < 0.7f || h.distance >= mejor) continue;
+            mejor = h.distance;
+            y = h.point.y;
+        }
+        return new Vector3(cabeza.x, y, cabeza.z);
     }
 
     void PonerOffset(float y)
@@ -213,7 +267,7 @@ public class JugadorNanoLab : MonoBehaviour
         var salida = s.PuntoSalida;
         salida.y = s.transform.position.y;
         Mover(salida, adelante);
-        AplicarAltura();
+        AplicarAltura(salida);   // los pies se reajustan en la salida (la cabeza aún sigue sobre la silla en este frame)
         ActualizarPausa();
         StartCoroutine(ReactivarSilla(s));   // cuando la cápsula ya salió de ella
     }
@@ -298,7 +352,9 @@ public class JugadorNanoLab : MonoBehaviour
             {
                 if (System.Array.IndexOf(Teletransporte, hijo.name) >= 0) hijo.gameObject.SetActive(false);
                 else if (hijo.name == "ControllerSlideInteractor") hijo.gameObject.SetActive(izquierdo);
-                else if (hijo.name == "ControllerTurnerInteractor") hijo.gameObject.SetActive(!izquierdo);
+                // El giro del SDK va en el mismo grupo que el agarre de esa mano: con algo agarrado se apagaba y no
+                // se podía girar (había que andar hacia atrás). Se gira con el giro propio de Update.
+                else if (hijo.name == "ControllerTurnerInteractor") hijo.gameObject.SetActive(false);
             }
             foreach (var s in t.GetComponentsInChildren<SlideLocomotionBroadcaster>(true))
             {
@@ -384,8 +440,10 @@ public class JugadorNanoLab : MonoBehaviour
     {
         ComprobarLevantarse();
         if (rig != null && rig.centerEyeAnchor != null && Time.timeSinceLevelLoad > 1.5f) VigilarCaida();
-        if (!respaldo || LocomocionPausada || rig == null || rig.centerEyeAnchor == null) return;
+        if (LocomocionPausada || rig == null || rig.centerEyeAnchor == null) return;
         var cabeza = rig.centerEyeAnchor;
+        Girar(cabeza);
+        if (!respaldo) return;
 
         // Respaldo: caminar con el joystick izquierdo hacia donde se mira, con colisiones.
         var eje = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch);
@@ -397,13 +455,19 @@ public class JugadorNanoLab : MonoBehaviour
             transform.position += Limitar(cabeza.position, mov);
         }
 
-        float x = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch).x;
-        if (!girando && Mathf.Abs(x) > 0.7f)
-        {
-            girando = true;
-            transform.RotateAround(cabeza.position, Vector3.up, Mathf.Sign(x) * anguloGiro);
-        }
-        else if (Mathf.Abs(x) < 0.3f) girando = false;
+    }
+
+    // Joystick derecho: a los lados gira 30° y hacia atrás da media vuelta. Funciona aunque se lleve algo en la mano.
+    void Girar(Transform cabeza)
+    {
+        var j = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch);
+        if (girando) { if (j.magnitude < 0.3f) girando = false; return; }
+        float grados = Mathf.Abs(j.x) > 0.7f ? Mathf.Sign(j.x) * anguloGiro : j.y < -0.8f && Mathf.Abs(j.x) < 0.5f ? 180f : 0f;
+        if (grados == 0f) return;
+        girando = true;
+        if (locomotor != null)
+            locomotor.HandleLocomotionEvent(new LocomotionEvent(0, Quaternion.Euler(0f, grados, 0f), LocomotionEvent.RotationType.Relative));
+        else transform.RotateAround(cabeza.position, Vector3.up, grados);
     }
 
     // Evita atravesar paredes y muebles: prueba el movimiento completo y, si choca, desliza.

@@ -1,36 +1,18 @@
 using TMPro;
 using UnityEngine;
 
-// Guía del reto en el Centro de Experimentación (sustituye al panel que iba pegado a la mano y a la
-// columna de luz con el rombo):
-//  - TARJETA DE OBJETIVO: tarjeta blanca en la parte baja de la vista con el caso, el paso (n de 9 y
-//    puntos de progreso), qué hay que hacer y a qué estación ir. Aparece sola al entrar al centro, en
-//    cada paso nuevo y al llegar a la estación; se esconde a los pocos segundos para no estorbar. Con el
-//    botón Y (mando izquierdo) se muestra u oculta cuando se quiera.
-//  - RUTA: flechas en el suelo que fluyen desde el jugador hasta la estación del paso actual y un anillo
-//    con su número y nombre. Al llegar, la ruta se apaga y el anillo late.
+// Guía del reto en el Centro de Experimentación. Para no romper la presencia, nada sigue a la cabeza:
+//  - OBJETIVO: va al BRAZALETE de la muñeca izquierda (BrazaleteBaymax), que vibra con cada paso nuevo y enseña
+//    la misión, el paso y la acción al girar la muñeca hacia la cara (antes era una tarjeta que perseguía la vista).
+//  - RUTA: flechas en el suelo que fluyen desde el jugador hasta la estación del paso actual y un anillo con su
+//    número y nombre. Al llegar, la ruta se apaga y el anillo late.
 // La crea RetoManager; todo se construye por código.
 public class GuiaReto : MonoBehaviour
 {
-    static readonly string[] NombresEtapa =
-        { "EXPLORACIÓN", "TINCIÓN", "OBSERVACIÓN", "INVESTIGACIÓN", "HIPÓTESIS", "PREPARACIÓN", "EXPERIMENTO", "ANÁLISIS", "CIERRE" };
-
-    const float W = 0.42f, H = 0.24f;
-    const float SegundosVisible = 8f, DistanciaLlegada = 1.6f, Paso = 0.45f;
+    const float DistanciaLlegada = 1.6f, Paso = 0.45f;
     const int MaxFlechas = 40;
-    static readonly Color Fondo = new Color(0.97f, 0.985f, 1f, 0.95f);
-    static readonly Color Tinta = new Color(0.06f, 0.13f, 0.2f);
-    static readonly Color Acento = new Color(0.12f, 0.55f, 0.82f);
     static readonly Color ColorRuta = new Color(0.3f, 0.85f, 1f);
     static readonly Color ColorMeta = new Color(1f, 0.8f, 0.3f);
-
-    // Tarjeta
-    GameObject tarjeta;
-    TextMeshPro caso, paso, objetivo, destinoTxt;
-    PanelRedondeado[] puntos;
-    float hastaOcultar, escalaTarjeta;
-    bool fijada;          // mostrada con Y: no se esconde sola
-    bool colocada;
 
     // Ruta
     Transform destino;
@@ -40,8 +22,13 @@ public class GuiaReto : MonoBehaviour
     GameObject meta;
     bool dentro, llegado;
     int etapa = -1;
-    string textoObjetivo, nombreEstacion;
+    string nombreEstacion;
     int numeroEstacion;
+    float radioLlegada = DistanciaLlegada;   // a qué distancia se da por llegado (más grande para el laboratorio de vacunas)
+    // Misión 3: con las misiones 1 y 2 terminadas, el brazalete enseña el paso de la vacuna.
+    bool espejoVacuna;
+    float tVacuna;
+    string pasoVacuna;
 
     public static GuiaReto Crear()
     {
@@ -50,57 +37,84 @@ public class GuiaReto : MonoBehaviour
         return g;
     }
 
+    static BrazaleteBaymax Brazalete => BrazaleteBaymax.Instancia;
+
     // ------------------------------------------------------------------ API para RetoManager
 
-    public void Etapa(EtapaReto e, string titulo, string obj, EstacionGuia estacion, bool conAviso)
+    // 'clave' identifica el paso (cambia con la misión y con el subpaso); 'pasoN' de 'total' es lo que se enseña.
+    public void Etapa(int clave, string titulo, string obj, EstacionGuia estacion, bool conAviso, int pasoN, int total, string nombrePaso)
     {
-        int i = (int)e;
-        bool nueva = i != etapa;
-        etapa = i;
-        textoObjetivo = obj;
+        bool nueva = clave != etapa;
+        etapa = clave;
+        var antes = destino;
         destino = estacion != null ? (estacion.puntoBaliza != null ? estacion.puntoBaliza : estacion.transform) : null;
         numeroEstacion = estacion != null ? estacion.numero : 0;
         nombreEstacion = estacion != null ? estacion.titulo : "";
-        if (nueva) llegado = false;
-
-        caso.text = titulo;
-        paso.text = $"PASO {i + 1} DE {NombresEtapa.Length}  ·  {NombresEtapa[Mathf.Clamp(i, 0, NombresEtapa.Length - 1)]}";
-        objetivo.text = obj;
-        RefrescarDestino();
-        for (int k = 0; k < puntos.Length; k++)
-        {
-            puntos[k].color = k < i ? new Color(0.35f, 0.75f, 0.5f, 1f) : k == i ? Acento : new Color(0.78f, 0.84f, 0.9f, 1f);
-            puntos[k].Aplicar();
-        }
+        radioLlegada = DistanciaLlegada;
+        // El mismo paso puede cambiar de sitio (p. ej. del microscopio al banco para cargar la muestra B).
+        if (nueva || destino != antes) llegado = false;
         if (etiquetaMeta != null) etiquetaMeta.text = numeroEstacion > 0 ? $"<b>{numeroEstacion}</b>  {nombreEstacion}" : nombreEstacion;
-        if (nueva && conAviso && dentro) Mostrar(SegundosVisible);
+
+        if (espejoVacuna) { tVacuna = 0f; return; }   // el brazalete está enseñando la misión 3
+        var b = Brazalete;
+        if (b == null) return;
+        string cab = total > 0 ? $"{titulo.Split('·')[0].Trim()} · PASO {pasoN} DE {total} · {nombrePaso}" : titulo;
+        b.Objetivo(cab, obj, pasoN, total);
+        if (nueva && conAviso && dentro) b.Notificar(null, Aviso.Tipo.Info);   // solo vibra: "hay paso nuevo"
     }
 
-    // Meta fuera del ciclo de las misiones 1 y 2 (en la MISIÓN 3: un equipo del centro). Mismas flechas y tarjeta.
+    // Destino que no es una estación numerada (el laboratorio de vacunas al terminar las misiones 1 y 2).
+    public void DestinoLibre(Transform t, string nombre, float radio)
+    {
+        if (destino != t) llegado = false;
+        destino = t;
+        numeroEstacion = 0;
+        nombreEstacion = nombre;
+        radioLlegada = radio;
+        if (etiquetaMeta != null) etiquetaMeta.text = nombre;
+    }
+
+    // Meta fuera del ciclo de las misiones 1 y 2 (en la MISIÓN 3: un equipo del centro que hace falta, de EquiposCentro).
+    // Mismas flechas y anillo hasta él; el objetivo va al brazalete (vibra si es un destino nuevo).
     public void Externo(string titulo, string pasoTxt, string obj, EstacionGuia estacion)
     {
-        bool nueva = estacion == null || destino != (estacion.puntoBaliza != null ? estacion.puntoBaliza : estacion.transform);
-        textoObjetivo = obj;
-        destino = estacion != null ? (estacion.puntoBaliza != null ? estacion.puntoBaliza : estacion.transform) : null;
+        var nuevoDestino = estacion != null ? (estacion.puntoBaliza != null ? estacion.puntoBaliza : estacion.transform) : null;
+        bool nueva = estacion == null || destino != nuevoDestino;
+        destino = nuevoDestino;
         numeroEstacion = estacion != null ? estacion.numero : 0;
         nombreEstacion = estacion != null ? estacion.titulo : "";
+        radioLlegada = DistanciaLlegada;
         if (nueva) llegado = false;
         etapa = -1;   // al volver a Etapa(...) cuenta como paso nuevo
-        caso.text = titulo;
-        paso.text = pasoTxt;
-        objetivo.text = obj;
-        RefrescarDestino();
         if (etiquetaMeta != null) etiquetaMeta.text = numeroEstacion > 0 ? $"<b>{numeroEstacion}</b>  {nombreEstacion}" : nombreEstacion;
-        if (nueva && dentro) Mostrar(SegundosVisible);
+        var b = Brazalete;
+        if (b == null) return;
+        b.Objetivo($"{titulo} · {pasoTxt}", obj, 0, 0);
+        if (nueva && dentro) b.Notificar(null, Aviso.Tipo.Info);
     }
 
-    void RefrescarDestino()
+    // El brazalete enseña el paso de la vacuna mientras la misión 3 está en marcha.
+    void EspejoVacuna(RetoManager rm)
     {
-        if (destinoTxt == null) return;
-        string donde = numeroEstacion > 0 ? $"{numeroEstacion} · {nombreEstacion}" : nombreEstacion;
-        destinoTxt.text = llegado
-            ? $"<color=#2E9E5B><b>Estás en {donde}</b></color>     <color=#7A8C9C>Y: ocultar</color>"
-            : $"Sigue las flechas del suelo hasta <b>{donde}</b>     <color=#7A8C9C>Y: ocultar</color>";
+        var rv = RetoVacuna.Instancia;
+        bool si = rm != null && rm.Actual == EtapaReto.Cierre && rv != null && rv.Actual >= EtapaVacuna.Antigeno && rv.Actual <= EtapaVacuna.Eficacia;
+        // Un equipo del centro (ultracongelador, incubadora CO2) que hace falta para la vacuna: manda su guía (Externo),
+        // con flechas hasta él; el espejo de la vacuna no la pisa.
+        if (si && rm.GuiaExternaActiva) return;
+        if (!si)
+        {
+            if (espejoVacuna) { espejoVacuna = false; pasoVacuna = null; if (rm != null) rm.RefrescarGuia(); }
+            return;
+        }
+        espejoVacuna = true;
+        destino = null;   // en la vacuna guían la franja de la mesa y el apartado AHORA, no las flechas
+        string p = $"{Misiones.Codigo3} · PASO {(int)rv.Actual} DE 9 · {rv.TituloActual}";
+        bool nuevoPaso = pasoVacuna != p;
+        pasoVacuna = p;
+        var b = Brazalete;
+        if (b == null) return;
+        b.Objetivo(p, rv.ObjetivoActual, (int)rv.Actual, 9);
+        if (nuevoPaso && dentro) b.Notificar(null, Aviso.Tipo.Info);
     }
 
     // ------------------------------------------------------------------ cada frame
@@ -110,58 +124,11 @@ public class GuiaReto : MonoBehaviour
         var rm = RetoManager.Instancia;
         var cab = ManosRig.Cabeza;
         bool ahora = rm != null && rm.JugadorDentro;
-        bool micro = MicroscopioOptico.AlgunoActivo;
-        if (ahora && !dentro) Mostrar(SegundosVisible);       // al entrar al centro: recordar el objetivo
+        if (ahora && !dentro && Brazalete != null) Brazalete.Notificar(null, Aviso.Tipo.Info);   // al entrar: "mira tu muñeca"
         dentro = ahora;
-
-        // Y: ver u ocultar la tarjeta (con el microscopio Y es "menos aumento").
-        if (dentro && !micro && OVRInput.GetDown(OVRInput.Button.Four))
-        {
-            if (tarjeta.activeSelf && escalaTarjeta > 0.5f) { fijada = false; hastaOcultar = 0f; }
-            else { Mostrar(SegundosVisible); fijada = true; }
-            if (cab != null) Sonidos.Clic(cab.position);
-        }
-
-        bool verTarjeta = dentro && !micro && (fijada || Time.time < hastaOcultar);
-        escalaTarjeta = Mathf.MoveTowards(escalaTarjeta, verTarjeta ? 1f : 0f, Time.deltaTime * 5f);
-        tarjeta.SetActive(escalaTarjeta > 0.01f);
-        if (tarjeta.activeSelf)
-        {
-            tarjeta.transform.localScale = Vector3.one * Mathf.SmoothStep(0f, 1f, escalaTarjeta);
-            if (cab != null) Seguir(cab);
-        }
-        else colocada = false;
-
-        Ruta(cab, dentro && !micro && destino != null);
+        if (Time.time >= tVacuna) { tVacuna = Time.time + 0.5f; EspejoVacuna(rm); }
+        Ruta(cab, dentro && !MicroscopioOptico.AlgunoActivo && destino != null);
     }
-
-    void Mostrar(float segundos)
-    {
-        hastaOcultar = Time.time + segundos;
-    }
-
-    // Abajo en la vista y con seguimiento "perezoso": solo se recoloca cuando se gira bastante la cabeza.
-    void Seguir(Transform cab)
-    {
-        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up);
-        if (f.sqrMagnitude < 1e-4f) return;
-        f.Normalize();
-        var destinoPos = cab.position + f * 0.75f - Vector3.up * 0.24f;
-        var actual = tarjeta.transform.position - cab.position; actual.y = 0f;
-        bool lejos = !colocada || Vector3.Angle(actual, f) > 28f || Mathf.Abs(actual.magnitude - 0.75f) > 0.25f
-                     || Mathf.Abs(tarjeta.transform.position.y - destinoPos.y) > 0.2f;
-        if (lejos || moviendo)
-        {
-            moviendo = true;
-            float k = colocada ? 1f - Mathf.Exp(-5f * Time.deltaTime) : 1f;
-            tarjeta.transform.position = Vector3.Lerp(tarjeta.transform.position, destinoPos, k);
-            if ((tarjeta.transform.position - destinoPos).sqrMagnitude < 0.0004f) moviendo = false;
-        }
-        var mira = tarjeta.transform.position - cab.position; mira.y = 0f;
-        if (mira.sqrMagnitude > 1e-4f) tarjeta.transform.rotation = Quaternion.LookRotation(mira.normalized, Vector3.up);
-        colocada = true;
-    }
-    bool moviendo;
 
     void Ruta(Transform cab, bool activa)
     {
@@ -177,7 +144,7 @@ public class GuiaReto : MonoBehaviour
         var d = b - a;
         float largo = d.magnitude;
 
-        // Meta: anillo en el suelo de la estación y su nombre flotando encima.
+        // Meta: anillo en el suelo de la estación y su nombre encima (solo gira en horizontal, como un letrero).
         if (!meta.activeSelf) meta.SetActive(true);
         meta.transform.position = b;
         float latido = 1f + 0.08f * Mathf.Sin(Time.time * (llegado ? 6f : 3f));
@@ -188,20 +155,14 @@ public class GuiaReto : MonoBehaviour
         if (haciaCab.sqrMagnitude > 1e-4f) etiquetaMeta.transform.rotation = Quaternion.LookRotation(haciaCab.normalized, Vector3.up);
         etiquetaMeta.gameObject.SetActive(!llegado);
 
-        bool cerca = largo < DistanciaLlegada;
+        bool cerca = largo < radioLlegada;
         if (cerca && !llegado)
         {
             llegado = true;
-            RefrescarDestino();
-            Mostrar(6f);   // al llegar: qué hay que hacer aquí
             Sonidos.Etapa(b);
             ManosRig.Vibrar(b, 0.3f, 0.08f);
         }
-        else if (!cerca && largo > DistanciaLlegada + 1f && llegado)
-        {
-            llegado = false;   // se alejó: vuelve la ruta
-            RefrescarDestino();
-        }
+        else if (!cerca && largo > radioLlegada + 1f && llegado) llegado = false;   // se alejó: vuelve la ruta
 
         // Flechas: desde 0,7 m delante del jugador hasta 1 m antes de la estación, con una onda de brillo que
         // avanza hacia la meta (indica el sentido sin texto).
@@ -209,7 +170,7 @@ public class GuiaReto : MonoBehaviour
         var rot = Quaternion.LookRotation(Vector3.down, dir);
         int n = 0;
         if (!llegado)
-            for (float s = 0.7f; s < largo - 1f && n < flechas.Length; s += Paso, n++)
+            for (float s = 0.7f; s < largo - Mathf.Max(1f, radioLlegada - 0.6f) && n < flechas.Length; s += Paso, n++)
             {
                 var fl = flechas[n];
                 fl.enabled = true;
@@ -227,30 +188,9 @@ public class GuiaReto : MonoBehaviour
 
     void Montar()
     {
-        Material mat = null;
-        var ejemplo = FindObjectOfType<PanelRedondeado>(true);
-        if (ejemplo != null) mat = ejemplo.GetComponent<MeshRenderer>().sharedMaterial;
-        TMP_FontAsset fuente = null;
-        foreach (var tx in FindObjectsOfType<TextMeshPro>(true)) if (tx.font != null) { fuente = tx.font; break; }
+        TMP_FontAsset fuente = EstiloNanoLab.Fuente;
+        if (fuente == null) foreach (var tx in FindObjectsOfType<TextMeshPro>(true)) if (tx.font != null) { fuente = tx.font; break; }
 
-        // Tarjeta
-        tarjeta = new GameObject("TarjetaObjetivo");
-        tarjeta.transform.SetParent(transform, false);
-        Quad(tarjeta.transform, "Fondo", Vector3.zero, W, H, 0.025f, Fondo, new Color(0.55f, 0.85f, 1f, 1f), 0.004f, mat, 0);
-        Quad(tarjeta.transform, "Franja", new Vector3(-W / 2f + 0.012f, 0f, -0.001f), 0.006f, H - 0.04f, 0.003f, Acento, Color.clear, 0f, mat, 1);
-        caso = Texto(tarjeta.transform, "Caso", new Vector3(0.008f, H / 2f - 0.025f, -0.003f), 0.13f, false, new Color(0.4f, 0.5f, 0.6f), fuente, W - 0.06f, TextAlignmentOptions.Left);
-        paso = Texto(tarjeta.transform, "Paso", new Vector3(0.008f, H / 2f - 0.052f, -0.003f), 0.17f, true, Acento, fuente, W - 0.06f, TextAlignmentOptions.Left);
-        objetivo = Texto(tarjeta.transform, "Objetivo", new Vector3(0.008f, -0.01f, -0.003f), 0.155f, false, Tinta, fuente, W - 0.06f, TextAlignmentOptions.Left);
-        objetivo.rectTransform.sizeDelta = new Vector2(W - 0.06f, 0.11f);
-        objetivo.verticalAlignment = VerticalAlignmentOptions.Middle;
-        destinoTxt = Texto(tarjeta.transform, "Destino", new Vector3(0.008f, -H / 2f + 0.03f, -0.003f), 0.12f, false, Tinta, fuente, W - 0.06f, TextAlignmentOptions.Left);
-        puntos = new PanelRedondeado[NombresEtapa.Length];
-        for (int i = 0; i < puntos.Length; i++)
-            puntos[i] = Quad(tarjeta.transform, "Punto" + i, new Vector3(W / 2f - 0.025f - (puntos.Length - 1 - i) * 0.014f, H / 2f - 0.052f, -0.001f),
-                             0.008f, 0.008f, 0.004f, Acento, Color.clear, 0f, mat, 1);
-        tarjeta.SetActive(false);
-
-        // Ruta
         var spFlecha = Sprite.Create(Flecha(), new Rect(0, 0, 64, 64), new Vector2(0.5f, 0.5f), 64f);
         var spAnillo = Sprite.Create(Anillo(), new Rect(0, 0, 128, 128), new Vector2(0.5f, 0.5f), 128f);
         flechas = new SpriteRenderer[MaxFlechas];
@@ -270,45 +210,22 @@ public class GuiaReto : MonoBehaviour
         anillo.transform.SetParent(meta.transform, false);
         anillo.transform.localRotation = Quaternion.LookRotation(Vector3.down, Vector3.forward);
         anillo.sprite = spAnillo;
-        etiquetaMeta = Texto(meta.transform, "Nombre", new Vector3(0f, 2.05f, 0f), 0.9f, true, ColorMeta, fuente, 1.6f, TextAlignmentOptions.Center);
+        // Nombre de la estación sobre el anillo: más discreto que antes (0,9 > 0,6).
+        var go = new GameObject("Nombre");
+        go.transform.SetParent(meta.transform, false);
+        go.transform.localPosition = new Vector3(0f, 2.05f, 0f);
+        etiquetaMeta = go.AddComponent<TextMeshPro>();
+        if (fuente != null) etiquetaMeta.font = fuente;
+        etiquetaMeta.fontSize = 0.6f;
+        etiquetaMeta.color = ColorMeta;
+        etiquetaMeta.alignment = TextAlignmentOptions.Center;
+        etiquetaMeta.enableWordWrapping = true;
+        etiquetaMeta.rectTransform.sizeDelta = new Vector2(1.4f, 0.3f);
+        etiquetaMeta.fontStyle = FontStyles.Bold;
+        etiquetaMeta.sortingOrder = 5;
         etiquetaMeta.outlineWidth = 0.2f;
         etiquetaMeta.outlineColor = new Color32(0, 20, 40, 230);
         meta.SetActive(false);
-    }
-
-    PanelRedondeado Quad(Transform padre, string n, Vector3 pos, float ancho, float alto, float radio, Color c, Color borde, float grosor, Material mat, int orden)
-    {
-        var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        q.name = n;
-        Destroy(q.GetComponent<Collider>());
-        q.transform.SetParent(padre, false);
-        q.transform.localPosition = pos;
-        var mr = q.GetComponent<MeshRenderer>();
-        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        mr.sortingOrder = orden;
-        if (mat != null) mr.sharedMaterial = mat;
-        var p = q.AddComponent<PanelRedondeado>();
-        p.ancho = ancho; p.alto = alto; p.radio = radio; p.color = c; p.colorBorde = borde; p.borde = grosor;
-        p.Aplicar();
-        return p;
-    }
-
-    static TextMeshPro Texto(Transform padre, string n, Vector3 pos, float tam, bool negrita, Color color, TMP_FontAsset fuente, float ancho, TextAlignmentOptions al)
-    {
-        var go = new GameObject(n);
-        go.transform.SetParent(padre, false);
-        go.transform.localPosition = pos;
-        var t = go.AddComponent<TextMeshPro>();
-        if (fuente != null) t.font = fuente;
-        t.fontSize = tam;
-        t.color = color;
-        t.alignment = al;
-        t.enableWordWrapping = true;
-        t.overflowMode = TextOverflowModes.Overflow;
-        t.rectTransform.sizeDelta = new Vector2(ancho, 0.03f);
-        if (negrita) t.fontStyle = FontStyles.Bold;
-        t.sortingOrder = 5;
-        return t;
     }
 
     // Flecha en "V" que apunta hacia +y de la textura (hacia la estación), con bordes suaves.

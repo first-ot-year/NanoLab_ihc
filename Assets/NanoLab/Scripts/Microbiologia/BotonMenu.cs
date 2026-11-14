@@ -1,7 +1,10 @@
+using Oculus.Interaction;
 using TMPro;
 using UnityEngine;
 
-// Botón plano de un panel (MenuAjustes): se pulsa tocándolo con la mano o apuntándolo con el rayo.
+// Botón de un panel (MenuAjustes). Con el bloque "poke" oficial del Interaction SDK de Meta (lo pone MontarAjustes)
+// se pulsa con la punta del dedo o del mando, como los botones de las estaciones; también apuntándolo con el rayo.
+// Sin bloque poke (escenas antiguas) queda el respaldo: se activa al acercar la mano.
 public class BotonMenu : Apuntable
 {
     public string id;
@@ -15,8 +18,13 @@ public class BotonMenu : Apuntable
 
     bool tocando;
     float ultimo = -1f;
+    PokeInteractable poke;
 
     public override string Accion => accion;
+
+    void Awake() => poke = GetComponentInChildren<PokeInteractable>(true);
+    void OnEnable() { if (poke != null) poke.WhenStateChanged += AlCambiarEstado; }
+    void AlCambiarEstado(InteractableStateChangeArgs a) { if (a.NewState == InteractableState.Select) Activar(); }
 
     public override void Activar()
     {
@@ -25,11 +33,13 @@ public class BotonMenu : Apuntable
         Pulsado?.Invoke(id);
         ManosRig.Vibrar(transform.position, 0.4f, 0.05f);
         Sonidos.Clic(transform.position);
-        if (fondo != null && isActiveAndEnabled) { StopAllCoroutines(); StartCoroutine(Destello()); }
+        // Con poke, el verde al pulsar lo da el InteractableColorVisual del SDK; el destello es del botón plano.
+        if (fondo != null && fondo.gameObject.activeInHierarchy && isActiveAndEnabled) { StopAllCoroutines(); StartCoroutine(Destello()); }
     }
 
     void OnDisable()
     {
+        if (poke != null) poke.WhenStateChanged -= AlCambiarEstado;
         tocando = false;
         // Si se cierra el panel a mitad del destello, el botón vuelve a su color y tamaño.
         if (fondo != null && colorOriginal.HasValue) { fondo.color = colorOriginal.Value; fondo.Aplicar(); }
@@ -38,6 +48,7 @@ public class BotonMenu : Apuntable
 
     void Update()
     {
+        if (poke != null) return;   // se pulsa con el poke de Meta
         bool ahora = ManosRig.MasCercana(transform.position, radio, out _);
         if (ahora && !tocando) Activar();
         tocando = ahora;

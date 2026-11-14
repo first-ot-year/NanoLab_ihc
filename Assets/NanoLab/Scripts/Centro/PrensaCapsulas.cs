@@ -51,8 +51,10 @@ public class PrensaCapsulas : MonoBehaviour
 
     void Refrescar()
     {
-        if (pantalla == null || ocupada) return;
         var rm = RetoManager.Instancia;
+        // FORMULAR se ve gris mientras no se puede usar (sin vial, o aún no toca).
+        if (formular != null) formular.Habilitar(!ocupada && Encajado != null && (rm == null || rm.PuedeFormular(out _)));
+        if (pantalla == null || ocupada) return;
         var reto = rm != null ? rm.reto : null;
         var v = Encajado;
         string decision = rm == null ? "" : rm.Hipotesis == null
@@ -79,15 +81,15 @@ public class PrensaCapsulas : MonoBehaviour
         var v = Encajado;
         if (v == null)
         {
-            Aviso.Mostrar("Primero encaja un vial de agente en la ranura de la prensa.", aviso, Aviso.Tipo.Error);
-            Sonidos.Error(transform.position);
+            Aviso.Mostrar("Primero encaja un vial de agente en la ranura de la prensa.", aviso, Aviso.Tipo.Falta);
+            Sonidos.Pista(transform.position);
             return;
         }
         var rm = RetoManager.Instancia;
         if (rm != null && !rm.PuedeFormular(out var motivo))
         {
-            Aviso.Mostrar(motivo, aviso, Aviso.Tipo.Error);
-            Sonidos.Error(transform.position);
+            Aviso.Mostrar(motivo, aviso, Aviso.Tipo.Falta);
+            Sonidos.Pista(transform.position);
             return;
         }
         // Vial que no sigue la estrategia: primera pulsación avisa, la segunda (en pocos segundos) formula.
@@ -107,6 +109,7 @@ public class PrensaCapsulas : MonoBehaviour
     IEnumerator Secuencia(VialAgente v)
     {
         ocupada = true;
+        if (formular != null) formular.Habilitar(false);
         var a = RetoManager.Instancia.reto.agentes[v.agente];
         Sonidos.Camara(transform.position);
         if (pantalla != null) pantalla.text = $"Formulando cápsula <b>{a.sigla}</b>...";

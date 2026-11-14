@@ -9,6 +9,14 @@ public class BalizaArea : MonoBehaviour
     public float distanciaBase = 4f;
     public float escalaMax = 3f;
 
+    // Solo se ve el rótulo de arriba: el anillo del suelo y el haz que subía hasta él se ocultan
+    // (también en escenas montadas antes de quitarlos del constructor).
+    void Awake()
+    {
+        foreach (Transform h in transform)
+            if (h != rotulo && (h.name == "Haz" || h.name == "Anillo")) h.gameObject.SetActive(false);
+    }
+
     void LateUpdate()
     {
         var cab = ManosRig.Cabeza;

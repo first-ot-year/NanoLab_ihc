@@ -45,7 +45,7 @@ public class AvatarBaymax : MonoBehaviour, IAvatarJugador
     OVRCameraRig rig;
     float yawCuerpo;
     bool iniciado;
-    float alturaRef;
+    float alturaRef, extraVista;
     float escala = 1f;
     Vector3 cuelloReposo, hombroIzqReposo, hombroDerReposo, manoIzqReposo, manoDerReposo;
     Transform[] estaticas;
@@ -111,7 +111,9 @@ public class AvatarBaymax : MonoBehaviour, IAvatarJugador
     {
         if (rig == null || rig.centerEyeAnchor == null) return;
         var cab = rig.centerEyeAnchor;
-        float suelo = rig.trackingSpace != null ? rig.trackingSpace.position.y : rig.transform.position.y;
+        // El modo sentado sube el rig entero (y con él su "suelo"): se resta para apoyar los pies en el suelo real.
+        extraVista = JugadorNanoLab.AlturaExtraVista;
+        float suelo = (rig.trackingSpace != null ? rig.trackingSpace.position.y : rig.transform.position.y) - extraVista;
         Posar(cab.position, cab.rotation, Mano(rig.leftHandAnchor, OVRInput.Controller.LTouch, OVRInput.Controller.LHand),
               Mano(rig.rightHandAnchor, OVRInput.Controller.RTouch, OVRInput.Controller.RHand), suelo);
     }
@@ -133,8 +135,10 @@ public class AvatarBaymax : MonoBehaviour, IAvatarJugador
 
         // Escala uniforme según la altura del jugador de pie (la mayor vista); la proporción se aplica
         // por pieza para que las piezas que giran no se deformen.
-        if (!iniciado || alturaOjos > alturaRef) alturaRef = alturaOjos;
-        float objetivo = Mathf.Clamp(alturaRef / (ojos.y * proporcion.y), escalaMin, escalaMax);
+        // Con el modo sentado el cuerpo crece lo que sube la vista (la altura real de pie se sigue midiendo aparte).
+        float real = alturaOjos - extraVista;
+        if (!iniciado || real > alturaRef) alturaRef = real;
+        float objetivo = Mathf.Clamp((alturaRef + extraVista) / (ojos.y * proporcion.y), escalaMin, escalaMax);
         escala = iniciado ? Mathf.MoveTowards(escala, objetivo, Time.deltaTime * 0.5f) : objetivo;
         transform.localScale = Vector3.one * escala;
         foreach (var t in estaticas) t.localScale = proporcion;

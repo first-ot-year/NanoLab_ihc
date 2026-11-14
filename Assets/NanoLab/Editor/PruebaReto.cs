@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -96,6 +97,29 @@ public static class PruebaReto
                 // Frente a la prensa (6): pantalla, viales y el tablero de agentes detrás.
                 ML.Capturar(dir, nombre, new Vector3(15.25f, 1.6f, 14.75f), new Vector3(0f, -0.22f, 1f));
                 ML.Capturar(dir, nombre + "_pantalla", new Vector3(14.95f, 1.42f, 15.6f), new Vector3(0f, -0.3f, 1f));
+            }
+            else if (nombre == "presencia_monitor")
+            {
+                var m = Object.FindObjectsOfType<MicroscopioOptico>().FirstOrDefault(x => x.Monitor != null);
+                if (m == null) return;
+                var t = m.Monitor.transform;
+                ML.Capturar(dir, nombre, t.position - t.forward * 0.75f + Vector3.up * 0.12f, t.position - (t.position - t.forward * 0.75f + Vector3.up * 0.12f));
+                ML.Capturar(dir, nombre + "_lejos", t.position - t.forward * 1.4f + Vector3.up * 0.35f, t.position - (t.position - t.forward * 1.4f + Vector3.up * 0.35f));
+            }
+            else if (nombre == "presencia_brazalete")
+            {
+                var b = Object.FindObjectsOfType<Transform>().FirstOrDefault(x => x.name == "BrazaleteBaymax");
+                if (b == null) return;
+                var desde = b.position - b.forward * 0.32f + b.up * 0.04f;
+                ML.Capturar(dir, nombre, desde, b.position - desde);
+            }
+            else if (nombre == "presencia_aviso")
+            {
+                var a = Object.FindObjectsOfType<Aviso.Item>().Where(x => x.Activo).OrderByDescending(x => x.Inicio).FirstOrDefault();
+                if (a == null) return;
+                var f = a.transform.forward; f.y = 0f; f.Normalize();
+                var desde = a.Ancla - f * 0.7f + Vector3.up * 0.25f;
+                ML.Capturar(dir, nombre, desde, a.transform.position - desde);
             }
             else if (nombre.StartsWith("camara"))
             {

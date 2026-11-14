@@ -1,7 +1,9 @@
 using TMPro;
 using UnityEngine;
 
-// Panel de ajustes (RNF-07): el botón ☰ del mando izquierdo lo abre delante de la cara, en cualquier sala.
+// Panel de ajustes (RNF-07): el botón ☰ del mando izquierdo lo abre en cualquier sala. Por la presencia no aparece
+// pegado a la cara: es una TABLET (carcasa con grosor y asa) que sale sobre la mano izquierda, mirando al jugador,
+// y se queda quieta en el mundo mientras está abierta; se pulsa con el índice derecho (poke de Meta) o con el rayo.
 // Volumen de la música y de los efectos, modo sentado (sube la vista a la de alguien de pie) y
 // recalibrar la altura. Los botones se tocan o se apuntan con el rayo. Lo monta MontarAjustes en el rig.
 public class MenuAjustes : MonoBehaviour
@@ -13,7 +15,11 @@ public class MenuAjustes : MonoBehaviour
     [Tooltip("Distancia del panel a la cabeza al abrirlo (m).")]
     public float distancia = 0.55f;
     [Tooltip("Si la cabeza se aleja más que esto del panel (m), se cierra.")]
-    public float distanciaCierre = 2f;
+    public float distanciaCierre = 1.5f;
+    [Tooltip("Tamaño de la tablet respecto al panel montado (0,62 × 0,77 m).")]
+    public float escalaTablet = 0.7f;
+
+    Transform padreOriginal;   // el rig: la tablet vuelve a él al cerrarse
 
     public static MenuAjustes Instancia { get; private set; }
     public bool Abierto => panel != null && panel.activeSelf;
@@ -31,7 +37,7 @@ public class MenuAjustes : MonoBehaviour
 
     void Update()
     {
-        if (OVRInput.GetDown(OVRInput.Button.Start, OVRInput.Controller.LTouch) || OVRInput.GetDown(OVRInput.Button.Start))
+        if (OVRInput.GetDown(OVRInput.Button.Start, OVRInput.Controller.LTouch) || OVRInput.GetDown(OVRInput.Button.Start) || TeclaMenu())
             Abrir(!Abierto);
         // Se cierra solo si el usuario se aleja de él (p. ej. caminando por la habitación real).
         var cab = ManosRig.Cabeza;
@@ -43,6 +49,9 @@ public class MenuAjustes : MonoBehaviour
         if (panel == null) return;
         if (abrir)
         {
+            // Un solo panel delante de la cara: se cierran la ayuda y los avisos.
+            if (AvisoInicio.Instancia != null && AvisoInicio.Instancia.Abierto) AvisoInicio.Instancia.CerrarAhora();
+            Aviso.OcultarTodos();
             var cab = ManosRig.Cabeza;
             if (cab != null)
             {
@@ -52,10 +61,59 @@ public class MenuAjustes : MonoBehaviour
                 panel.transform.position = cab.position + f * distancia - Vector3.up * 0.12f;
                 panel.transform.rotation = Quaternion.LookRotation(f, Vector3.up);
             }
+            Tablet();
+            if (padreOriginal == null) padreOriginal = panel.transform.parent;
+            panel.transform.SetParent(null, true);   // fija en el mundo mientras está abierta
+            Colocar();
             Refrescar();
         }
+        else if (padreOriginal != null && panel.transform.parent != padreOriginal) panel.transform.SetParent(padreOriginal, true);
         panel.SetActive(abrir);
         Sonidos.Clic(panel.transform.position);
+    }
+
+    public bool FijaEnElMundo => panel != null && panel.transform.parent == null;
+
+    // Sobre la mano izquierda (la que pulsó ☰), a una distancia y altura cómodas, de cara a la cabeza.
+    void Colocar()
+    {
+        var cab = ManosRig.Cabeza;
+        if (cab == null) return;
+        var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up);
+        if (f.sqrMagnitude < 1e-4f) f = Vector3.forward;
+        f.Normalize();
+        var mano = ManosRig.ManoIzq;
+        var pos = mano != null ? mano.position + Vector3.up * 0.18f : cab.position + f * distancia - Vector3.up * 0.2f;
+        // Ni pegada a la cara ni a la cintura: entre 0,35 y 0,55 m por delante y entre 15 y 50 cm bajo los ojos.
+        var h = Vector3.ProjectOnPlane(pos - cab.position, Vector3.up);
+        float delante = Vector3.Dot(h, f);
+        var lado = h - f * delante;
+        delante = Mathf.Clamp(delante, 0.35f, 0.55f);
+        lado = Vector3.ClampMagnitude(lado, 0.25f);
+        pos = cab.position + f * delante + lado;
+        pos.y = Mathf.Clamp(pos.y, cab.position.y - 0.5f, cab.position.y - 0.15f);
+        panel.transform.position = pos;
+        // Mira a la cabeza, también en vertical: queda inclinada como una tablet sostenida.
+        panel.transform.rotation = Quaternion.LookRotation(pos - cab.position, Vector3.up);
+    }
+
+    // Carcasa con grosor y asa detrás del panel, y tamaño de tablet (se hace una vez, en tiempo de ejecución).
+    void Tablet()
+    {
+        var t = panel.transform;
+        t.localScale = Vector3.one * escalaTablet;
+        if (t.Find("Carcasa") != null) return;
+        // La carcasa toma el tamaño del fondo del panel (el panel puede crecer si se añaden botones).
+        float ancho = 0.62f, alto = 0.77f, y = -0.105f;
+        var fondo = t.Find("Fondo");
+        var pr = fondo != null ? fondo.GetComponent<PanelRedondeado>() : null;
+        if (pr != null) { ancho = pr.ancho; alto = pr.alto; y = fondo.localPosition.y; }
+        var mat = KitVacuna.Plano(new Color(0.16f, 0.18f, 0.21f));
+        var borde = KitVacuna.Plano(new Color(0.37f, 0.83f, 1f));
+        KitVacuna.Caja(t, "Carcasa", new Vector3(0f, y, 0.022f), new Vector3(ancho + 0.04f, alto + 0.04f, 0.04f), mat);
+        KitVacuna.Caja(t, "Canto", new Vector3(0f, y, 0.0025f), new Vector3(ancho + 0.025f, alto + 0.025f, 0.003f), borde);
+        KitVacuna.Caja(t, "Asa", new Vector3(0f, y - alto / 2f - 0.045f, 0.022f), new Vector3(0.22f, 0.05f, 0.04f), mat);
+        foreach (var c in t.GetComponentsInChildren<Collider>(true)) if (c.name == "Carcasa" || c.name == "Canto" || c.name == "Asa") Destroy(c);
     }
 
     public void Pulsar(string id)
@@ -71,15 +129,28 @@ public class MenuAjustes : MonoBehaviour
                 AjustesNanoLab.ModoSentado = !AjustesNanoLab.ModoSentado;
                 break;
             case "calibrar":
-                if (JugadorNanoLab.Instancia != null) JugadorNanoLab.Instancia.CalibrarSentado();
-                AjustesNanoLab.ModoSentado = true;
-                break;
+                // Antes dejaba SIEMPRE el modo sentado activado: pulsarlo otra vez no bajaba nunca la vista.
+                // Ahora solo vuelve a medir si el modo sentado ya está activo; si no, deja la vista a la altura real.
+                if (AjustesNanoLab.ModoSentado && JugadorNanoLab.Instancia != null) JugadorNanoLab.Instancia.CalibrarSentado();
+                if (JugadorNanoLab.Instancia != null) JugadorNanoLab.Instancia.AlSuelo();
+                if (partida != null) partida.text = AjustesNanoLab.ModoSentado
+                    ? "<color=#7CF29A><b>Altura recalibrada (modo sentado)</b></color>"
+                    : "<color=#7CF29A><b>Vista a tu altura real. Para subirla, activa el MODO SENTADO</b></color>";
+                Sonidos.Logro(panel.transform.position);
+                return;
             case "guardar":
                 bool ok = Partida.GuardarManual();
-                if (partida != null) partida.text = ok ? "<color=#7CF29A><b>Partida guardada</b></color>" : "<color=#FF7A7A><b>No se pudo guardar</b></color>";
+                if (partida != null) partida.text = ok ? "<color=#7CF29A><b>Partida guardada</b></color>" : "<color=#FF7A7A><b>No se pudo guardar. Inténtalo otra vez o libera espacio en el visor</b></color>";
                 if (ok) Sonidos.Logro(panel.transform.position); else Sonidos.Error(panel.transform.position);
                 return;
             case "checkpoint":
+                // Volver al checkpoint descarta lo avanzado después: se confirma como NUEVA PARTIDA.
+                if (Partida.UltimoCheckpoint != null && !Confirmacion.Pedir("checkpoint"))
+                {
+                    if (partida != null) partida.text = "<color=#FFD25A><b>¿Volver al checkpoint? Pierdes lo avanzado después. Pulsa otra vez</b></color>";
+                    Sonidos.Pista(panel.transform.position);
+                    return;
+                }
                 bool vuelto = GestorPartida.VolverAlCheckpoint(out var mensaje);
                 if (partida != null) partida.text = vuelto ? $"<color=#7CF29A><b>{mensaje}</b></color>" : $"<color=#FFD25A><b>{mensaje}</b></color>";
                 if (vuelto) { Sonidos.Logro(panel.transform.position); Abrir(false); }
@@ -87,10 +158,9 @@ public class MenuAjustes : MonoBehaviour
                 return;
             case "nueva":
                 // Doble confirmación: se pierde el avance guardado.
-                if (Time.unscaledTime - confirmarNueva > 4f)
+                if (!Confirmacion.Pedir("nueva"))
                 {
-                    confirmarNueva = Time.unscaledTime;
-                    if (partida != null) partida.text = "<color=#FFD25A><b>¿Seguro? Pulsa NUEVA PARTIDA otra vez</b></color>";
+                    if (partida != null) partida.text = "<color=#FFD25A><b>¿Borrar todo el avance? Pulsa NUEVA PARTIDA otra vez</b></color>";
                     Sonidos.Pista(panel.transform.position);
                     return;
                 }
@@ -98,11 +168,43 @@ public class MenuAjustes : MonoBehaviour
                 Abrir(false);
                 UnityEngine.SceneManagement.SceneManager.LoadScene("Microbiologia");
                 return;
+            case "reiniciar":
+                // Borra el avance y recarga la escena. Como NUEVA PARTIDA, pide una segunda pulsación (heurísticas 3 y 5).
+                if (!Confirmacion.Pedir("reiniciar"))
+                {
+                    if (partida != null) partida.text = "<color=#FFD25A><b>¿Reiniciar la partida? Se borra todo el avance. Pulsa otra vez</b></color>";
+                    Sonidos.Pista(panel.transform.position);
+                    return;
+                }
+                Partida.Borrar();
+                Abrir(false);
+                UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+                return;
+            case "ayuda":
+                // Ayuda bajo demanda: qué toca ahora, controles, glosario (heurística 10).
+                Abrir(false);
+                if (AvisoInicio.Instancia != null) AvisoInicio.Instancia.MostrarAyuda();
+                return;
             case "cerrar": Abrir(false); break;
         }
     }
 
-    float confirmarNueva = -10f;
+
+    // En el PC (Editor sin visor, p. ej. Meta XR Simulator): M o Esc abren y cierran el panel.
+    static bool TeclaMenu()
+    {
+#if UNITY_EDITOR
+        if (OVRManager.isHmdPresent) return false;
+#if ENABLE_INPUT_SYSTEM
+        var kb = UnityEngine.InputSystem.Keyboard.current;
+        return kb != null && (kb.mKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame);
+#else
+        return Input.GetKeyDown(KeyCode.M) || Input.GetKeyDown(KeyCode.Escape);
+#endif
+#else
+        return false;
+#endif
+    }
 
     string EstadoPartida()
     {
@@ -121,7 +223,7 @@ public class MenuAjustes : MonoBehaviour
     {
         Nivel(musica, barraMusica, AjustesNanoLab.VolumenMusica);
         Nivel(efectos, barraEfectos, AjustesNanoLab.VolumenEfectos);
-        if (partida != null && Time.unscaledTime - confirmarNueva > 4f) partida.text = $"<color=#A9BED2>{EstadoPartida()}</color>";
+        if (partida != null && !Confirmacion.Pendiente("nueva") && !Confirmacion.Pendiente("checkpoint") && !Confirmacion.Pendiente("reiniciar")) partida.text = $"<color=#A9BED2>{EstadoPartida()}</color>";
         if (sentado != null) sentado.text = AjustesNanoLab.ModoSentado
             ? $"<color=#7CF29A><b>SÍ</b></color>  <size=70%><color=#A9BED2>vista +{AjustesNanoLab.AlturaSentado:F2} m</color></size>"
             : "<color=#A9BED2><b>NO</b></color>";

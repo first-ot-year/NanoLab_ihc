@@ -148,7 +148,7 @@ public static class MontarIntroduccion
     }
 
     // ------------------------------------------------------------------ balizas de las áreas (orientación, RF-01)
-    // Siempre visibles: anillo y haz de luz en el suelo y un rótulo numerado que mira al jugador y crece
+    // Siempre visibles: un rótulo numerado que mira al jugador y crece
     // con la distancia (BalizaArea). Paneles con el estilo de Quest (esquinas redondeadas del Interaction
     // SDK) y tipografía Atkinson Hyperlegible. El color siempre va con número y texto (RNF-03).
 
@@ -183,9 +183,7 @@ public static class MontarIntroduccion
             var e = new GameObject("Area_" + (i + 1)).transform;
             e.SetParent(g, false);
             e.position = new Vector3(a.x, MM.suelo, a.z);
-            var emis = Emisivo(a.color);
-            MM.Cilindro(e, "Anillo", new Vector3(0f, 0.004f, 0f), new Vector3(0.9f, 0.002f, 0.9f), Quaternion.identity, emis);
-            MM.Cilindro(e, "Haz", new Vector3(0f, 1.15f, 0f), new Vector3(0.025f, 1.15f, 0.025f), Quaternion.identity, emis);
+            // Solo el rótulo flotante: sin anillo en el suelo ni haz que suba hasta él.
 
             var rot = new GameObject("Rotulo").transform;
             rot.SetParent(e, false);

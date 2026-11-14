@@ -70,6 +70,26 @@ public class DebugReto : MonoBehaviour
         FuenteMuestra Gotero(int r) => fuentes.FirstOrDefault(f => f.reactivo == r);
         var desinfectante = fuentes.FirstOrDefault(f => f.esDesinfectante);
 
+        // Heurísticas de Nielsen: el objetivo (en el brazalete de la muñeca) dice el paso de la misión y adónde ir de verdad.
+        // MISIÓN 1 corta: FROTIS, TINCIÓN, OBSERVAR, CLASIFICAR, IDENTIFICAR (5). Con los equipos obligatorios, antes la INCUBADORA (9).
+        bool conEquipos = EquiposCentro.Obligatorios && EquiposCentro.Incubadora != null;
+        int pasosM1 = conEquipos ? 6 : 5;
+        Comprobar(rm.Mision == 1 && rm.PasoMision == 1 && rm.PasosMision == pasosM1 && rm.ObjetivoCorto.Contains(conEquipos ? "INCUBADORA" : "TINCIÓN"),
+                  $"El objetivo empieza en MISIÓN 1 · paso 1 de {pasosM1} y dice adónde ir (H1, H2): \"{rm.ObjetivoCorto}\"");
+        // Menos idas y vueltas: las muestras B y C ya están preparadas en la bandeja de microscopía.
+        var preparadas = Portaobjetos.Todos.Where(x => x != null && x.DeCaso && (x.muestra == rm.muestraHongo || x.muestra == rm.muestraVirus)).ToArray();
+        Comprobar(preparadas.Any(x => x.muestra == rm.muestraHongo) && preparadas.Any(x => x.muestra == rm.muestraVirus),
+                  $"Las MUESTRAS B y C esperan preparadas junto a los microscopios ({preparadas.Length} portaobjetos)");
+        var brazalete = BrazaleteBaymax.Instancia;
+        Comprobar(brazalete != null && brazalete.Objetivo_ == rm.ObjetivoCorto,
+                  "El objetivo está en el brazalete de la muñeca, no en una tarjeta que sigue la vista (presencia)");
+        // Poke de Meta (Interaction SDK): los botones de las misiones 1 y 2.
+        var botonesMision = rm.terminal.botones.Concat(rm.terminal.botonesEstrategia ?? new BotonFisico[0])
+            .Concat(new[] { prensa.formular, camara.activar, rm.resumen != null ? rm.resumen.reiniciar : null })
+            .Concat(rm.conclusiones.botones).Where(b => b != null).ToArray();
+        int conPoke = botonesMision.Count(b => b.GetComponentInChildren<Oculus.Interaction.PokeInteractable>(true) != null);
+        Comprobar(conPoke == botonesMision.Length, $"Los botones de las misiones 1 y 2 son poke de Meta (Interaction SDK): {conPoke}/{botonesMision.Length}");
+
         // 0) Introducción (RF-01) y tolerancia al error (RNF-04): un portaobjetos que cae al suelo vuelve solo.
         var indicador = FindObjectOfType<IndicadorRecuerdos>();
         Comprobar(indicador != null && indicador.texto != null && indicador.texto.text.Contains($"{RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total}"),
@@ -87,7 +107,7 @@ public class DebugReto : MonoBehaviour
         // 0b) INCUBADORA (9): las placas A y B pasaron la noche dentro; hasta sacarlas no hay frotis.
         var inc = EquiposCentro.Incubadora;
         if (Comprobar(inc != null && EquiposCentro.Cabina != null && EquiposCentro.Autoclave != null && EquiposCentro.Ultracongelador != null && EquiposCentro.IncubadoraCO2 != null,
-                      $"Consolas de los equipos del centro: {string.Join(", ", EquiposCentro.Todos.Select(x => x.titulo))}"))
+                      $"Consolas de los equipos del centro: {string.Join(", ", EquiposCentro.Todos.Select(x => x.titulo))}") && EquiposCentro.Obligatorios)
         {
             Comprobar(rm.ObjetivoActual.Contains("INCUBADORA") && inc.guia.Activa, "Al empezar, el objetivo y las flechas llevan a la INCUBADORA (9)");
             Momento?.Invoke("equipo_9_antes");
@@ -95,6 +115,7 @@ public class DebugReto : MonoBehaviour
             Comprobar(porta.muestra == null && rm.Actual == EtapaReto.Exploracion, "Con las placas en la incubadora no se puede hacer el frotis");
             yield return EquiposCentro.Usar(inc);
             Comprobar(inc.Hecho && !inc.guia.Activa && rm.estaciones[0].Activa, "SACAR PLACAS: las placas A y B pasan al BANCO (1) y la guía va allí");
+            Comprobar(rm.PasoMision == 2 && rm.ObjetivoCorto.Contains("TINCIÓN"), $"Con las placas fuera, MISIÓN 1 · paso 2 de {pasosM1}: coger un portaobjetos en TINCIÓN: \"{rm.ObjetivoCorto}\"");
             yield return new WaitForSeconds(0.3f);
             Momento?.Invoke("equipo_9_hecho");
         }
@@ -106,6 +127,8 @@ public class DebugReto : MonoBehaviour
         Gotero(1).Aplicar(porta);
         Gotero(3).Aplicar(porta);
         Comprobar(porta.TincionErronea, "Saltarse el lugol invalida la tinción");
+        yield return new WaitForSeconds(0.3f);   // el aviso aparece con un fundido corto
+        Momento?.Invoke("presencia_aviso");
         porta.Encajar(micro.platina);
         yield return null;
         micro.ObservarAhora();
@@ -115,13 +138,25 @@ public class DebugReto : MonoBehaviour
         porta.ColocarEn(porta.transform.position + Vector3.up * 0.2f, Quaternion.identity);
         desinfectante.Aplicar(porta);
         Comprobar(porta.muestra == null, "El desinfectante limpia el portaobjetos");
+        Comprobar(rm.Actual == EtapaReto.Tincion && rm.ObjetivoCorto.Contains("BANCO"),
+                  $"Con el portaobjetos limpio, el objetivo manda a repetir el frotis en el BANCO (H9): \"{rm.ObjetivoCorto}\"");
         fuentePlaca.Aplicar(porta);
         for (int r = 1; r <= 4; r++) Gotero(r).Aplicar(porta);
         Comprobar(porta.TincionCompleta && rm.Actual == EtapaReto.Observacion, "Tinción de Gram completa > etapa Observación");
+        // Prevención de errores (H5): la tinción válida no se pierde por rozar otra muestra ni el desinfectante.
+        var fuenteMoho = fuentes.FirstOrDefault(f => f.muestra == rm.muestraHongo);
+        if (fuenteMoho != null) fuenteMoho.Aplicar(porta);
+        Comprobar(fuenteMoho != null && porta.muestra == rm.reto.muestra && porta.TincionCompleta,
+                  "Tocar la MUESTRA B con el portaobjetos teñido de la A no borra la tinción (H5)");
+        desinfectante.Aplicar(porta);
+        Comprobar(porta.muestra == rm.reto.muestra && porta.TincionCompleta,
+                  "El desinfectante pide confirmar antes de borrar una tinción válida sin observar (H5)");
         Momento?.Invoke("tincion_completa");
 
         // 2) Hipótesis antes de tiempo: debe rechazarse.
         Comprobar(!rm.PuedeHipotesis(out _), "La terminal rechaza una hipótesis sin evidencias");
+        Comprobar(rm.terminal.botones.All(b => b == null || !b.Habilitado) && rm.terminal.botonesEstrategia.All(b => b == null || !b.Habilitado),
+                  "Los botones de la terminal se ven deshabilitados mientras no se pueden usar (H5)");
 
         // 3) Microscopio: evidencias a 400x y 1000x.
         porta.Encajar(micro.platina);
@@ -148,7 +183,7 @@ public class DebugReto : MonoBehaviour
         {
             porta.ColocarEn(porta.transform.position + Vector3.up * 0.2f, Quaternion.identity);
             desinfectante.Aplicar(porta);
-            if (letra == "C" && EquiposCentro.Cabina != null)
+            if (letra == "C" && EquiposCentro.Cabina != null && EquiposCentro.Obligatorios)
             {
                 // CABINA DE BIOSEGURIDAD (10): el hisopado C solo se abre con el flujo encendido.
                 Comprobar(EquiposCentro.Cabina.guia.Activa && rm.ObjetivoActual.Contains("CABINA"), "Para la MUESTRA C, el objetivo y las flechas llevan a la CABINA (10)");
@@ -171,6 +206,10 @@ public class DebugReto : MonoBehaviour
             micro.DejarDeObservar();
         }
         Comprobar(rm.Actual == EtapaReto.Investigacion, "Con las 3 muestras comparadas > etapa Investigación");
+        Comprobar(micro.Monitor != null && HUDMicroscopio.Instancia.Laterales != null && HUDMicroscopio.Instancia.Laterales.IsChildOf(micro.Monitor.transform),
+                  "Las características y el cuaderno se leen en el monitor junto al microscopio; el ocular solo enseña la muestra (presencia)");
+        yield return null;
+        Momento?.Invoke("presencia_monitor");
 
         // 3c) Panel CONCLUSIONES: clasificar A, B y C (un error a propósito).
         var conc = rm.conclusiones;
@@ -187,14 +226,15 @@ public class DebugReto : MonoBehaviour
         Momento?.Invoke("conclusiones_clasificacion");
         conc.botones[2].Activar();   // C = virus
         yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
-        Comprobar(rm.Clasificadas == 3 && rm.Actual == EtapaReto.Investigacion, "A = BACTERIA, B = HONGO, C = VIRUS en CONCLUSIONES; falta la ficha de la biblioteca");
-        // RF-05: la hipótesis se decide con las evidencias y la información consultada.
-        Comprobar(!rm.PuedeHipotesis(out var sinFicha) && sinFicha.Contains("BIBLIOTECA"), "Con las muestras clasificadas, la terminal pide consultar antes una ficha (RF-05)");
+        // Menos pasos: con las 3 muestras clasificadas se pasa directo a identificar; la BIBLIOTECA es ayuda opcional.
+        Comprobar(rm.Clasificadas == 3 && rm.Actual == EtapaReto.Hipotesis && rm.PasoMision == pasosM1,
+                  $"A = BACTERIA, B = HONGO, C = VIRUS en CONCLUSIONES > identificar en la TERMINAL (paso {rm.PasoMision} de {pasosM1})");
+        Comprobar(rm.ObjetivoActual.Contains("BIBLIOTECA"), "El objetivo sugiere la BIBLIOTECA (4) como ayuda si se duda (RF-05)");
 
-        // 4) Biblioteca.
+        // 4) Biblioteca (opcional).
         var ficha = rm.fichas.FirstOrDefault(f => f.id == rm.reto.muestra.nombre) ?? rm.fichas.First();
         ficha.Alternar();
-        Comprobar(rm.Actual == EtapaReto.Hipotesis, "Consultar una ficha > etapa Hipótesis");
+        Comprobar(rm.Actual == EtapaReto.Hipotesis && rm.FichaVista, "Consultar una ficha queda registrado y no cambia la etapa");
         Momento?.Invoke("biblioteca_ficha");
         // RF-04: la ficha del virus (A6) y abrir con el rayo o tocando el panel.
         var fichaVirus = rm.fichas.FirstOrDefault(f => f.id == "Hepatitis B");
@@ -244,7 +284,18 @@ public class DebugReto : MonoBehaviour
             rm.terminal.Elegir(opcionCorrecta);
             Comprobar(rm.Hipotesis == rm.reto.muestra && rm.Mision == 2 && Misiones.Tiene(Misiones.Recuerdo1) && rm.Metricas.Datos.caso == Misiones.Codigo2,
                       $"MISIÓN 1 completa al identificar {rm.reto.muestra.nombre}: recuerdo 1, métricas de la misión 2");
+            int errM2 = rm.Metricas.Datos.errores;
+            rm.terminal.Elegir(opcionIncorrecta);
+            int pasosM2 = EquiposCentro.Obligatorios && EquiposCentro.Autoclave != null ? 6 : 5;
+            Comprobar(rm.PasoMision == 1 && rm.PasosMision == pasosM2 && rm.Hipotesis == rm.reto.muestra && rm.Metricas.Datos.errores == errM2,
+                      $"MISIÓN 2 · paso 1 de {pasosM2}; con la A identificada, la fila 1 de la terminal ya no cuenta errores (H5)");
             Momento?.Invoke("mision1_completa");
+            yield return null;   // RetoManager entrega el aviso de la misión al frame siguiente
+            Comprobar(brazalete != null && brazalete.HayPendiente && brazalete.Pendiente.Contains("MISIÓN 1 COMPLETA"),
+                      "MISIÓN 1 COMPLETA llega a la muñeca (vibra y espera), no delante de la cara");
+            if (brazalete != null) brazalete.Llamar();
+            yield return new WaitForSeconds(0.35f);
+            Momento?.Invoke("presencia_brazalete");
             // MISIÓN 2: estrategia buena y un vial que no la sigue: la prensa avisa antes de formular.
             yield return Intento(rm, opcionCorrecta, estrategiaCorrecta, incorrecto, viales, prensa, camara, micro, porta);
             Comprobar(rm.Actual == EtapaReto.Hipotesis && rm.Intentos == 1, "Tras un fallo y el análisis se vuelve a Hipótesis con una pista");
@@ -268,7 +319,7 @@ public class DebugReto : MonoBehaviour
         Momento?.Invoke("conclusiones_explicacion");
         conc.botones[1].Activar();   // no serviría contra el virus
         yield return new WaitForSeconds(0.25f);   // los botones ignoran pulsaciones a menos de 0,2 s
-        if (EquiposCentro.Autoclave != null)
+        if (EquiposCentro.Autoclave != null && EquiposCentro.Obligatorios)
         {
             // AUTOCLAVE (11): último paso de la misión 2.
             Comprobar(rm.PendienteAutoclave && rm.Actual == EtapaReto.Analisis && !Misiones.Tiene(Misiones.Recuerdo2) && EquiposCentro.Autoclave.guia.Activa,
@@ -288,6 +339,9 @@ public class DebugReto : MonoBehaviour
         Paso($"Pista en cierre: {pista}");
         Comprobar(Tiene(rm.resumen) && rm.resumen.izquierda.text.Contains(rm.reto.estrategias[estrategiaCorrecta].nombre.ToLower()),
                   "El informe del caso muestra hipótesis · estrategia · agente de cada intento y el aviso de contenido simplificado (RNF-06)");
+        if (rm.resumen != null) rm.resumen.PedirReinicio();
+        Comprobar(rm.Actual == EtapaReto.Cierre, "REINICIAR pide confirmación antes de borrar el avance de las misiones 1 y 2 (H3)");
+        Comprobar(Aviso.Ultimos.Count > 0, $"Los avisos importantes quedan en el historial que enseña la AYUDA (H6): {Aviso.Ultimos.Count}");
         yield return null;
         Momento?.Invoke("archivo");
         yield return ProbarPartida(rm);

@@ -333,12 +333,14 @@ public class GestorPartida : MonoBehaviour
                         JugadorNanoLab.Instancia.Teletransportar(spawn, adelanteSpawn);
                     }
                 }
-                var cab = ManosRig.Cabeza;
-                if (cab != null)
                 {
-                    var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
                     string origen = Partida.DesdeRespaldo ? "\n<size=80%>(desde la copia de respaldo: la última se había dañado)</size>" : "";
-                    Aviso.Mostrar($"Partida cargada ({d.fecha}).\nMuestras: {d.muestras.Count} · Recuerdos: {d.recuerdos.Count}/{RecuerdosBaymax.Total}{origen}", cab.position + f * 1f, Aviso.Tipo.Ok, 4f);
+                    // Reconocer, no recordar: al volver se dice por dónde se iba.
+                    string sigue = rm != null && rm.Actual != EtapaReto.Cierre
+                        ? $"\n<size=85%>{rm.CodigoMision} · paso {rm.PasoMision} de {rm.PasosMision}: {rm.ObjetivoCorto}</size>" +
+                          (rm.RetomadaAntes ? "\n<size=80%>Lo que llevabas en las manos no se guarda: repite el último paso.</size>" : "")
+                        : "";
+                    Aviso.EnMuneca($"Partida cargada ({d.fecha}). Recuerdos: {d.recuerdos.Count}/{RecuerdosBaymax.Total}{origen}{sigue}", Aviso.Tipo.Ok);
                 }
             }
         }
@@ -394,7 +396,7 @@ public class GestorPartida : MonoBehaviour
         }
         Partida.Guardar();
         mensaje = $"De vuelta al checkpoint: {c.reto} ({c.fecha}).";
-        Aviso.Mostrar(mensaje, c.pies + Vector3.up * 1.35f + adelante * 0.9f, Aviso.Tipo.Ok, 4f);
+        Aviso.EnMuneca(mensaje, Aviso.Tipo.Ok);
         return true;
     }
 }

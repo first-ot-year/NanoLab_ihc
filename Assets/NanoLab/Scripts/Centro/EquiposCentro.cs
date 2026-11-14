@@ -19,7 +19,10 @@ public class EquiposCentro : MonoBehaviour
 {
     public static EquipoCentro Incubadora, Cabina, Autoclave, Ultracongelador, IncubadoraCO2;
     public static IEnumerable<EquipoCentro> Todos => new[] { Incubadora, Cabina, Autoclave, Ultracongelador, IncubadoraCO2 }.Where(e => e != null);
-    public static bool Listo(EquipoCentro e) => e == null || e.Hecho;
+    // false: los equipos no bloquean ni suman pasos a las misiones; se pueden usar para aprender (botón, bandeja y
+    // explicación), pero la guía no manda a ellos. true: cada uno es un paso obligatorio (versión larga).
+    public const bool Obligatorios = false;
+    public static bool Listo(EquipoCentro e) => !Obligatorios || e == null || e.Hecho;
 
     static readonly List<(Renderer r, bool on)> rendOcultos = new List<(Renderer, bool)>();
     static Transform placaA, placaB;
@@ -50,8 +53,8 @@ public class EquiposCentro : MonoBehaviour
                 "Aquí crecen los cultivos a 37 °C, la temperatura del cuerpo. Las placas A y B pasaron la noche dentro.",
                 "Las bacterias de la piel crecen mejor a 37 °C, la temperatura del cuerpo: en una noche ya forman colonias que se ven a simple vista. Las placas A y B ya están en el BANCO (1).",
                 "Se usa al EMPEZAR la MISIÓN 1 para sacar las placas.", "PLACAS FUERA · 37,0 °C");
-            Incubadora.EsSuTurno = () => RetoManager.Instancia != null && RetoManager.Instancia.Actual == EtapaReto.Exploracion;
-            Incubadora.Animacion = Incubadora.Bandeja(2, new[] { new Color(0.75f, 0.12f, 0.15f), new Color(0.95f, 0.85f, 0.55f) }, new[] { "A", "B" });
+            Incubadora.EsSuTurno = () => !Obligatorios || (RetoManager.Instancia != null && RetoManager.Instancia.Actual == EtapaReto.Exploracion);
+            Incubadora.Animacion = Incubadora.Bandeja(2, new[] { new Color(0.75f, 0.12f, 0.15f), new Color(0.95f, 0.85f, 0.55f) }, new[] { "A", "B" }, true, "LAS PLACAS A y B");
             Incubadora.AlTerminar = () => { MostrarPlacas(true); AvisarBanco(banco); RetoManager.Instancia?.EquipoUsado(); };
         }
 
@@ -62,7 +65,7 @@ public class EquiposCentro : MonoBehaviour
                 "Cabina clase II: el aire filtrado (HEPA) aleja de tu cara lo que sale de una muestra. Aquí está la MUESTRA C.",
                 "Flujo encendido: una cortina de aire filtrado separa la muestra de tu cara. Así se abre una muestra que puede tener un virus respiratorio. Ya puedes tocar el tubo C con un portaobjetos limpio.",
                 "Se usa en la MISIÓN 1, para abrir el hisopado C.", "FLUJO LAMINAR · ENCENDIDO");
-            Cabina.EsSuTurno = () => RetoManager.Instancia != null && RetoManager.Instancia.Actual <= EtapaReto.Observacion && Listo(Incubadora);
+            Cabina.EsSuTurno = () => !Obligatorios || (RetoManager.Instancia != null && RetoManager.Instancia.Actual <= EtapaReto.Observacion && Listo(Incubadora));
             Cabina.AlTerminar = () => { if (fuenteC != null) fuenteC.bloqueo = null; Cabina.Flujo(true); RetoManager.Instancia?.EquipoUsado(); };
         }
 
@@ -73,9 +76,17 @@ public class EquiposCentro : MonoBehaviour
                 "Vapor a 121 °C y alta presión: mata bacterias, hongos, virus y esporas.",
                 "Vapor a 121 °C durante 15 minutos: mata bacterias, hongos, virus y hasta las esporas. Todo lo que tocó una muestra se esteriliza antes de tirarlo.",
                 "Se usa al FINAL de la MISIÓN 2 para esterilizar la placa tratada.", "CICLO TERMINADO · ESTÉRIL");
-            Autoclave.EsSuTurno = () => RetoManager.Instancia != null && RetoManager.Instancia.PendienteAutoclave;
+            Autoclave.EsSuTurno = () => !Obligatorios || (RetoManager.Instancia != null && RetoManager.Instancia.PendienteAutoclave);
             Autoclave.Animacion = Autoclave.Ciclo(new[] { "CALENTANDO · 98 °C", "VAPOR · 121 °C · 1 atm", "ESTERILIZANDO · 15 min", "ENFRIANDO…" }, 0.6f);
-            Autoclave.AlTerminar = () => RetoManager.Instancia?.Esterilizado();
+            Autoclave.AlTerminar = () => { if (Obligatorios) RetoManager.Instancia?.Esterilizado(); };
+            // Como en las estaciones: primero se hace con las manos (dejar el material encima) y luego se pulsa.
+            var zona = Autoclave.ZonaCarga("DEJA AQUÍ EL PORTAOBJETOS DESPUÉS");
+            Autoclave.Requisito = () =>
+            {
+                bool hayDespues = Portaobjetos.Todos.Any(x => x != null && x.Despues);
+                bool encima = Portaobjetos.Todos.Any(x => x != null && x.Despues && (x.transform.position - zona.position).sqrMagnitude < 0.3f * 0.3f);
+                return !Obligatorios || !hayDespues || encima ? null : "Primero deja el portaobjetos DESPUÉS en la bandeja de encima del AUTOCLAVE (11); luego pulsa ESTERILIZAR.";
+            };
         }
 
         var ult = Buscar("Ultracongelador");
@@ -85,8 +96,8 @@ public class EquiposCentro : MonoBehaviour
                 "Aquí se guardan congelados el molde de ADN y la enzima T7 de la vacuna, para que no se estropeen.",
                 "El molde de ADN y la enzima T7 se guardan a -80 °C porque a temperatura ambiente se degradan en horas. Ya están en la mesa SÍNTESIS del laboratorio de vacunas.",
                 "Se usa en la MISIÓN 3, paso 3 (síntesis del ARNm).", "REACTIVOS RETIRADOS · -80 °C");
-            Ultracongelador.EsSuTurno = () => RetoVacuna.Instancia != null && RetoVacuna.Instancia.Actual == EtapaVacuna.Sintesis;
-            Ultracongelador.Animacion = Ultracongelador.Bandeja(3, new[] { new Color(0.5f, 0.75f, 1f), new Color(0.95f, 0.95f, 0.6f), new Color(0.6f, 1f, 0.7f) }, new[] { "ADN", "T7", "NTP" });
+            Ultracongelador.EsSuTurno = () => !Obligatorios || (RetoVacuna.Instancia != null && RetoVacuna.Instancia.Actual == EtapaVacuna.Sintesis);
+            Ultracongelador.Animacion = Ultracongelador.Bandeja(3, new[] { new Color(0.5f, 0.75f, 1f), new Color(0.95f, 0.95f, 0.6f), new Color(0.6f, 1f, 0.7f) }, new[] { "ADN", "T7", "NTP" }, true, "LOS TUBOS ADN, T7 y NTP");
         }
 
         var co2 = Buscar("IncubadoraCO2");
@@ -96,10 +107,12 @@ public class EquiposCentro : MonoBehaviour
                 "Cultivo de células humanas y animales: 37 °C con 5 % de CO2, que mantiene el pH del medio como en el cuerpo.",
                 "Las células Vero crecen a 37 °C con 5 % de CO2, que mantiene el pH del medio como en la sangre. Son las células que el virus infectará en el ensayo de la placa.",
                 "Se usa en la MISIÓN 3, paso 6 (ensayo preclínico).", "CÉLULAS FUERA · 37 °C · 5 % CO2");
-            IncubadoraCO2.EsSuTurno = () => RetoVacuna.Instancia != null && RetoVacuna.Instancia.Actual == EtapaVacuna.Neutralizacion;
-            IncubadoraCO2.Animacion = IncubadoraCO2.Bandeja(1, new[] { new Color(0.95f, 0.6f, 0.65f) }, new[] { "VERO" });
+            IncubadoraCO2.EsSuTurno = () => !Obligatorios || (RetoVacuna.Instancia != null && RetoVacuna.Instancia.Actual == EtapaVacuna.Neutralizacion);
+            IncubadoraCO2.Animacion = IncubadoraCO2.Bandeja(1, new[] { new Color(0.95f, 0.6f, 0.65f) }, new[] { "VERO" }, true, "EL FRASCO DE CÉLULAS VERO");
         }
 
+        Debug.Log($"[Equipos] Consolas: {string.Join(", ", Todos.Select(e => e.titulo))}" + (Obligatorios ? "" : " (opcionales)"));
+        if (!Obligatorios) return;   // las placas A, B y el hisopado C se quedan en el BANCO (1)
         // Las placas A y B empiezan en la incubadora; el hisopado C, dentro de la cabina.
         placaA = rm.placa != null ? rm.placa.transform : null;
         fuenteA = rm.placa != null ? rm.placa.GetComponent<FuenteMuestra>() : null;
@@ -121,7 +134,6 @@ public class EquiposCentro : MonoBehaviour
         }
         if (Incubadora != null) MostrarPlacas(false);
         if (fuenteC != null && Cabina != null) fuenteC.bloqueo = BloqueoHisopado;
-        Debug.Log($"[Equipos] Consolas: {string.Join(", ", Todos.Select(e => e.titulo))}");
     }
 
     // ------------------------------------------------------------------ placas A y B
@@ -194,8 +206,10 @@ public class EquiposCentro : MonoBehaviour
     public static IEnumerator Usar(EquipoCentro e)
     {
         if (e == null || e.Hecho) yield break;
+        EquipoCentro.Pruebas = true;
         e.boton.Activar();
         for (float t = 0f; t < 8f && !e.Hecho; t += Time.deltaTime) yield return null;
+        EquipoCentro.Pruebas = false;
     }
 
     // ------------------------------------------------------------------ misión 3: la guía va al equipo que toca
@@ -230,6 +244,8 @@ public class EquipoCentro : MonoBehaviour
     public System.Func<bool> EsSuTurno;
     public System.Func<IEnumerator> Animacion;
     public System.Action AlTerminar;
+    public System.Func<string> Requisito;   // lo que falta hacer con las manos antes de pulsar (null = nada)
+    public static bool Pruebas;             // pruebas sin visor: no se esperan las manos
     public bool Hecho { get; private set; }
     public bool Ocupado { get; private set; }
 
@@ -237,6 +253,10 @@ public class EquipoCentro : MonoBehaviour
     Renderer flujo;
     Transform bandeja;
     Vector3 bandejaDentro, bandejaFuera;
+    bool recoger;
+    string queRecoger;
+    readonly List<Transform> piezas = new List<Transform>();
+    Transform zonaCarga;
     float frente = 0.35f;
 
     void Start() { if (boton != null) boton.Pulsado += Pulsar; Refrescar(); }
@@ -250,6 +270,15 @@ public class EquipoCentro : MonoBehaviour
         {
             Aviso.Mostrar($"<b>{titulo}</b>\n{guia.descripcion}\n<color=#FFD25A>{cuando}</color>", pos, Aviso.Tipo.Info, 6f);
             Sonidos.Clic(pos);
+            return;
+        }
+        // "FALTA UN PASO" (no cuenta como error): primero lo que se hace con las manos.
+        string falta = Pruebas ? null : Requisito?.Invoke();
+        if (falta != null)
+        {
+            Aviso.Mostrar($"<b>FALTA UN PASO</b>\n{falta}", pos, Aviso.Tipo.Info, 5f);
+            Sonidos.Pista(pos);
+            if (zonaCarga != null) StartCoroutine(Resaltar(zonaCarga));
             return;
         }
         StartCoroutine(Usar());
@@ -286,7 +315,10 @@ public class EquipoCentro : MonoBehaviour
     {
         if (estado == null) return;
         bool turno = !Hecho && EsSuTurno != null && EsSuTurno();
+        string falta = turno ? Requisito?.Invoke() : null;
+        if (zonaCarga != null) zonaCarga.gameObject.SetActive(turno);
         estado.text = Hecho ? $"<color=#7CFF9E>OK · {textoHecho}</color>"
+                    : turno && falta != null ? "<color=#FFD25A>▼ DEJA EL PORTAOBJETOS EN LA BANDEJA</color>"
                     : turno ? $"<color=#FFD25A>▼ PULSA EL BOTÓN: {accion}</color>"
                     : $"<color=#A9BED2>BOTÓN: {accion} · {cuando}</color>";
     }
@@ -296,6 +328,15 @@ public class EquipoCentro : MonoBehaviour
     {
         if (Time.time < siguienteRefresco || Ocupado) return;
         siguienteRefresco = Time.time + 0.5f;
+        // Menos carga visual: la pantalla del equipo solo se enciende al acercarse (o si es el paso de la guía).
+        var cab = ManosRig.Cabeza;
+        var pant = transform.Find("Consola/Pantalla");
+        if (pant != null && cab != null)
+        {
+            var d = cab.position - transform.position; d.y = 0f;
+            bool ver = d.sqrMagnitude < 2.5f * 2.5f || (guia != null && guia.Activa);
+            if (pant.gameObject.activeSelf != ver) pant.gameObject.SetActive(ver);
+        }
         Refrescar();
         if (guia != null && !guia.Activa && RetoManager.Instancia != null && RetoManager.Instancia.Actual == EtapaReto.Cierre) guia.Mostrar(false, null);
     }
@@ -303,8 +344,12 @@ public class EquipoCentro : MonoBehaviour
     // ------------------------------------------------------------------ animaciones
 
     // Bandeja que sale del equipo con placas o tubos y vuelve a entrar.
-    public System.Func<IEnumerator> Bandeja(int n, Color[] colores, string[] rotulos)
+    // 'recoger': la bandeja sale y se queda fuera hasta que el usuario toca con la mano cada placa o tubo para sacarlo.
+    public System.Func<IEnumerator> Bandeja(int n, Color[] colores, string[] rotulos, bool recoger = false, string queRecoger = null)
     {
+        this.recoger = recoger;
+        this.queRecoger = queRecoger;
+        piezas.Clear();
         bandeja = K.Grupo(transform.Find("Consola"), "Bandeja", Vector3.zero);
         float y = 0.62f;
         bandejaDentro = new Vector3(0f, y, frente - 0.2f);
@@ -314,9 +359,11 @@ public class EquipoCentro : MonoBehaviour
         for (int i = 0; i < n; i++)
         {
             float x = (i - (n - 1) / 2f) * 0.14f;
-            K.Pieza(bandeja, "Envase" + i, PrimitiveType.Cylinder, new Vector3(x, 0.017f, 0f), new Vector3(0.1f, 0.009f, 0.1f), K.Vidrio(new Color(0.85f, 0.95f, 1f, 0.35f)));
-            K.Pieza(bandeja, "Contenido" + i, PrimitiveType.Cylinder, new Vector3(x, 0.014f, 0f), new Vector3(0.09f, 0.005f, 0.09f), K.Plano(colores[i % colores.Length]));
-            var t = K.Texto(bandeja, $"<b>{rotulos[i % rotulos.Length]}</b>", new Vector3(x, 0.08f, 0f), 0.22f, Color.white, 0.12f, 0.05f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(0f, 180f, 0f));
+            var pz = K.Grupo(bandeja, "Pieza" + i, new Vector3(x, 0f, 0f));
+            piezas.Add(pz);
+            K.Pieza(pz, "Envase", PrimitiveType.Cylinder, new Vector3(0f, 0.017f, 0f), new Vector3(0.1f, 0.009f, 0.1f), K.Vidrio(new Color(0.85f, 0.95f, 1f, 0.35f)));
+            K.Pieza(pz, "Contenido", PrimitiveType.Cylinder, new Vector3(0f, 0.014f, 0f), new Vector3(0.09f, 0.005f, 0.09f), K.Plano(colores[i % colores.Length]));
+            var t = K.Texto(pz, $"<b>{rotulos[i % rotulos.Length]}</b>", new Vector3(0f, 0.08f, 0f), 0.22f, Color.white, 0.12f, 0.05f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(0f, 180f, 0f));
             t.outlineWidth = 0.25f; t.outlineColor = new Color32(0, 0, 0, 220);
         }
         bandeja.gameObject.SetActive(false);
@@ -329,10 +376,68 @@ public class EquipoCentro : MonoBehaviour
         estado.text = $"<color=#FFD25A>PUERTA ABIERTA · {accion}…</color>";
         Sonidos.Puerta(bandeja.position, true);
         yield return Mover(bandejaDentro, bandejaFuera, 0.9f);
-        yield return new WaitForSeconds(1.2f);
+        if (recoger) yield return Recoger();
+        else yield return new WaitForSeconds(1.2f);
         yield return Mover(bandejaFuera, bandejaDentro, 0.7f);
         bandeja.gameObject.SetActive(false);
         Sonidos.Puerta(bandeja.position, false);
+    }
+
+    // Espera a que la mano toque cada pieza de la bandeja (las que faltan laten). Se hace con la mano, no con el rayo.
+    IEnumerator Recoger()
+    {
+        foreach (var pz in piezas) { pz.gameObject.SetActive(true); pz.localScale = Vector3.one; }
+        int n = piezas.Count, cogidas = 0;
+        string que = queRecoger ?? "LO DE LA BANDEJA";
+        Aviso.Mostrar($"Saca {que.ToLower()}: tócalos con la mano.", bandeja.position + Vector3.up * 0.3f, Aviso.Tipo.Info, 4f);
+        while (cogidas < n)
+        {
+            estado.text = $"<color=#FFD25A>▼ TOCA CON LA MANO {que} ({cogidas}/{n})</color>";
+            float pulso = 1f + 0.12f * Mathf.Sin(Time.time * 6f);
+            foreach (var pz in piezas)
+            {
+                if (!pz.gameObject.activeSelf) continue;
+                pz.localScale = Vector3.one * pulso;
+                if (Pruebas || ManosRig.MasCercana(pz.position, 0.14f, out _))
+                {
+                    pz.gameObject.SetActive(false);
+                    cogidas++;
+                    Sonidos.Encaje(pz.position);
+                    ManosRig.Vibrar(pz.position, 0.5f, 0.06f);
+                    break;
+                }
+            }
+            yield return null;
+        }
+        estado.text = "<color=#7CFF9E>¡LISTO! YA ESTÁ FUERA</color>";
+        yield return new WaitForSeconds(0.5f);
+        foreach (var pz in piezas) { pz.gameObject.SetActive(true); pz.localScale = Vector3.one; }
+    }
+
+    // Bandeja de carga marcada encima del equipo (autoclave): ahí se deja el material antes de pulsar.
+    public Transform ZonaCarga(string rotulo)
+    {
+        var cuerpo = transform.Find("Cuerpo");
+        float alto = cuerpo != null ? cuerpo.localScale.y : 1.05f;
+        float ancho = cuerpo != null ? cuerpo.localScale.x : 0.6f;
+        var g = K.Grupo(transform.Find("Consola"), "ZonaCarga", new Vector3(-Mathf.Min(0.2f, ancho * 0.3f), alto + 0.002f, frente - 0.15f));
+        K.Caja(g, "Bandeja", Vector3.zero, new Vector3(0.24f, 0.004f, 0.16f), K.Plano(new Color(0.2f, 0.55f, 0.75f)));
+        K.Caja(g, "Borde", new Vector3(0f, -0.001f, 0f), new Vector3(0.27f, 0.003f, 0.19f), K.Plano(K.Amarillo));
+        var t = K.Texto(g, $"<b>{rotulo}</b>", new Vector3(0f, 0.09f, -0.05f), 0.16f, Color.white, 0.3f, 0.06f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(0f, 180f, 0f));
+        t.outlineWidth = 0.25f; t.outlineColor = new Color32(0, 0, 0, 220);
+        zonaCarga = g;
+        g.gameObject.SetActive(false);
+        return g;
+    }
+
+    IEnumerator Resaltar(Transform t)
+    {
+        for (float k = 0f; k < 1.2f; k += Time.deltaTime)
+        {
+            t.localScale = Vector3.one * (1f + 0.15f * Mathf.Sin(k * 12f));
+            yield return null;
+        }
+        t.localScale = Vector3.one;
     }
 
     IEnumerator Mover(Vector3 a, Vector3 b, float s)

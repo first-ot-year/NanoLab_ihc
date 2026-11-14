@@ -62,7 +62,7 @@ Criterios de exclusión: epilepsia fotosensible, problemas de equilibrio o haber
 **Reglas del facilitador:**
 
 - Solo interviene si el participante lo pide dos veces seguidas, está atascado más de 2 minutos o hay un riesgo físico. Cada intervención se anota (hora, paso y qué se dijo).
-- No usa palabras que den la respuesta ("es un hongo", "ponla en el microscopio", "es la espiga"). Puede decir: "¿qué dice tu objetivo? (botón Y)", "sigue las flechas", "prueba el botón PISTA / AYUDA".
+- No usa palabras que den la respuesta ("es un hongo", "ponla en el microscopio", "es la espiga"). Puede decir: "¿qué dice tu muñeca?", "sigue las flechas", "prueba el botón PISTA / AYUDA".
 - **Detener la sesión** si el participante dice que se marea, está pálido o sudoroso. Anotar el paso en el que se detuvo.
 
 ## 7. Cuestionario (Happiness) y entrevista
@@ -95,6 +95,8 @@ Las respuestas se pasan a `Herramientas/plantilla_likert.csv` (una fila por part
 | Intervenciones del facilitador | hora · paso · qué se dijo |
 | Pasos donde dudó más de 1 min | |
 | ¿Usó AYUDA? ¿PASO A PASO? | |
+| ¿Abrió AYUDA desde el botón menú (☰)? ¿Saltó el tutorial? | sí / no · sí / no |
+| ¿Miró la muñeca sin que se lo dijeran? ¿Leyó el monitor del microscopio? | sí / no · sí / no |
 | ¿Miró las muestras B y C sin indicación? ¿Puso la placa de la vacuna en el microscopio sin indicación? | sí / no · sí / no |
 | ¿Encontró la cámara experimental y el panel CONCLUSIONES siguiendo las flechas? | sí / no |
 | Problemas técnicos (agarre, encaje, texto ilegible, tirones) | |

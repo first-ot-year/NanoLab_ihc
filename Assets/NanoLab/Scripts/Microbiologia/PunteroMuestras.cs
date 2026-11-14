@@ -139,7 +139,7 @@ public class PunteroMuestras : MonoBehaviour
             {
                 m.fuenteAvisada = m.fuente;
                 string accion = m.fuente.esDesinfectante ? "limpiar el portaobjetos" : m.fuente.reactivo > 0 ? "aplicar el reactivo" : "tomar la muestra";
-                Aviso.Mostrar($"Gatillo o A/X: {accion}", fin + Vector3.up * 0.1f, Aviso.Tipo.Info, 2.5f);
+                if (PrimerasVeces(accion)) Aviso.Mostrar($"Gatillo o A/X: {accion}", fin + Vector3.up * 0.1f, Aviso.Tipo.Info, 2.5f);
             }
             if (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, m.mando) || OVRInput.GetDown(OVRInput.Button.One, m.mando))
                 m.fuente.Aplicar(m.sostenido);
@@ -163,10 +163,19 @@ public class PunteroMuestras : MonoBehaviour
         if (m.apuntable != m.apuntableAvisado)
         {
             m.apuntableAvisado = m.apuntable;
-            Aviso.Mostrar($"Gatillo o A/X: {m.apuntable.Accion}", fin + Vector3.up * 0.1f, Aviso.Tipo.Info, 2f);
+            if (PrimerasVeces(m.apuntable.GetType().Name)) Aviso.Mostrar($"Gatillo o A/X: {m.apuntable.Accion}", fin + Vector3.up * 0.1f, Aviso.Tipo.Info, 2f);
         }
         if (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, m.mando) || OVRInput.GetDown(OVRInput.Button.One, m.mando))
             m.apuntable.Activar();
+    }
+
+    // El recordatorio "Gatillo o A/X" sale solo las primeras veces de cada tipo de acción; luego basta el rayo verde.
+    static readonly System.Collections.Generic.Dictionary<string, int> vecesAviso = new System.Collections.Generic.Dictionary<string, int>();
+    static bool PrimerasVeces(string clave)
+    {
+        vecesAviso.TryGetValue(clave, out int n);
+        vecesAviso[clave] = n + 1;
+        return n < 2;
     }
 
     const float AlcanceApuntables = 2.5f;

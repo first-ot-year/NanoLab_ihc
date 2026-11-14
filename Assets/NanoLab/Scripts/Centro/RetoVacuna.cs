@@ -187,12 +187,10 @@ public class RetoVacuna : MonoBehaviour
             saludado = true;
             metricas = new MetricsLogger(C.Codigo);
             metricas.Etapa(Actual.ToString());
-            var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-            Aviso.Mostrar(Misiones.VacunaDesbloqueada
+            Aviso.EnMuneca(Misiones.VacunaDesbloqueada
                     ? $"{C.Codigo} · {C.Titulo.ToUpper()}: vas a fabricar una vacuna de ARNm. Pulsa el botón verde CONTINUAR para empezar."
                     : $"{C.Codigo} · {C.Titulo.ToUpper()}: se desbloquea al terminar las misiones 1 y 2. Empieza en el BANCO DE MUESTRAS (1).",
-                cab.position + frente * 0.9f + Vector3.down * 0.15f, Aviso.Tipo.Info, 7f);
-            Sonidos.Etapa(cab.position);
+                Aviso.Tipo.Info);
         }
         dentro = ahora;
         // Actividad del estudiante mientras el caso está en marcha (Engagement: tiempo inactivo).
@@ -975,14 +973,9 @@ public class RetoVacuna : MonoBehaviour
         if (demo != null) demo.Detener();
         if (c == Cuestionario.Antes) { aciertosPre = 0; metricas?.Empezar(); } else aciertosPost = 0;
         metricas?.Etapa(c == Cuestionario.Antes ? "PreguntasAntes" : "PreguntasDespues");
-        var cab = ManosRig.Cabeza;
-        if (cab != null)
-        {
-            var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-            Aviso.Mostrar(c == Cuestionario.Antes ? "ANTES DE EMPEZAR: 4 preguntas rápidas.\n<size=75%>No cuentan como error.</size>"
-                                                  : "PARA TERMINAR: las mismas 4 preguntas.\n<size=75%>¿Qué aprendiste?</size>",
-                cab.position + frente * 0.85f + Vector3.down * 0.05f, Aviso.Tipo.Info, 3.5f);
-        }
+        // La pantalla de la estación ya presenta las preguntas: el aviso va a la muñeca (sin texto delante de la cara).
+        Aviso.EnMuneca(c == Cuestionario.Antes ? "ANTES DE EMPEZAR: 4 preguntas rápidas. No cuentan como error."
+                                               : "PARA TERMINAR: las mismas 4 preguntas. ¿Qué aprendiste?", Aviso.Tipo.Info);
         Sonidos.Etapa(transform.position + Vector3.up * 1.2f);
         tVentana = 0f;
         Refrescar();
@@ -1128,14 +1121,14 @@ public class RetoVacuna : MonoBehaviour
     bool FaltaEquipo(out EquipoCentro eq)
     {
         eq = EquipoDe(Actual);
-        return eq != null && !eq.Hecho && !Resuelta;
+        return eq != null && !EquiposCentro.Listo(eq) && !Resuelta;
     }
 
     SubPaso[] Plan(EtapaVacuna e)
     {
         var basico = PlanBasico(e);
         var eq = EquipoDe(e);
-        if (eq == null) return basico;
+        if (eq == null || !EquiposCentro.Obligatorios) return basico;
         var primero = new SubPaso($"Ve al {eq.titulo} ({eq.guia.numero}) del centro y pulsa {eq.accion}: sin eso no hay material para este paso",
                                   () => T(eq.boton), () => eq.Hecho || Resuelta).Con(I.Pulsar, () => T(eq.boton))
             .Nino($"Sigue las flechas del suelo hasta el {eq.titulo} y PULSA su botón amarillo", $"PULSA {eq.accion}");
@@ -1455,7 +1448,7 @@ public class RetoVacuna : MonoBehaviour
             case EtapaVacuna.Intro:
                 ventana.Mostrar(true, $"{C.Codigo} · {C.Titulo.ToUpper()}", Misiones.VacunaDesbloqueada ? "Pulsa CONTINUAR (verde) para empezar" : "Bloqueada: primero las misiones 1 y 2", Misiones.VacunaDesbloqueada ? I.Pulsar : I.Ninguno);
                 return;
-            case EtapaVacuna.Cierre: ventana.Mostrar(true, "¡CASO RESUELTO!", "Mira tu informe o pulsa REPETIR para volver a jugar", I.Ninguno); return;
+            case EtapaVacuna.Cierre: ventana.Mostrar(true, "¡MISIÓN COMPLETA!", "Mira tu informe o pulsa REPETIR para volver a jugar", I.Ninguno); return;
         }
         if (plan.Length == 0) { ventana.Mostrar(false, "", "", I.Ninguno); return; }
         int n = (int)Actual, i = PasoActualDelPlan();
@@ -1540,14 +1533,9 @@ public class RetoVacuna : MonoBehaviour
     }
 
     // Cartel grande delante de la vista al empezar cada paso.
-    void Banner(EtapaVacuna e)
-    {
-        var cab = ManosRig.Cabeza;
-        if (cab == null) return;
-        int n = (int)e;
-        var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-        Aviso.Mostrar($"PASO {n}/{NumPasos} · {C.Pasos[n - 1]}\n<size=75%>{C.Donde[n - 1]}</size>", cab.position + frente * 0.85f + Vector3.down * 0.05f, Aviso.Tipo.Info, 3.5f);
-    }
+    // Antes salía un rótulo delante de la cara en cada paso. Ahora la estación presenta el paso en su pantalla y en el
+    // apartado AHORA, y el brazalete de la muñeca recibe el paso (GuiaReto): aquí ya no se pone nada delante de los ojos.
+    void Banner(EtapaVacuna e) { }
 
     void CrearMarcador()
     {
@@ -1576,7 +1564,7 @@ public class RetoVacuna : MonoBehaviour
         Sonidos.Error(pos);
         ManosRig.Vibrar(pos, 0.3f, 0.1f);
         // Tras dos fallos en el mismo paso, se ofrece la pista (no se da sola: el estudiante decide).
-        if (n + 1 == 2) Aviso.Mostrar("¿Atascado? Pulsa AYUDA (amarillo): te enseña el gesto.", pista.transform.position + Vector3.up * 0.3f, Aviso.Tipo.Pista, 4f);
+        if (n + 1 == 2) Aviso.Mostrar("¿Atascado? Pulsa AYUDA (amarillo): te enseña el gesto.", pista.transform.position + Vector3.up * 0.3f, Aviso.Tipo.Info, 4f);
     }
 
     void Registrar(string que, bool bien)
@@ -1672,7 +1660,7 @@ public class RetoVacuna : MonoBehaviour
             case EtapaVacuna.Titulo: lista = !vistoMicro ? C.PistasMicroPlaca : microOk < PreguntasMicro ? PreguntaMicro().pistas : C.PistasTitulo; break;
             case EtapaVacuna.Fases: lista = C.PistasFases; break;
             case EtapaVacuna.Eficacia: lista = PreguntaEficacia().pistas; break;
-            default: lista = new[] { Actual == EtapaVacuna.Intro ? "Pulsa el botón verde CONTINUAR para empezar el caso." : "Caso resuelto: lee tu informe o pulsa REPETIR." }; break;
+            default: lista = new[] { Actual == EtapaVacuna.Intro ? "Pulsa el botón verde CONTINUAR para empezar la misión." : "Misión completa: lee tu informe o pulsa REPETIR." }; break;
         }
         nivelPista.TryGetValue(Actual, out int n);
         string p = lista[Mathf.Min(n, lista.Length - 1)];
@@ -1707,12 +1695,8 @@ public class RetoVacuna : MonoBehaviour
         RecuerdosBaymax.Recuperar(Misiones.Recuerdo3);
         if (!guardado) { metricas?.Guardar(true); guardado = true; }
         bool cp = Partida.GuardarCheckpoint(C.Codigo);
-        if (cab != null)
-        {
-            var frente = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
-            Aviso.Mostrar($"{C.Codigo} RESUELTO · ¡Creaste una vacuna! Baymax recupera un recuerdo científico ({RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total})" + (cp ? "\nCHECKPOINT GUARDADO" : ""),
-                cab.position + frente * 0.9f + Vector3.down * 0.1f, Aviso.Tipo.Ok, 6f);
-        }
+        Aviso.EnMuneca($"{C.Codigo} COMPLETA · ¡Creaste una vacuna! Baymax recupera un recuerdo científico ({RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total})" + (cp ? "\nProgreso guardado (checkpoint)." : ""),
+            Aviso.Tipo.Ok);
         Refrescar();
     }
 
@@ -1909,6 +1893,10 @@ public class RetoVacuna : MonoBehaviour
         return sb.ToString();
     }
 
+    // Para el brazalete de la muñeca, que en la misión 3 enseña el paso de la vacuna.
+    public string TituloActual => TituloEtapa();
+    public string ObjetivoActual => EnCuestionario ? "Responde la pregunta con las letras del mostrador." : Indicacion();
+
     string Indicacion()
     {
         if (FaltaEquipo(out var eq)) return $"Antes: sigue las flechas del suelo hasta el {eq.titulo} ({eq.guia.numero}) y pulsa {eq.accion}. Allí está el material de este paso.";
@@ -1995,7 +1983,7 @@ public class RetoVacuna : MonoBehaviour
             }
             case EtapaVacuna.Cierre:
             {
-                titulo.text = $"{C.Codigo} RESUELTO · ¡CREASTE UNA VACUNA!";
+                titulo.text = $"{C.Codigo} COMPLETA · ¡CREASTE UNA VACUNA!";
                 enunciado.text = $"<color=#8FD8FF><b>Lo que aprendiste</b></color>\n<size=85%>{C.Aprendido}</size>\n<size=80%>{C.EnElCuerpo}</size>";
                 opcionesTxt.text = "";
                 var sb = new StringBuilder();

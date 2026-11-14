@@ -63,7 +63,7 @@ public class AvatarBaymaxBebe : MonoBehaviour, IAvatarJugador
     OVRCameraRig rig;
     Brazo[] brazos;
     Quaternion cuelloOffset, cabezaOffset;
-    float yawCuerpo, alturaRef, escala = 1f, velSuave;
+    float yawCuerpo, alturaRef, escala = 1f, velSuave, extraVista;
     bool iniciado;
     Renderer manosRenderer;
     bool manosOcultas;
@@ -190,7 +190,9 @@ public class AvatarBaymaxBebe : MonoBehaviour, IAvatarJugador
         OcultarCuerpoEnVista();
         if (rig == null || rig.centerEyeAnchor == null) return;
         var cab = rig.centerEyeAnchor;
-        float suelo = rig.trackingSpace != null ? rig.trackingSpace.position.y : rig.transform.position.y;
+        // El modo sentado sube el rig entero (y con él su "suelo"): se resta para apoyar los pies en el suelo real.
+        extraVista = JugadorNanoLab.AlturaExtraVista;
+        float suelo = (rig.trackingSpace != null ? rig.trackingSpace.position.y : rig.transform.position.y) - extraVista;
         Posar(cab.position, cab.rotation, Mano(rig.leftHandAnchor, OVRInput.Controller.LTouch, OVRInput.Controller.LHand),
               Mano(rig.rightHandAnchor, OVRInput.Controller.RTouch, OVRInput.Controller.RHand), suelo);
         ManosLejosDeLaCara(cab.position);
@@ -239,8 +241,10 @@ public class AvatarBaymaxBebe : MonoBehaviour, IAvatarJugador
 
         // Escala uniforme (una no uniforme deformaría la malla al girar los huesos) según la altura del
         // jugador de pie: la mayor vista.
-        if (!iniciado || alturaOjos > alturaRef) alturaRef = alturaOjos;
-        float objetivo = Mathf.Clamp(alturaRef / ojos.y, escalaMin, escalaMax);
+        // Con el modo sentado el cuerpo crece lo que sube la vista (la altura real de pie se sigue midiendo aparte).
+        float real = alturaOjos - extraVista;
+        if (!iniciado || real > alturaRef) alturaRef = real;
+        float objetivo = Mathf.Clamp((alturaRef + extraVista) / ojos.y, escalaMin, escalaMax);
         escala = iniciado ? Mathf.MoveTowards(escala, objetivo, Time.deltaTime * 0.5f) : objetivo;
         transform.localScale = Vector3.one * escala;
 
