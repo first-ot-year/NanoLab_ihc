@@ -112,9 +112,11 @@ public class MicroscopioVacuna : MonoBehaviour
 
         // Monitor de la cámara sobre un pie, hacia el borde del mostrador (así no tapa la pantalla del caso),
         // girado hacia donde está el usuario e inclinado hacia arriba.
-        K.Caja(g, "PieMonitor", new Vector3(0.16f, 0.005f, -0.1f), new Vector3(0.12f, 0.01f, 0.1f), gris);
-        K.Caja(g, "Soporte", new Vector3(0.16f, 0.13f, -0.11f), new Vector3(0.02f, 0.25f, 0.02f), gris);
-        var mon = K.Grupo(g, "Monitor", new Vector3(0.16f, 0.36f, -0.1f), Quaternion.Euler(0f, 150f, 0f) * Quaternion.Euler(18f, 0f, 0f));
+        // Revisión: a un lado (x = 0,16 y girado 150°) se metía en la columna de la sala. Ahora va centrado detrás del
+        // microscopio, más alto que los oculares y de frente al usuario: no sobresale por los lados.
+        K.Caja(g, "PieMonitor", new Vector3(0f, 0.005f, -0.17f), new Vector3(0.12f, 0.01f, 0.08f), gris);
+        K.Caja(g, "Soporte", new Vector3(0f, 0.17f, -0.18f), new Vector3(0.02f, 0.33f, 0.02f), gris);
+        var mon = K.Grupo(g, "Monitor", new Vector3(0f, 0.42f, -0.17f), Quaternion.Euler(0f, 180f, 0f) * Quaternion.Euler(12f, 0f, 0f));
         K.Caja(mon, "Marco", new Vector3(0f, 0f, 0.012f), new Vector3(0.375f, 0.222f, 0.02f), negro);
         m.ConstruirPantalla(mon);
         m.Apagar();

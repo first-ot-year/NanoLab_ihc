@@ -78,7 +78,12 @@ public class PanelConclusiones : MonoBehaviour
 
         // Pantalla inclinada hacia el usuario (su -z mira al usuario tras girarla 180°).
         var pant = K.Grupo(g, "Pantalla", new Vector3(0f, 1.52f, -0.17f), Quaternion.Euler(0f, 180f, 0f) * Quaternion.Euler(-10f, 0f, 0f));
-        K.Panel(pant, "Fondo", Vector3.zero, 1.0f, 0.82f, AdaptadorEscena.ColorPanel, AdaptadorEscena.BordePanel, 0.003f, 0.03f);
+        // Revisión: el recuadro no debe transparentarse. Placa opaca detrás y el panel redondeado solo pone el borde cian.
+        var placa = K.Caja(pant, "FondoOpaco", new Vector3(0f, 0f, 0.004f), new Vector3(1.0f, 0.82f, 0.006f), K.Opaco(new Color(0.06f, 0.19f, 0.34f)));
+        foreach (var c in placa.GetComponents<Collider>()) Object.Destroy(c);
+        var marco = K.Panel(pant, "Fondo", Vector3.zero, 1.0f, 0.82f, new Color(0.06f, 0.19f, 0.34f, 0f), AdaptadorEscena.BordePanel, 0.003f, 0.03f);
+        var pr = marco.GetComponent<PanelRedondeado>();
+        if (pr == null) marco.enabled = false;   // respaldo sin el SDK: queda solo la placa opaca
         p.titulo = K.Texto(pant, "", new Vector3(0f, 0.385f, -0.004f), 0.3f, K.Amarillo, 0.94f, 0.06f, TextAlignmentOptions.Top, true, true);
         K.AutoTam(p.titulo, 0.2f);
         p.cuerpo = K.Texto(pant, "", new Vector3(0f, 0.315f, -0.004f), 0.2f, Color.white, 0.94f, 0.34f, TextAlignmentOptions.TopLeft, false, true);

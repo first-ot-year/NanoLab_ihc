@@ -71,6 +71,30 @@ public static class KitVacuna
         return m;
     }
 
+    // Color opaco que no depende de la luz (emisivo): para el fondo de paneles que NO deben transparentarse.
+    // Va en la cola opaca (2000): escribe profundidad, así nada de lo que hay detrás se dibuja encima del panel y
+    // sus textos (transparentes) siempre quedan delante.
+    public static Material Opaco(Color c)
+    {
+        if (opacos.TryGetValue(c, out var m) && m != null) return m;
+        var sh = Shader.Find("Standard");
+        m = sh != null ? new Material(sh) : new Material(Plano(c));
+        m.name = "PanelOpaco";
+        c.a = 1f;
+        m.color = c;
+        if (sh != null)
+        {
+            m.SetFloat("_Glossiness", 0f);
+            m.EnableKeyword("_EMISSION");
+            m.SetColor("_EmissionColor", c);
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+        }
+        m.renderQueue = 2000;
+        opacos[c] = m;
+        return m;
+    }
+    static readonly Dictionary<Color, Material> opacos = new Dictionary<Color, Material>();
+
     // Material transparente (envolturas del virus, nanopartículas). Sin vidrio en la escena, color plano.
     public static Material Vidrio(Color c)
     {

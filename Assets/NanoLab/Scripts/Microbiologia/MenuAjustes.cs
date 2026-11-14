@@ -147,8 +147,15 @@ public class MenuAjustes : MonoBehaviour
         var fondo = t.Find("Fondo");
         var pr = fondo != null ? fondo.GetComponent<PanelRedondeado>() : null;
         if (pr != null) { ancho = pr.ancho; alto = pr.alto; y = fondo.localPosition.y; }
-        var borde = Opaco(new Color(0.37f, 0.83f, 1f));
+        var borde = KitVacuna.Opaco(new Color(0.37f, 0.83f, 1f));
         const float g = 0.008f;   // ancho del marco
+        // Letras blancas nítidas: el fondo del panel era un panel redondeado TRANSPARENTE (y AdaptadorEscena lo pasa a
+        // azul pizarra al 97 %) que, según el orden de dibujo, quedaba encima de las letras como un velo. Ahora el fondo
+        // es una placa OPACA oscura (escribe profundidad, siempre debajo de textos y botones), el panel transparente se
+        // apaga y el borde lo pone el marco celeste.
+        var placa = KitVacuna.Caja(t, "FondoOpaco", new Vector3(0f, y, 0.003f), new Vector3(ancho, alto, 0.004f), KitVacuna.Opaco(new Color(0.075f, 0.09f, 0.115f)));
+        foreach (var c in placa.GetComponents<Collider>()) Destroy(c);
+        if (fondo != null && fondo.GetComponent<Renderer>() != null) fondo.GetComponent<Renderer>().enabled = false;   // el borde lo pone el marco
         var canto = new GameObject("Canto").transform;
         canto.SetParent(t, false);
         KitVacuna.Caja(canto, "Arriba", new Vector3(0f, y + alto / 2f + g / 2f, 0.002f), new Vector3(ancho + 2f * g, g, 0.004f), borde);
@@ -173,15 +180,6 @@ public class MenuAjustes : MonoBehaviour
             rotuloPausa.rectTransform.localPosition = new Vector3(0f, y + alto / 2f + g + 0.035f, lp.z);
             rotuloPausa.gameObject.SetActive(pausado);
         }
-    }
-
-    static Material Opaco(Color c)
-    {
-        var sh = Shader.Find("Standard");
-        var m = sh != null ? new Material(sh) : new Material(KitVacuna.Plano(c));
-        m.color = c;
-        m.renderQueue = 2000;   // siempre antes que los paneles transparentes: nunca los tapa
-        return m;
     }
 
     public void Pulsar(string id)
