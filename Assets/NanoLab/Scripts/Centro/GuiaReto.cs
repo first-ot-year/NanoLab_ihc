@@ -166,6 +166,14 @@ public class GuiaReto : MonoBehaviour
         }
         else if (!cerca && largo > radioLlegada + 1f && llegado) llegado = false;
 
+        // Recorrido en U: si la estación está al otro lado de la pared de vidrio, la luz lleva primero a la puerta.
+        var meta = objetivo;
+        if (RecorridoU.Activo && RecorridoU.AlNorte(objetivo) != RecorridoU.AlNorte(cab.position))
+            meta = RecorridoU.Puerta(RecorridoU.AlNorte(cab.position), suelo + AlturaVuelo);
+        var dm = new Vector3(meta.x, 0f, meta.z) - h;
+        float largoMeta = dm.magnitude;
+        var dirMeta = largoMeta > 1e-3f ? dm / largoMeta : dir;
+
         // Paso nuevo (o vuelve tras alejarse): la luz nace junto al jugador, a un lado de la vista, y avisa con un tono.
         bool nuevo = destinoMostrado != destino || (!llegado && alfaLuz <= 0.01f && destello < 0f);
         if (nuevo && !llegado)
@@ -192,7 +200,7 @@ public class GuiaReto : MonoBehaviour
         else
         {
             var fwd = Horizontal(cab.forward);
-            float ang = Vector3.SignedAngle(fwd, dir, Vector3.up);
+            float ang = Vector3.SignedAngle(fwd, dirMeta, Vector3.up);
             if (Mathf.Abs(ang) > 65f)
             {
                 // Estación fuera de la vista: la luz se asoma por el borde, del lado hacia el que hay que girar.
@@ -203,8 +211,8 @@ public class GuiaReto : MonoBehaviour
             else
             {
                 // Por delante del jugador, en la recta hacia la estación; si está cerca, va directa a ella.
-                float tramo = Mathf.Min(largo, Adelanto);
-                deseado = Vector3.Lerp(new Vector3(cab.position.x, suelo + AlturaVuelo, cab.position.z), objetivo, tramo / Mathf.Max(largo, 1e-3f));
+                float tramo = Mathf.Min(largoMeta, Adelanto);
+                deseado = Vector3.Lerp(new Vector3(cab.position.x, suelo + AlturaVuelo, cab.position.z), meta, tramo / Mathf.Max(largoMeta, 1e-3f));
             }
             deseado.y += 0.04f * Mathf.Sin(Time.time * 2.6f);   // flota
             alfaLuz = Mathf.MoveTowards(alfaLuz, 1f, dt / 0.3f);

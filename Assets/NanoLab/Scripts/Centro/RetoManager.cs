@@ -61,7 +61,7 @@ public class RetoManager : MonoBehaviour
 
     MetricsLogger metricas;
     GuiaReto guia;                               // objetivo en el brazalete de la muñeca + ruta de flechas hasta la estación
-    readonly Dictionary<EtapaReto, int> nivelPista = new Dictionary<EtapaReto, int>();
+    readonly Dictionary<string, int> nivelPista = new Dictionary<string, int>();
     bool dentro, sesionGuardada, cronometro;
     int ultimoAgente = -1;
     float ultimaEficacia;
@@ -913,6 +913,7 @@ public class RetoManager : MonoBehaviour
     void CompletarMision1()
     {
         RecuerdosBaymax.Recuperar(Misiones.Recuerdo1);
+        RecuerdoAnimado.Reproducir(Misiones.Recuerdo1, Misiones.TextoRecuerdo1);   // núcleo de memoria que vuela al pecho de Baymax
         if (!sesionGuardada)
         {
             metricas.Datos.totalComprension = 3;
@@ -940,6 +941,7 @@ public class RetoManager : MonoBehaviour
     void CompletarMision2()
     {
         RecuerdosBaymax.Recuperar(Misiones.Recuerdo2);
+        RecuerdoAnimado.Reproducir(Misiones.Recuerdo2, Misiones.TextoRecuerdo2);
         Poner(EtapaReto.Cierre);
         MostrarResumen();
         if (!sesionGuardada)
@@ -1122,7 +1124,7 @@ public class RetoManager : MonoBehaviour
             {
                 "La INCUBADORA es el armario blanco con puerta de vidrio que marca 37 °C (número 9). Pulsa el botón amarillo de su repisa: sale una bandeja.",
                 "Cuando salga la bandeja, toca con la mano las placas A y B (laten): así las sacas y pasan al BANCO (1).",
-                "Sigue las flechas del suelo: llevan a la INCUBADORA (9). Las bacterias crecen a la temperatura del cuerpo, por eso las placas estaban ahí.",
+                "Sigue la LUZ GUÍA: lleva a la INCUBADORA (9). Las bacterias crecen a la temperatura del cuerpo, por eso las placas estaban ahí.",
             } : new[]
             {
                 "Busca el BANCO DE MUESTRAS (zona 1): la placa de la izquierda es la MUESTRA A. Coge un portaobjetos de la mesa de TINCIÓN (2) y toca la placa con él.",
@@ -1167,15 +1169,79 @@ public class RetoManager : MonoBehaviour
                     : reto.pistasAnalisis; break;
             default: return "Ya completaste las misiones 1 y 2. Ve al LABORATORIO DE VACUNAS (MISIÓN 3) o repítelas desde el ARCHIVO (8).";
         }
-        if (lista == null || lista.Length == 0) return ObjetivoActual;
-        nivelPista.TryGetValue(Actual, out int n);
-        string p = lista[Mathf.Min(n, lista.Length - 1)];
-        nivelPista[Actual] = n + 1;
+        if (lista == null || lista.Length == 0) lista = new[] { ObjetivoActual };
+        // Pistas progresivas (3 niveles por paso): 1) una pregunta que hace pensar, 2) una pista concreta,
+        // 3) la solución. Cada paso del objetivo empieza otra vez en el nivel 1.
+        string clave = $"{Actual}:{PasoMision}:{(Hipotesis == null ? 0 : 1)}:{(PendienteAutoclave ? 1 : 0)}:{Clasificadas}";
+        nivelPista.TryGetValue(clave, out int n);
+        nivelPista[clave] = n + 1;
+        NivelPista = Mathf.Min(n, 2) + 1;
+        string p = NivelPista == 1 ? $"<b>PISTA 1/3 · PIENSA:</b> {PreguntaGuia()}"
+                 : NivelPista == 2 ? $"<b>PISTA 2/3:</b> {lista[0]}"
+                 : $"<b>PISTA 3/3 · SOLUCIÓN:</b> {Solucion(lista)}";
         metricas.Datos.pistasPedidas++;
         metricas.Datos.pistas.Add($"{Actual}: {p}");
         metricas.Actividad();
         Refrescar(false);
         return p;
+    }
+
+    // Nivel de la última pista pedida (1 = pregunta, 2 = pista concreta, 3 = solución).
+    public int NivelPista { get; private set; }
+
+    // Nivel 1: una pregunta que orienta sin decir qué hacer.
+    string PreguntaGuia()
+    {
+        switch (Actual)
+        {
+            case EtapaReto.Exploracion:
+                return !EquiposCentro.Listo(EquiposCentro.Incubadora)
+                    ? "¿Dónde pasan la noche las bacterias para crecer? Busca el equipo que marca 37 °C, la temperatura del cuerpo."
+                    : "¿De dónde sacarías un poco de la MUESTRA A para verla al microscopio? Mira las placas del BANCO (1).";
+            case EtapaReto.Tincion:
+            {
+                var pa = PortaCon(reto.muestra);
+                return pa != null && pa.TincionErronea
+                    ? "¿Qué pasa si te saltas o cambias un paso de la tinción? ¿Cómo empezarías de nuevo con un vidrio limpio?"
+                    : "¿En qué orden se aplica la tinción de Gram? Fíjate en el número de cada gotero y en cómo cambia el color del vidrio.";
+            }
+            case EtapaReto.Observacion:
+                if (SiguienteObservacion() == PasoObs.Cabina) return "¿Cómo te protegerías antes de abrir una muestra que puede tener un virus que viaja por el aire?";
+                return Evidencias.All(x => x) ? "¿Qué diferencias esperas ver entre una bacteria, un hongo y un virus al microscopio?"
+                                              : "¿Qué forma tienen las células de la MUESTRA A, cómo se agrupan y de qué color quedaron?";
+            case EtapaReto.Investigacion: return "¿Cuál de las tres muestras se ve más grande? ¿Y cuál no se ve aunque el paciente está enfermo?";
+            case EtapaReto.Hipotesis:
+                return Hipotesis == null ? "Con la forma, la agrupación y el color de Gram que viste, ¿qué ficha de la BIBLIOTECA (4) encaja?"
+                                         : "¿Qué estructura tiene esta bacteria que nuestras células no tienen? Atacar eso no nos haría daño.";
+            case EtapaReto.Preparacion: return "¿Cuál de los viales hace exactamente lo que decidiste en la terminal? Cógelos: su ficha te dice qué atacan.";
+            case EtapaReto.Experimento: return "¿Qué necesita la cámara para probar el agente: la placa, la cápsula o las dos?";
+            case EtapaReto.Analisis:
+                return PendienteAutoclave ? "¿Qué hay que hacer con todo lo que tocó una bacteria antes de tirarlo?"
+                                          : "¿Qué le pasó a la bacteria después del agente? Compara el ANTES y el DESPUÉS.";
+            default: return ObjetivoActual;
+        }
+    }
+
+    // Nivel 3: la solución, dicha sin rodeos.
+    string Solucion(string[] lista)
+    {
+        switch (Actual)
+        {
+            case EtapaReto.Hipotesis when Hipotesis == null:
+                return $"La MUESTRA A es <b>{reto.muestra.nombre}</b>: pulsa su botón en la TERMINAL (5).";
+            case EtapaReto.Hipotesis:
+            {
+                var e = reto.EstrategiaDe(reto.DianaCorrecta);
+                return e != null ? $"Elige <b>{e.nombre}</b> en la TERMINAL (5): esa estructura la tiene la bacteria y nuestras células no." : ObjetivoActual;
+            }
+            case EtapaReto.Preparacion:
+            {
+                var a = reto.agentes.FirstOrDefault(x => x.diana == reto.DianaCorrecta);
+                return a != null ? $"El vial correcto es <b>{a.sigla}</b> ({a.nombre}): ponlo en la ranura de la PRENSA (6) y pulsa FORMULAR." : ObjetivoActual;
+            }
+            default:
+                return lista.Length > 1 ? $"{ObjetivoActual} {lista[lista.Length - 1]}" : ObjetivoActual;
+        }
     }
 
     public void Reiniciar()

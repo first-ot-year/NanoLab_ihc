@@ -2,6 +2,7 @@ using TMPro;
 using UnityEngine;
 
 // Cartel de una estación del centro: número, nombre, qué se hace aquí y botón PISTA.
+// PISTA es progresiva: 1) una pregunta que hace pensar, 2) una pista concreta, 3) la solución (RetoManager.PedirPista).
 // Se ilumina cuando es la estación del objetivo actual (una meta a la vez).
 public class EstacionGuia : MonoBehaviour
 {
@@ -33,7 +34,7 @@ public class EstacionGuia : MonoBehaviour
         string s = Activa && !string.IsNullOrEmpty(objetivo)
             ? $"<color=#FFD25A><b>AHORA:</b></color> {objetivo}"
             : $"<color=#A9BED2>{descripcion}</color>";
-        if (!string.IsNullOrEmpty(pistaMostrada)) s += $"\n<color=#FFD25A><b>PISTA:</b> {pistaMostrada}</color>";
+        if (!string.IsNullOrEmpty(pistaMostrada)) s += $"\n<color=#FFD25A>{pistaMostrada}</color>";
         textoTxt.text = s;
     }
 

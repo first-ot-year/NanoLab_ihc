@@ -1693,6 +1693,7 @@ public class RetoVacuna : MonoBehaviour
         Sonidos.Logro(pos);
         // Tercer recuerdo de Baymax (MISIÓN 3 · CREAR); los dos primeros los dan las misiones 1 y 2.
         RecuerdosBaymax.Recuperar(Misiones.Recuerdo3);
+        RecuerdoAnimado.Reproducir(Misiones.Recuerdo3, Misiones.TextoRecuerdo3);
         if (!guardado) { metricas?.Guardar(true); guardado = true; }
         bool cp = Partida.GuardarCheckpoint(C.Codigo);
         Aviso.EnMuneca($"{C.Codigo} COMPLETA · ¡Creaste una vacuna! Baymax recupera un recuerdo científico ({RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total})" + (cp ? "\nProgreso guardado (checkpoint)." : ""),
@@ -2141,6 +2142,18 @@ public class RetoVacuna : MonoBehaviour
                 for (int i = 0; i < C.OrdenDiseno.Length && !Resuelta; i++) { ColocarEn(Bloque(C.OrdenDiseno[i]), huecosMolde[i]); yield return espera; }
                 break;
             case EtapaVacuna.Sintesis:
+                // Gatillo progresivo de la pipeta: a medio gatillo carga despacio, a fondo se llena (sin visor).
+                var fr = frascos != null ? frascos.FirstOrDefault(x => x != null && x.EsFuente) : null;
+                if (fr != null && PruebaPipeta == null)
+                {
+                    pipeta.Vaciar();
+                    pipeta.Fluir(fr, 0.5f, 0.5f);
+                    float medio = pipeta.Volumen;
+                    pipeta.Fluir(fr, 1f, 2f);
+                    PruebaPipeta = medio > 0.15f && medio < 0.35f && pipeta.Contenido == fr.fuente && pipeta.Volumen >= 1f;
+                    PruebaPipetaTexto = $"a medio gatillo {medio:P0} en 0,5 s; a fondo {pipeta.Volumen:P0}";
+                    pipeta.Vaciar();
+                }
                 foreach (var id in IdsSintesis)
                     if (!tubo.contenido.Contains(id)) { Pipetear(Reactivo(C.ReactivosSintesis, id), puntoTubo); yield return espera; }
                 ColocarEn(tubo, huecoTermo);
@@ -2209,6 +2222,9 @@ public class RetoVacuna : MonoBehaviour
             yield return new WaitForSeconds(0.1f);
         }
     }
+
+    public bool? PruebaPipeta;
+    public string PruebaPipetaTexto = "";
 
     public IEnumerator Simular()
     {
@@ -2290,6 +2306,7 @@ public class RetoVacuna : MonoBehaviour
         Comprobar(placaCultivo.Encajable.Encajada == microscopio.platina || !placaCultivo.gameObject.activeSelf, "La placa se agarró y se colocó en el microscopio");
         Comprobar(Errores == esperados, $"Errores contados: {Errores} (esperados {esperados})");
         Comprobar(placa.Pasos == 5, "La placa de neutralización completó sus 5 pasos");
+        Comprobar(PruebaPipeta == true, $"Pipeta con gatillo progresivo: el líquido entra según cuánto se apriete ({PruebaPipetaTexto})");
         Comprobar(vial.Encajable.Encajada == huecosAlmacen[0], "El vial quedó en el ultracongelador");
         yield return new WaitForSeconds(0.6f);
         Momento?.Invoke("vacuna_9_cierre");

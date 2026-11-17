@@ -25,6 +25,8 @@ public static class Misiones
     public const string TextoRecuerdo1 =
         "Baymax recuerda: \"No todos los microbios son iguales: los hongos son grandes y tienen núcleo, las bacterias miden una milésima de milímetro " +
         "y los virus son tan pequeños que el microscopio óptico no los ve.\"";
+    public const string TextoRecuerdo3 =
+        "Baymax recuerda: \"Una vacuna enseña al cuerpo a reconocer al virus ANTES de enfermar: así el sistema inmune lo detiene a tiempo.\"";
     public const string TextoRecuerdo2 =
         "Baymax recuerda: \"Para detener a un microbio hay que atacar algo que él tiene y nosotros no, como la pared de las bacterias. " +
         "Por eso los antibióticos no sirven contra los virus.\"";

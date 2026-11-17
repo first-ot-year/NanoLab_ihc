@@ -48,6 +48,10 @@ public class Portaobjetos : MonoBehaviour
     Quaternion casaRot;
     float tiempoFuera, ultimoGolpe;
     MaterialPropertyBlock mpb;
+    // Cambio de color gradual del frotis al aplicar un reactivo (tinción visible paso a paso).
+    Color colorFrotis, frotisDesde;
+    float tFrotis = 1f;
+    public Color ColorFrotisActual => colorFrotis;
     static readonly Collider[] buffer = new Collider[32];
 
     void Awake()
@@ -88,6 +92,13 @@ public class Portaobjetos : MonoBehaviour
 
     void Update()
     {
+        if (tFrotis < 1f && frotis != null && muestra != null)
+        {
+            tFrotis += Time.deltaTime / 1.2f;
+            // Empieza cuando cae la gota (0,25 s) y se extiende en ~1 s.
+            float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((tFrotis - 0.2f) / 0.8f));
+            PintarFrotis(Color.Lerp(frotisDesde, ColorFrotis(), k));
+        }
         bool agarrado = Agarrado;
         if (agarrado && !estabaAgarrado) AlAgarrar();
         else if (!agarrado && estabaAgarrado) StartCoroutine(AlSoltar());
@@ -283,15 +294,19 @@ public class Portaobjetos : MonoBehaviour
             Aviso.Mostrar($"Orden incorrecto. {porQue}\nLímpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
             Sonidos.Error(transform.position);
             ManosRig.Vibrar(transform.position, 0.8f, 0.2f);
+            TincionVisible.De(this).Aplicar(r, false);
         }
         else
         {
             PasosTincion = r;
+            TincionVisible.De(this).Aplicar(r, true);
             Aviso.Mostrar(r < 4 ? $"Paso {r}/4: {Reactivos[r]} - correcto\nSigue con el gotero {r + 1}." : "Paso 4/4: Safranina - correcto\nTinción de Gram completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Ok);
             Sonidos.Gota(transform.position);
             ManosRig.Vibrar(transform.position, 0.4f, 0.06f);
         }
-        Refrescar();
+        frotisDesde = colorFrotis;
+        tFrotis = 0f;
+        Refrescar(true);
         TincionCambiada?.Invoke(this);
     }
 
@@ -313,17 +328,21 @@ public class Portaobjetos : MonoBehaviour
         return c;
     }
 
-    void Refrescar()
+    void PintarFrotis(Color c)
+    {
+        colorFrotis = c;
+        frotis.GetPropertyBlock(mpb);
+        mpb.SetColor("_Color", c);
+        frotis.SetPropertyBlock(mpb);
+    }
+
+    // gradual = true: el color lo va cambiando Update (después de aplicar un reactivo).
+    void Refrescar(bool gradual = false)
     {
         if (frotis != null)
         {
             frotis.enabled = muestra != null;
-            if (muestra != null)
-            {
-                frotis.GetPropertyBlock(mpb);
-                mpb.SetColor("_Color", ColorFrotis());
-                frotis.SetPropertyBlock(mpb);
-            }
+            if (muestra != null && !gradual) { tFrotis = 1f; PintarFrotis(ColorFrotis()); }
         }
         if (etiqueta != null)
         {

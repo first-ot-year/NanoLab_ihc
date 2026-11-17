@@ -154,27 +154,46 @@ public class PuntoPipeta : MonoBehaviour
     }
 }
 
-// Micropipeta: con ella en la mano, se acerca la punta a un frasco y se aprieta el gatillo (o A/X) para cargar;
-// se acerca a un tubo o a la placa y se aprieta otra vez para descargar. Igual que el portaobjetos del
-// microscopio (gatillo para tomar la muestra), para que el gesto sea el mismo en todo el laboratorio.
+// Micropipeta: con ella en la mano, se acerca la punta a un frasco y se aprieta el gatillo para cargar; se acerca a
+// un tubo o a la placa y se aprieta otra vez para descargar. Igual que el portaobjetos del microscopio (gatillo
+// para tomar la muestra), para que el gesto sea el mismo en todo el laboratorio.
+// GATILLO PROGRESIVO (revisión: la acción más "de laboratorio"): apretar poco aspira o expulsa despacio, apretar a
+// fondo, rápido. El líquido sube o baja dentro de la punta, caen gotas al descargar y la vibración acompaña al
+// caudal. Al llenarse del todo queda cargada; al vaciarse del todo se entrega al destino. A/X sigue haciendo la
+// acción completa de una vez (accesibilidad) y Usar() también (pruebas sin visor).
 public class PipetaVacuna : MonoBehaviour
 {
     public Transform punta;
     public Renderer liquido;
     public TMP_Text etiqueta;
 
+    public const float Caudal = 0.9f;   // fracción de la punta por segundo con el gatillo a fondo
+
     public P Contenido { get; private set; }
+    public float Volumen { get; private set; }   // 0 vacía · 1 llena
     public Encajable Encajable { get; private set; }
     PuntoPipeta cerca, avisado;
+    P cargando;                 // reactivo que está entrando (aún no llena)
+    Vector3 escalaLiquido, posLiquido;
+    float signo = 1f, tGota, tVibra;
+    readonly List<(Transform t, float v)> gotas = new List<(Transform, float)>();
 
     void Awake()
     {
         Encajable = GetComponent<Encajable>();
+        if (liquido != null)
+        {
+            escalaLiquido = liquido.transform.localScale;
+            posLiquido = liquido.transform.localPosition;
+            // El líquido crece desde la punta: ¿la punta queda hacia el -up o el +up del cilindro?
+            if (punta != null) signo = Vector3.Dot(punta.position - liquido.transform.position, liquido.transform.up) < 0f ? 1f : -1f;
+        }
         Vaciar();
     }
 
     void Update()
     {
+        MoverGotas();
         if (Encajable == null || !Encajable.Agarrado) { cerca = avisado = null; return; }
         cerca = PuntoCercano();
         if (cerca == null) { avisado = null; return; }
@@ -182,13 +201,96 @@ public class PipetaVacuna : MonoBehaviour
         {
             avisado = cerca;
             string accion = cerca.EsFuente ? $"cargar {cerca.fuente.nombre}" : Contenido != null ? $"descargar en {cerca.nombre}" : "(la pipeta está vacía)";
-            Aviso.Mostrar($"Gatillo o A/X: {accion}", cerca.transform.position + Vector3.up * 0.12f, Aviso.Tipo.Info, 2f);
+            Aviso.Mostrar($"Aprieta el gatillo (poco = despacio) o A/X: {accion}", cerca.transform.position + Vector3.up * 0.12f, Aviso.Tipo.Info, 2f);
             ManosRig.Vibrar(punta.position, 0.15f, 0.03f);
         }
         var mando = Mando();
-        if (mando != OVRInput.Controller.None &&
-            (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, mando) || OVRInput.GetDown(OVRInput.Button.One, mando)))
-            Usar(cerca);
+        if (mando == OVRInput.Controller.None) return;
+        if (OVRInput.GetDown(OVRInput.Button.One, mando)) { Usar(cerca); return; }
+        float gatillo = OVRInput.Get(OVRInput.Axis1D.PrimaryIndexTrigger, mando);
+        if (gatillo > 0.05f) Fluir(cerca, gatillo, Time.deltaTime);
+    }
+
+    // Un paso de flujo con el gatillo apretado 'g' (0-1). Público para las pruebas.
+    public void Fluir(PuntoPipeta p, float g, float dt)
+    {
+        if (p == null || g <= 0f) return;
+        float dv = Caudal * Mathf.Clamp01(g) * dt;
+        if (p.EsFuente)
+        {
+            if (Contenido != null && Contenido != p.fuente) { Aviso.Mostrar("La pipeta ya tiene otro reactivo: descárgalo antes de cargar este.", p.transform.position + Vector3.up * 0.15f, Aviso.Tipo.Falta, 2f); return; }
+            if (Contenido != null && Volumen >= 1f) return;   // ya está llena
+            cargando = p.fuente;
+            PintarLiquido(p.fuente.color);
+            Volumen = Mathf.Min(1f, Volumen + dv);
+            Feedback(g, false);
+            Nivel();
+            if (Volumen >= 1f) { Cargar(p.fuente, p.transform.position); cargando = null; }
+            else if (etiqueta != null) etiqueta.text = $"cargando {Mathf.RoundToInt(Volumen * 100)} %";
+            return;
+        }
+        if (Contenido == null) { if (avisado != p) Usar(p); return; }   // vacía: lo explica Usar
+        if (p.recibir == null) return;
+        Volumen = Mathf.Max(0f, Volumen - dv);
+        Feedback(g, true);
+        Nivel();
+        if (etiqueta != null) etiqueta.text = $"{Contenido.nombre} · {Mathf.RoundToInt(Volumen * 100)} %";
+        if (Volumen <= 0f)
+        {
+            var c = Contenido;
+            Sonidos.Gota(p.transform.position);
+            if (p.recibir(c, p.transform.position)) Vaciar();
+            else { Volumen = 1f; Nivel(); if (etiqueta != null) etiqueta.text = c.nombre; }   // el destino no la acepta: no se pierde
+        }
+    }
+
+    void Feedback(float g, bool descargando)
+    {
+        tVibra -= Time.deltaTime;
+        if (tVibra <= 0f) { ManosRig.Vibrar(punta.position, 0.1f + 0.35f * g, 0.05f); tVibra = 0.1f; }
+        tGota -= Time.deltaTime * (0.5f + 2.5f * g);
+        if (tGota > 0f) return;
+        tGota = 0.3f;
+        Sonidos.Gota(punta.position);
+        if (descargando && Contenido != null) SoltarGota(Contenido.color);
+    }
+
+    void SoltarGota(Color c)
+    {
+        var g = KitVacuna.Esfera(null, "Gota", punta.position, 0.006f, KitVacuna.Plano(c)).transform;
+        foreach (var col in g.GetComponentsInChildren<Collider>(true)) Destroy(col);
+        gotas.Add((g, 0f));
+    }
+
+    void MoverGotas()
+    {
+        for (int i = gotas.Count - 1; i >= 0; i--)
+        {
+            var (t, v) = gotas[i];
+            if (t == null) { gotas.RemoveAt(i); continue; }
+            v += 9.8f * Time.deltaTime * 0.5f;
+            t.position += Vector3.down * v * Time.deltaTime;
+            gotas[i] = (t, v);
+            if (v > 0.9f) { Destroy(t.gameObject); gotas.RemoveAt(i); }
+        }
+    }
+
+    void PintarLiquido(Color c)
+    {
+        if (liquido == null) return;
+        liquido.enabled = true;
+        KitVacuna.Pintar(liquido, c);
+    }
+
+    // Nivel del líquido dentro de la punta: crece desde la punta según el volumen.
+    void Nivel()
+    {
+        if (liquido == null) return;
+        float v = Mathf.Clamp(Volumen, 0.02f, 1f);
+        liquido.enabled = Volumen > 0.001f;
+        var t = liquido.transform;
+        t.localScale = new Vector3(escalaLiquido.x, escalaLiquido.y * v, escalaLiquido.z);
+        t.localPosition = posLiquido - t.localRotation * Vector3.up * (signo * escalaLiquido.y * (1f - v));
     }
 
     PuntoPipeta PuntoCercano()
@@ -212,7 +314,7 @@ public class PipetaVacuna : MonoBehaviour
         return c;
     }
 
-    // Lo que hace el gatillo junto a un punto (público para las pruebas sin visor).
+    // Acción completa de una vez: A/X o las pruebas sin visor.
     public void Usar(PuntoPipeta p)
     {
         if (p == null) return;
@@ -231,7 +333,9 @@ public class PipetaVacuna : MonoBehaviour
     public void Cargar(P p, Vector3 donde)
     {
         Contenido = p;
-        if (liquido != null) { liquido.enabled = true; KitVacuna.Pintar(liquido, p.color); }
+        Volumen = 1f;
+        PintarLiquido(p.color);
+        Nivel();
         if (etiqueta != null) { etiqueta.text = p.nombre; etiqueta.color = Color.Lerp(p.color, Color.white, 0.3f); }
         Sonidos.Gota(donde);
         ManosRig.Vibrar(donde, 0.35f, 0.05f);
@@ -241,9 +345,14 @@ public class PipetaVacuna : MonoBehaviour
     public void Vaciar()
     {
         Contenido = null;
+        Volumen = 0f;
+        cargando = null;
+        Nivel();
         if (liquido != null) liquido.enabled = false;
         if (etiqueta != null) { etiqueta.text = "vacía"; etiqueta.color = KitVacuna.Gris; }
     }
+
+    void OnDestroy() { foreach (var (t, _) in gotas) if (t != null) Destroy(t.gameObject); }
 }
 
 // ---------------------------------------------------------------------------------------------- selector

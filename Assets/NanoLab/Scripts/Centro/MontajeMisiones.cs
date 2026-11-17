@@ -50,6 +50,12 @@ public static class MontajeMisiones
         bandejaMicro = micro != null ? micro.Cast<Transform>().FirstOrDefault(t => t.name == "Bandeja") : null;
         PrepararComparacion(rm);
         var panel = CrearConclusiones(centro, micro, suelo);
+        // Recorrido en U: pared de vidrio con la puerta de la sala de vacunas.
+        try { RecorridoU.Montar(centro, suelo); }
+        catch (System.Exception e) { Debug.LogWarning("[Recorrido] No se pudo montar la pared de vidrio: " + e); }
+        // Al entrar por primera vez: luces por zonas siguiendo el recorrido y una frase de Baymax.
+        try { EntradaCentro.Montar(centro, suelo); }
+        catch (System.Exception e) { Debug.LogWarning("[Entrada] No se pudieron montar las luces de entrada: " + e); }
 
         // Tótem de bienvenida de la entrada: presenta las 3 misiones.
         foreach (var tx in centro.GetComponentsInChildren<TMP_Text>(true))
@@ -105,6 +111,8 @@ public static class MontajeMisiones
 
     static void ReubicarCamara(Transform camara, float suelo)
     {
+        // Recorrido en U: la cámara ya está en su sitio (junto a la pared de vidrio), colocada en la escena.
+        if (RecorridoU.Activo) { camara.gameObject.SetActive(true); return; }
         var cajas = new[]
         {
             (centro: new Vector3(0f, 1.15f, 0.3f), tam: new Vector3(1.7f, 2.1f, 2.3f)),   // cuerpo y consola
@@ -255,6 +263,9 @@ public static class MontajeMisiones
 
     static PanelConclusiones CrearConclusiones(Transform centro, Transform micro, float suelo)
     {
+        // Recorrido en U: al final de la misión 2, junto a la puerta de la sala de vacunas.
+        if (RecorridoU.Activo)
+            return PanelConclusiones.Crear(centro, new Vector3(RecorridoU.PosConclusiones.x, suelo, RecorridoU.PosConclusiones.z), RecorridoU.YawConclusiones);
         var cand = new List<(Vector3 pos, float yaw)>();
         if (micro != null)
         {

@@ -90,13 +90,26 @@ public static class PruebaReto
             else if (nombre.StartsWith("terminal"))
             {
                 // De pie frente a la terminal (5): consola con las dos filas y la pantalla.
-                ML.Capturar(dir, nombre, new Vector3(20.5f, 1.62f, 15.4f), new Vector3(0f, -0.27f, 1f));
+                var v = RecorridoCentro.Vista("5_Terminal", new Vector3(20.5f, 0f, 16.55f), 180f, new Vector3(20.5f, 1.62f, 15.4f), new Vector3(0f, -0.27f, 1f));
+                ML.Capturar(dir, nombre, v.desde, v.dir);
             }
             else if (nombre.StartsWith("prensa"))
             {
                 // Frente a la prensa (6): pantalla, viales y el tablero de agentes detrás.
-                ML.Capturar(dir, nombre, new Vector3(15.25f, 1.6f, 14.75f), new Vector3(0f, -0.22f, 1f));
-                ML.Capturar(dir, nombre + "_pantalla", new Vector3(14.95f, 1.42f, 15.6f), new Vector3(0f, -0.3f, 1f));
+                var v = RecorridoCentro.Vista("6_Prensa", new Vector3(15.5f, 0f, 15.86f), 180f, new Vector3(15.25f, 1.6f, 14.75f), new Vector3(0f, -0.22f, 1f));
+                ML.Capturar(dir, nombre, v.desde, v.dir);
+                v = RecorridoCentro.Vista("6_Prensa", new Vector3(15.5f, 0f, 15.86f), 180f, new Vector3(14.95f, 1.42f, 15.6f), new Vector3(0f, -0.3f, 1f));
+                ML.Capturar(dir, nombre + "_pantalla", v.desde, v.dir);
+            }
+            else if (nombre == "tincion_lupa" || nombre == "recuerdo_baymax")
+            {
+                // Holograma junto a lo que lo produjo (lupa de la tinción o recuerdo de Baymax), visto de frente.
+                string n = nombre == "tincion_lupa" ? "LupaTincion" : "RecuerdoBaymax";
+                var l = Object.FindObjectsOfType<Transform>().FirstOrDefault(x => x.name == n && x.gameObject.activeInHierarchy);
+                if (l == null) return;
+                float d = nombre == "tincion_lupa" ? 0.45f : 1.6f;
+                var desde = l.position - l.forward * d + Vector3.up * 0.04f;
+                ML.Capturar(dir, nombre, desde, l.position - desde);
             }
             else if (nombre == "presencia_brazalete")
             {
@@ -116,11 +129,13 @@ public static class PruebaReto
             else if (nombre.StartsWith("camara"))
             {
                 float y = 1.75f;
-                ML.Capturar(dir, nombre, new Vector3(12.9f, y, 8.5f), new Vector3(1f, -0.12f, 0f));
+                var v = RecorridoCentro.Vista("7_CamaraExperimental", new Vector3(15.5f, 0f, 8.5f), -90f, new Vector3(12.9f, y, 8.5f), new Vector3(1f, -0.12f, 0f));
+                ML.Capturar(dir, nombre, v.desde, v.dir);
             }
             else
             {
-                ML.Capturar(dir, nombre, new Vector3(10.2f, 1.75f, 14.2f), new Vector3(0f, -0.02f, 1f));
+                var v = RecorridoCentro.Vista("8_Archivo", new Vector3(10.2f, 0f, 16.6f), 180f, new Vector3(10.2f, 1.75f, 14.2f), new Vector3(0f, -0.02f, 1f));
+                ML.Capturar(dir, nombre, v.desde, v.dir);
             }
         }
         catch (System.Exception e) { Debug.LogWarning($"[PruebaReto] No se pudo capturar {nombre}: {e.Message}"); }

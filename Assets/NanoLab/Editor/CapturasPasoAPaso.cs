@@ -260,7 +260,10 @@ public static class CapturasPasoAPaso
             else if (nombre.StartsWith("terminal"))
                 Terminal(nombre);   // de pie frente a la terminal (5): consola con las dos filas y la pantalla
             else if (nombre.StartsWith("prensa"))
-                Capturar(nombre, new Vector3(15.25f, 1.6f, 14.75f), new Vector3(0f, -0.22f, 1f));
+            {
+                var v = RecorridoCentro.Vista("6_Prensa", new Vector3(15.5f, 0f, 15.86f), 180f, new Vector3(15.25f, 1.6f, 14.75f), new Vector3(0f, -0.22f, 1f));
+                Capturar(nombre, v.desde, v.dir);
+            }
             else if (nombre.StartsWith("camara"))
             {
                 var c = rm.camara;
@@ -316,7 +319,11 @@ public static class CapturasPasoAPaso
         if (z != null) VistaLibre(nombre, z.transform.position, 1.4f, 1.1f);
     }
 
-        static void Terminal(string nombre) => Capturar(nombre, new Vector3(20.5f, 1.62f, 15.4f), new Vector3(0f, -0.27f, 1f));
+        static void Terminal(string nombre)
+        {
+            var v = RecorridoCentro.Vista("5_Terminal", new Vector3(20.5f, 0f, 16.55f), 180f, new Vector3(20.5f, 1.62f, 15.4f), new Vector3(0f, -0.27f, 1f));
+            Capturar(nombre, v.desde, v.dir);
+        }
 
     // MISIÓN 3: vista del estudiante delante del mostrador y, en los pasos de manipulación, la mesa desde arriba.
     static void Vacuna(string nombre)

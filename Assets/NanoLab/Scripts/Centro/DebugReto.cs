@@ -143,6 +143,14 @@ public class DebugReto : MonoBehaviour
         fuentePlaca.Aplicar(porta);
         for (int r = 1; r <= 4; r++) Gotero(r).Aplicar(porta);
         Comprobar(porta.TincionCompleta && rm.Actual == EtapaReto.Observacion, "Tinción de Gram completa > etapa Observación");
+        var tv = porta.GetComponent<TincionVisible>();
+        bool gramPos = rm.reto.muestra.gramPositiva;
+        Comprobar(tv != null && tv.LupaVisible && tv.TextoLupa.Contains("Safranina") && tv.TextoLupa.Contains(gramPos ? "GRAM POSITIVA" : "GRAM NEGATIVA"),
+                  $"Tinción visible: la lupa enseña qué hizo cada reactivo y el resultado ({(gramPos ? "violeta, Gram +" : "rosa, Gram −")})");
+        yield return new WaitForSeconds(1.3f);
+        Momento?.Invoke("tincion_lupa");
+        var cf = porta.ColorFrotisActual;
+        Comprobar(gramPos ? cf.b > cf.g + 0.2f : cf.r > cf.b, $"El frotis cambió de color poco a poco hasta el final ({cf})");
         // Prevención de errores (H5): la tinción válida no se pierde por rozar otra muestra ni el desinfectante.
         var fuenteMoho = fuentes.FirstOrDefault(f => f.muestra == rm.muestraHongo);
         if (fuenteMoho != null) fuenteMoho.Aplicar(porta);
@@ -208,6 +216,20 @@ public class DebugReto : MonoBehaviour
         Comprobar(rm.Actual == EtapaReto.Investigacion, "Con las 3 muestras comparadas > etapa Investigación");
         // Revisión del profesor: sin monitores al lado; las características y el ZOOM se ven en el propio ocular.
         Comprobar(FindObjectsOfType<MonitorMicroscopio>().Length == 0, "Sin monitores junto a los microscopios: todo se ve por el ocular, con ZOOM");
+        if (RecorridoU.Activo)
+        {
+            var pared = FindObjectOfType<ParedVacunas>();
+            var vac = RetoVacuna.Instancia;
+            Comprobar(pared != null && vac != null && RecorridoU.AlNorte(vac.transform.position) && !RecorridoU.AlNorte(rm.camara.transform.position),
+                      "Recorrido en U: pared de vidrio montada, la vacuna en su sala (norte) y la cámara del lado de experimentos");
+            Comprobar(pared != null && pared.Desbloqueada == Misiones.VacunaDesbloqueada, "La puerta de la sala de vacunas solo se abre con la misión 2 completada");
+        }
+        var entrada = FindObjectOfType<EntradaCentro>();
+        if (entrada != null)
+        {
+            entrada.Reproducir();
+            Comprobar(entrada.Zonas >= 10 && entrada.Reproduciendo, $"Entrada con luces por zonas: {entrada.Zonas} estaciones se encienden siguiendo el recorrido");
+        }
         Comprobar(FindObjectsOfType<MicroscopioOptico>().Count(m => m.modoReto) >= 4, $"Dos microscopios por mesa en MICROSCOPÍA (3): {FindObjectsOfType<MicroscopioOptico>().Count(m => m.modoReto)}");
 
         // 3c) Panel CONCLUSIONES: clasificar A, B y C (un error a propósito).
@@ -278,11 +300,22 @@ public class DebugReto : MonoBehaviour
         {
             // MISIÓN 1: una identificación que no encaja con las evidencias se explica y no se registra.
             int err = rm.Metricas.Datos.errores;
+            // Pistas progresivas: pregunta → pista concreta → solución (aquí, el nombre de la bacteria).
+            string p1 = rm.PedirPista(), p2 = rm.PedirPista(), p3 = rm.PedirPista(), p4 = rm.PedirPista();
+            Comprobar(p1.Contains("1/3") && p1.Contains("?") && p2.Contains("2/3") && p3.Contains("3/3") && p3.Contains(rm.reto.muestra.nombre) && p4.Contains("3/3"),
+                      $"PISTA es progresiva: pregunta → pista concreta → solución (\"{p3}\")");
             rm.terminal.Elegir(opcionIncorrecta);
             Comprobar(rm.Hipotesis == null && rm.Mision == 1 && rm.Metricas.Datos.errores == err + 1, "MISIÓN 1: identificar mal la A se explica, cuenta como error y no termina la misión");
             rm.terminal.Elegir(opcionCorrecta);
             Comprobar(rm.Hipotesis == rm.reto.muestra && rm.Mision == 2 && Misiones.Tiene(Misiones.Recuerdo1) && rm.Metricas.Datos.caso == Misiones.Codigo2,
                       $"MISIÓN 1 completa al identificar {rm.reto.muestra.nombre}: recuerdo 1, métricas de la misión 2");
+            Comprobar(RecuerdoAnimado.Actual != null && RecuerdoAnimado.Actual.Titulo == Misiones.Recuerdo1,
+                      "Baymax recupera el recuerdo 1 con una animación (núcleo de memoria que vuela a su pecho)");
+            yield return new WaitForSeconds(1.2f);
+            var nucleoRec = RecuerdoAnimado.Actual != null ? RecuerdoAnimado.Actual.transform.Find("Nucleo") : null;
+            float tamNucleo = nucleoRec != null ? nucleoRec.GetComponent<Renderer>().bounds.size.x : 0f;
+            Comprobar(tamNucleo > 0.1f && tamNucleo < 0.3f, $"El núcleo del recuerdo tiene un tamaño cómodo, sin tapar la vista ({tamNucleo:0.00} m)");
+            Momento?.Invoke("recuerdo_baymax");
             int errM2 = rm.Metricas.Datos.errores;
             rm.terminal.Elegir(opcionIncorrecta);
             int pasosM2 = EquiposCentro.Obligatorios && EquiposCentro.Autoclave != null ? 6 : 5;

@@ -45,7 +45,7 @@ public static class MontajeVacuna
         MontajeMisiones.AntesDeLaVacuna(rm);   // la cámara experimental deja libre el centro de la sala
         Physics.SyncTransforms();
         int mejor = -1, menos = int.MaxValue;
-        for (int i = 0; i < Candidatos.Length; i++)
+        for (int i = 0; i < Candidatos.Length && !RecorridoU.Activo; i++)
         {
             var p = Candidatos[i].pos; p.y = suelo;
             if (!rm.zona.Contains(p + Vector3.up)) continue;
@@ -55,15 +55,18 @@ public static class MontajeVacuna
             if (n == 0) break;
         }
         if (mejor < 0) mejor = 0;
-        if (menos > 0) Debug.LogWarning("[Vacuna] No hay ningún hueco totalmente libre en el centro; se usa el que menos choca.");
+        if (menos > 0 && !RecorridoU.Activo) Debug.LogWarning("[Vacuna] No hay ningún hueco totalmente libre en el centro; se usa el que menos choca.");
 
         var pos = Candidatos[mejor].pos; pos.y = suelo;
-        var rot = Quaternion.Euler(0f, Candidatos[mejor].yaw, 0f);
+        float yaw = Candidatos[mejor].yaw;
+        // Recorrido en U: la vacuna tiene su propia sala, detrás de la pared de vidrio, contra la pared norte.
+        if (RecorridoU.Activo) { pos = new Vector3(RecorridoU.PosVacuna.x, suelo, RecorridoU.PosVacuna.z); yaw = RecorridoU.YawVacuna; }
+        var rot = Quaternion.Euler(0f, yaw, 0f);
         var raiz = new GameObject(NombreRaiz).transform;
         raiz.SetPositionAndRotation(pos, rot);
         var reto = Construir(raiz);
         var centro = raiz.TransformPoint(new Vector3(0f, 1.2f, 0.6f));
-        bool girada = Mathf.Abs(Mathf.Sin(Candidatos[mejor].yaw * Mathf.Deg2Rad)) > 0.5f;
+        bool girada = Mathf.Abs(Mathf.Sin(yaw * Mathf.Deg2Rad)) > 0.5f;
         reto.zona = new Bounds(centro, girada ? new Vector3(3.4f, 2.6f, 5.6f) : new Vector3(5.6f, 2.6f, 3.4f));
         Debug.Log($"[Vacuna] LABORATORIO DE VACUNAS ({C.Codigo}) montado en {pos} (hueco {mejor + 1}).");
         // Misiones 1 y 2 con el mobiliario del centro (si algo falla, la vacuna sigue funcionando).
