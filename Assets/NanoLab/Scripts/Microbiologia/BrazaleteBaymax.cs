@@ -47,6 +47,7 @@ public class BrazaleteBaymax : MonoBehaviour
     string cabTxt = "NANOLAB";
     string objTxt = "Ve al CENTRO DE EXPERIMENTACIÓN y sigue la LUZ GUÍA de Baymax.";
     string corto = "";
+    string rumbo;   // brújula: hacia dónde queda la estación del paso (lo pone GuiaReto)
     int paso, total;
     string pendiente;
     Aviso.Tipo tipoPendiente;
@@ -58,6 +59,10 @@ public class BrazaleteBaymax : MonoBehaviour
     public string Pendiente => pendiente;
     public string Objetivo_ => objTxt;
     public bool Montado => raiz != null;
+    public string Rumbo_ => rumbo;
+
+    // Y: además de encender el reloj, la LUZ GUÍA vuelve a salir junto al jugador (guía bajo demanda).
+    public static event System.Action Llamado;
 
     void Awake() => Instancia = this;
     void OnDestroy() { if (Instancia == this) Instancia = null; }
@@ -75,6 +80,15 @@ public class BrazaleteBaymax : MonoBehaviour
         total = totalN;
         corto = totalN > 0 ? $"{Abreviar(cabTxt)} · {pasoN}/{totalN}" : Abreviar(cabTxt);
         Refrescar();
+    }
+
+    // Brújula (idea 4 de la revisión del profesor): una línea con la estación, los metros y hacia dónde girarse.
+    // null cuando ya se ha llegado o no hay destino.
+    public void Rumbo(string texto)
+    {
+        if (texto == rumbo) return;
+        rumbo = texto;
+        if (despierto) Refrescar();
     }
 
     // Novedad: vibra, late el LED y suena. Con texto, queda pendiente en la pantalla hasta que se mira.
@@ -97,6 +111,7 @@ public class BrazaleteBaymax : MonoBehaviour
         StopCoroutine(nameof(Vibrar));
         StartCoroutine(nameof(Vibrar), 1);
         if (raiz != null) Sonidos.Clic(raiz.position);
+        Llamado?.Invoke();
     }
 
     // ------------------------------------------------------------------ cada frame
@@ -193,7 +208,9 @@ public class BrazaleteBaymax : MonoBehaviour
         cabecera.text = pendiente != null ? $"<color=#FFD25A>NUEVO</color>  ·  {cabTxt}" : cabTxt;
         cuerpo.text = pendiente ?? objTxt;
         cuerpo.color = pendiente != null ? (tipoPendiente == Aviso.Tipo.Ok ? Verde : Color.white) : Color.white;
-        pie.text = $"Recuerdos de Baymax {n}/{RecuerdosBaymax.Total}   <color=#7F93A8>Y: avisar</color>";
+        pie.text = rumbo != null
+            ? $"<color=#FFD25A>{rumbo}</color>   <color=#7F93A8>Y: guía</color>"
+            : $"Recuerdos de Baymax {n}/{RecuerdosBaymax.Total}   <color=#7F93A8>Y: ¿adónde voy?</color>";
         if (total > 0)
         {
             float t = Mathf.Clamp01(paso / (float)total);

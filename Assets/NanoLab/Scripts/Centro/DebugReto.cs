@@ -74,7 +74,7 @@ public class DebugReto : MonoBehaviour
         // MISIÓN 1 corta: FROTIS, TINCIÓN, OBSERVAR, CLASIFICAR, IDENTIFICAR (5). Con los equipos obligatorios, antes la INCUBADORA (9).
         bool conEquipos = EquiposCentro.Obligatorios && EquiposCentro.Incubadora != null;
         int pasosM1 = conEquipos ? 6 : 5;
-        Comprobar(rm.Mision == 1 && rm.PasoMision == 1 && rm.PasosMision == pasosM1 && rm.ObjetivoCorto.Contains(conEquipos ? "INCUBADORA" : "TINCIÓN"),
+        Comprobar(rm.Mision == 1 && rm.PasoMision == 1 && rm.PasosMision == pasosM1 && rm.ObjetivoCorto.Contains(conEquipos ? "INCUBADORA" : "BANCO"),
                   $"El objetivo empieza en MISIÓN 1 · paso 1 de {pasosM1} y dice adónde ir (H1, H2): \"{rm.ObjetivoCorto}\"");
         // Menos idas y vueltas: las muestras B y C ya están preparadas en la bandeja de microscopía.
         var preparadas = Portaobjetos.Todos.Where(x => x != null && x.DeCaso && (x.muestra == rm.muestraHongo || x.muestra == rm.muestraVirus)).ToArray();
@@ -83,6 +83,16 @@ public class DebugReto : MonoBehaviour
         var brazalete = BrazaleteBaymax.Instancia;
         Comprobar(brazalete != null && brazalete.Objetivo_ == rm.ObjetivoCorto,
                   "El objetivo está en el brazalete de la muñeca, no en una tarjeta que sigue la vista (presencia)");
+        // Estación que despierta: solo la del paso se enciende (luz cálida, charco de luz y marco que late).
+        yield return new WaitForSeconds(0.8f);
+        var guias = FindObjectsOfType<EstacionGuia>();
+        var activas = guias.Where(g => g.Activa).ToArray();
+        Comprobar(activas.Length == 1 && activas[0].Encendido > 0.5f && guias.Where(g => !g.Activa).All(g => g.Encendido <= 0f),
+                  $"Solo la estación del paso se enciende ({activas.Length} activa: {activas.FirstOrDefault()?.titulo})");
+        var bandejaBanco = MontajeMisiones.BandejaBanco;
+        int enBanco = bandejaBanco == null ? 0 : Portaobjetos.Todos.Count(x => x != null && x.muestra == null && (x.transform.position - bandejaBanco.position).magnitude < 0.2f);
+        Comprobar(enBanco >= 1 && (conEquipos || activas.FirstOrDefault() == rm.estaciones[0]),
+                  $"Hay portaobjetos en el BANCO, junto a la MUESTRA A, y la guía lleva allí ({enBanco} en la bandeja)");
         // Poke de Meta (Interaction SDK): los botones de las misiones 1 y 2.
         var botonesMision = rm.terminal.botones.Concat(rm.terminal.botonesEstrategia ?? new BotonFisico[0])
             .Concat(new[] { prensa.formular, camara.activar, rm.resumen != null ? rm.resumen.reiniciar : null })
@@ -115,7 +125,7 @@ public class DebugReto : MonoBehaviour
             Comprobar(porta.muestra == null && rm.Actual == EtapaReto.Exploracion, "Con las placas en la incubadora no se puede hacer el frotis");
             yield return EquiposCentro.Usar(inc);
             Comprobar(inc.Hecho && !inc.guia.Activa && rm.estaciones[0].Activa, "SACAR PLACAS: las placas A y B pasan al BANCO (1) y la guía va allí");
-            Comprobar(rm.PasoMision == 2 && rm.ObjetivoCorto.Contains("TINCIÓN"), $"Con las placas fuera, MISIÓN 1 · paso 2 de {pasosM1}: coger un portaobjetos en TINCIÓN: \"{rm.ObjetivoCorto}\"");
+            Comprobar(rm.PasoMision == 2 && rm.ObjetivoCorto.Contains("BANCO"), $"Con las placas fuera, MISIÓN 1 · paso 2 de {pasosM1}: coger un portaobjetos en el BANCO: \"{rm.ObjetivoCorto}\"");
             yield return new WaitForSeconds(0.3f);
             Momento?.Invoke("equipo_9_hecho");
         }

@@ -8,13 +8,13 @@ using UnityEngine;
 //     el panel se dibuja ENCIMA de sus letras y las deja como detrás de un velo (sortingOrder no lo arregla siempre).
 //     Aquí los textos 3D pasan a una cola posterior a la de los paneles: primero todos los paneles, luego las letras.
 //     Se usa una copia del material de cada fuente (no se toca el asset).
-//  2) Tamaño: el profesor vio las letras pequeñas. Cada texto 3D se agranda una vez un 25 % (Escala).
+//  2) Tamaño: el profesor vio las letras pequeñas. Cada texto 3D se agranda una vez un 40 % (Escala).
 //  3) Ajuste: si un texto no cabe en su recuadro, se activa el auto-tamaño (encoge hasta el 50 %) en vez de salirse.
 // Revisa los textos activos cada 1,5 s (los que se crean después también: avisos, fichas, terminal...).
 public class LegibilidadTextos : MonoBehaviour
 {
     public const int ColaMinima = 3100;
-    public const float Escala = 1.25f;
+    public const float Escala = 1.4f;   // antes 1,25: "aumenta un poco más las letras"
 
     static readonly Dictionary<Material, Material> copias = new Dictionary<Material, Material>();
     readonly Dictionary<TextMeshPro, string> revisado = new Dictionary<TextMeshPro, string>();

@@ -111,6 +111,7 @@ public class RetoManager : MonoBehaviour
         // Antes: panel pegado al mando izquierdo y columna de luz con un rombo. Ahora una tarjeta que aparece
         // al entrar y en cada paso (Y para verla) y flechas en el suelo hasta la estación.
         guia = GuiaReto.Crear();
+        DemoGesto.Crear();
         if (baliza != null) baliza.gameObject.SetActive(false);
         if (resumen != null) resumen.Pendiente(reto);
         metricas.Etapa(Actual.ToString());
@@ -164,7 +165,7 @@ public class RetoManager : MonoBehaviour
             case EtapaReto.Exploracion:
                 if (!EquiposCentro.Listo(EquiposCentro.Incubadora))
                     return "Las placas de las MUESTRAS A y B pasaron la noche en la INCUBADORA (9) a 37 °C. Ve a la incubadora, pulsa ABRIR y saca las placas tocándolas con la mano.";
-                return "En el BANCO (1) hay 3 muestras. Coge un portaobjetos de la mesa de TINCIÓN (2) y toca con él la placa de la MUESTRA A (herida de piel) para hacer el frotis.";
+                return "En el BANCO (1) está la MUESTRA A (herida de piel). Coge un portaobjetos de la bandeja de al lado y toca con él la placa para hacer el frotis.";
             case EtapaReto.Tincion:
                 if (PortaCon(reto.muestra) == null) return "Tu portaobjetos quedó limpio. Vuelve al BANCO (1), toca otra vez la MUESTRA A y repite la tinción 1 > 2 > 3 > 4.";
                 return "Tiñe el frotis de la MUESTRA A: toca los goteros en orden 1 > 2 > 3 > 4 (tinción de Gram).";
@@ -261,7 +262,7 @@ public class RetoManager : MonoBehaviour
         // 0 banco, 1 tinción, 2 microscopía, 4 terminal: según lo que el jugador lleva de verdad.
         switch (Actual)
         {
-            case EtapaReto.Exploracion: est = portaCogido ? 0 : 1; break;
+            case EtapaReto.Exploracion: est = 0; break;   // los portaobjetos ya están en el banco, junto a la MUESTRA A
             case EtapaReto.Tincion: est = PortaCon(reto.muestra) == null ? 0 : 1; break;
             case EtapaReto.Observacion:
                 if (!Evidencias.All(x => x)) est = PortaCon(reto.muestra) != null ? 2 : 0;
@@ -309,6 +310,11 @@ public class RetoManager : MonoBehaviour
         foreach (var p in Portaobjetos.Todos) if (p != null && p.DeCaso && !p.Despues && p.muestra == m) return p;
         return null;
     }
+
+    // Para la demostración animada del siguiente gesto (DemoGesto).
+    public Portaobjetos PortaMuestraA => PortaCon(reto.muestra);
+    public bool ObservandoA => Actual == EtapaReto.Observacion && SiguienteObservacion() == PasoObs.MuestraA;
+    public Portaobjetos PortaPendiente => Actual == EtapaReto.Observacion && Pendiente != null ? PortaCon(Pendiente) : null;
 
     // Muestra que falta por comparar con la A (primero la B, luego la C).
     MuestraData Pendiente => !VistoHongo ? muestraHongo : !VistoVirus ? muestraVirus : null;
@@ -360,7 +366,7 @@ public class RetoManager : MonoBehaviour
                         return EquiposCentro.Incubadora.Ocupado ? "Toca con la mano las placas A y B de la bandeja de la INCUBADORA (9)."
                                                                 : "INCUBADORA (9): pulsa ABRIR y saca las placas A y B tocándolas.";
                     return portaCogido ? "Toca la MUESTRA A del BANCO (1) con tu portaobjetos."
-                                       : "Coge un portaobjetos en la mesa de TINCIÓN (2).";
+                                       : "Coge un portaobjetos de la bandeja del BANCO (1)";
                 case EtapaReto.Tincion:
                 {
                     var pa = PortaCon(reto.muestra);
@@ -1127,7 +1133,7 @@ public class RetoManager : MonoBehaviour
                 "Sigue la LUZ GUÍA: lleva a la INCUBADORA (9). Las bacterias crecen a la temperatura del cuerpo, por eso las placas estaban ahí.",
             } : new[]
             {
-                "Busca el BANCO DE MUESTRAS (zona 1): la placa de la izquierda es la MUESTRA A. Coge un portaobjetos de la mesa de TINCIÓN (2) y toca la placa con él.",
+                "En el BANCO DE MUESTRAS (1), junto a la placa de la MUESTRA A, hay una bandeja con portaobjetos. Coge uno y toca la placa con él.",
                 reto.pistasExploracion != null && reto.pistasExploracion.Length > 1 ? reto.pistasExploracion[1] : "Lleva el portaobjetos en la mano y tócalo con la placa: el frotis aparece en el vidrio.",
             }; break;
             case EtapaReto.Tincion:

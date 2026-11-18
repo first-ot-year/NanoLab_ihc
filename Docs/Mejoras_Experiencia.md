@@ -18,6 +18,30 @@ Cinco mejoras para que el laboratorio enseñe más y se sienta más vivo. Todas 
 - **Luces de entrada**: entra al centro de experimentación (solo la primera vez en cada sesión).
 - **Pipeta**: en la misión 3, acerca la punta a un frasco y aprieta el gatillo a medias y luego a fondo.
 
+## Guía más intuitiva en los retos (17/11/2026)
+
+Ideas 2, 4, 5 y 6 de la revisión del profesor ([Revision_profesor.md](Revision_profesor.md)), sin carteles nuevos ni nada que siga a la cabeza.
+
+| Mejora | Qué ve / oye el jugador | Archivos |
+|---|---|---|
+| **Estación que despierta** | La estación del paso se enciende como un equipo en uso: luz cálida que respira sobre la zona de trabajo, un charco de luz en el suelo y el marco del cartel que late. Las demás quedan en reposo. | `EstacionGuia.cs` |
+| **Sonido espacial** | Si estás a más de 3 m y no miras hacia la estación, de ella sale un "ping" suave cada 7 s: el oído lleva la cabeza hacia allí. Calla con la cara en el microscopio o fuera del centro. | `EstacionGuia.cs`, `Sonidos.Llamada` |
+| **Brújula en el reloj** | Al mirar la muñeca, el pie dice adónde ir: `TINCIÓN DE GRAM (2) · 4 m · a tu izquierda` (o `puerta de vidrio …` si está al otro lado). Desaparece al llegar. | `GuiaReto.TextoRumbo`, `BrazaleteBaymax.Rumbo` |
+| **Guía bajo demanda (Y)** | Y ("¿adónde voy?") vuelve a lanzar la luz guía desde tu lado; si ya estás en la estación, destella allí. | `BrazaleteBaymax.Llamado`, `GuiaReto.Relanzar` |
+| **Ayuda si te atascas** | Tras 60 s en el mismo paso, el reloj vibra una sola vez con "¿Te ayudo? Pulsa PISTA… o Y…" y la luz vuelve a salir. No cuenta como pista en las métricas. | `GuiaReto.Atasco` |
+
+Prueba: `NanoLab › Probar misiones 1 y 2` comprueba que solo la estación del paso se enciende.
+
+## Primeros pasos más directos (17/11/2026)
+
+Tras probar la misión 1: "no es tan directo", "tengo que ir a la mesa del costado", "letras pequeñas", "no es sencillo de entender".
+
+| Mejora | Qué ve el jugador | Archivos |
+|---|---|---|
+| **Portaobjetos en el BANCO** | Una bandeja con 2 portaobjetos junto a la placa de la MUESTRA A: el frotis se hace sin ir a la mesa de TINCIÓN. Allí quedan otros 2 para repetir. El objetivo, la pista, el cartel y la luz guía llevan al BANCO. | `MontajeMisiones.PortaobjetosEnBanco`, `RetoManager.cs` |
+| **Letras más grandes** | Todos los textos 3D se agrandan un 40 % (antes, un 25 %); si un texto no cabe, encoge para no salirse. | `LegibilidadTextos.Escala` |
+| **Demostración animada del gesto** | Un portaobjetos holográfico cian sale del tuyo (o de la bandeja), viaja en arco hasta donde hay que tocar, "toca" con un anillo que se abre y se repite. Encima, una etiqueta corta: `COGE UN PORTAOBJETOS`, `TOCA LA MUESTRA A`, `GOTERO 2 DE 4 · Lugol`, `LÍMPIALO AQUÍ`, `PONLO EN LA PLATINA`. Sigue lo que llevas de verdad y se apaga con la cara en el ocular o lejos (más de 4,5 m). | `DemoGesto.cs` (nuevo) |
+
 ## Pendiente
 
 - Hornear la luz tras el reordenamiento: `NanoLab › Recorrido en U: hornear la luz` (tarda unos minutos).

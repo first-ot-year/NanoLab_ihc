@@ -15,6 +15,9 @@ public static class Sonidos
     public static void Gota(Vector3 p) => Reproducir(ref gota, "gota", p, 0.5f, 0.12f, 1400f, 900f);
     public static void Etapa(Vector3 p) => Reproducir(ref etapa, "etapa", p, 0.6f, 0.3f, 660f, 990f);
     public static void Pista(Vector3 p) => Reproducir(ref pista, "pista", p, 0.5f, 0.35f, 880f, 740f, 880f);
+    // "Ping" suave que sale de la estación del paso (sonido espacial: el oído lleva la cabeza hacia allí).
+    public static void Llamada(Vector3 p) => Reproducir(ref llamada, "llamada", p, 0.28f, 0.42f, 1175f, 1568f);
+    static AudioClip llamada;
     public static void Camara(Vector3 p) => Reproducir(ref camara, "camara", p, 0.6f, 1.6f, 110f, 130f, 150f, 170f, 190f, 210f, 230f, 250f);
     public static void Fallo(Vector3 p) => Reproducir(ref fallo, "fallo", p, 0.7f, 0.6f, 392f, 330f, 262f);
     // Resultado del experimento (revisión del profesor: que el resultado se OIGA): fanfarria que sube o caída grave.
