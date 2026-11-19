@@ -190,3 +190,27 @@ SDK: `com.meta.xr.sdk.all` 201. Rig: `OVRCameraRigInteraction` de Meta, con inte
 | `Editor/MontarAjustes.cs`, `Editor/AplicarNovedades.cs` | Panel ☰ con 11 botones poke y menú para aplicarlo |
 | `Scripts/Centro/RetoVacuna.cs` | Vocabulario "MISIÓN COMPLETA" y datos para la tarjeta |
 | `Scripts/Centro/DebugReto.cs`, `Scripts/Microbiologia/DebugLocomocion.cs` | Comprobaciones nuevas |
+
+## Comodidad y presencia (versión final, 18/11/2026)
+
+Objetivo: que cualquier estudiante del público objetivo se sienta cómodo y que el laboratorio en VR no le cueste más que uno presencial. En un laboratorio presencial alguien habla, el lugar suena y nadie lee carteles largos.
+
+| Hallazgo | Principio | Cambio | Archivos |
+|---|---|---|---|
+| El tutorial, la AYUDA y el objetivo fuera del centro hablaban de "flechas del suelo" y del "rótulo 4", que ya no existen | Nielsen 4 (consistencia) | "Sigue la luz de Baymax y mira tu reloj (Y: ¿adónde voy?)". La AYUDA ya no habla del monitor del microscopio | `AvisoInicio.cs`, `RetoManager.cs` |
+| La demostración del gesto se repetía sin parar | Nielsen 8 | Hace el gesto y espera 5 s antes de repetirlo; la etiqueta queda a la vista | `DemoGesto.cs` |
+| Todo se leía | Presencia (plausibilidad), carga cognitiva | **Voz general** (narrador, al empezar y en cada sala) y **voz de Baymax** (cada paso, aciertos y errores, atasco, recuerdos). Si falta un audio, queda el texto. Guion en [Guion_Voces.md](Guion_Voces.md) | `VozNanoLab.cs`, `GuiaVoz.cs` |
+| Solo sonaba música | Presencia (ilusión de lugar) | Ventilación de la sala y zumbidos espaciales en los equipos del centro; la música baja al 60 % y se atenúa mientras habla una voz | `AmbienteLaboratorio.cs`, `MusicaAmbiente.cs` |
+| Sin opciones de comodidad | Confort VR (Jerald), Nielsen 7 | Menú ☰ › **COMODIDAD**: viñeta NO/SUAVE/FUERTE, giro 30°/45°/60°, velocidad NORMAL/LENTA, volumen de la VOZ y DESCANSOS. Se guarda | `MenuAjustes.cs`, `AjustesNanoLab.cs`, `JugadorNanoLab.cs`, `Editor/MontarAjustes.cs` |
+| La viñeta del SDK no hacía nada al caminar | Confort VR | La curva de movimiento del prefab de Meta es 360° fija: solo oscurecía al girar. Ahora al caminar deja unos 100° de visión (SUAVE) o 70° (FUERTE); el giro conserva la curva del SDK | `JugadorNanoLab.AplicarComodidad` |
+| Sesión de 25-35 min sin pausas | Confort VR | Al completar las misiones 1 y 2, y cada 20 min seguidos, el reloj vibra y Baymax sugiere quitarse el visor (el progreso ya está guardado). No bloquea nada | `GuiaVoz.cs` |
+
+**Pendiente en el visor:**
+- Medir los FPS (`MedidorRendimiento`): la luz por píxel de `EstacionGuia` es lo primero que hay que vigilar.
+- Escuchar las voces cuando estén grabadas.
+- Probar la viñeta SUAVE y FUERTE caminando.
+- Hornear la luz tras el recorrido en U: no se hace por ahora.
+
+**Pruebas:**
+- `NanoLab/Probar misiones 1 y 2`: voz sin audios, frases de cada paso sin solaparse, respuestas, descansos y pausa de la demostración.
+- `NanoLab/Probar locomoción`: página COMODIDAD (viñeta, giro, velocidad, voz y descansos) y menú de 20 botones *poke*.
