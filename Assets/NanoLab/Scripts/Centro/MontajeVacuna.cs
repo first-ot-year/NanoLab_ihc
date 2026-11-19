@@ -455,8 +455,9 @@ public static class MontajeVacuna
         var oscuro = K.Plano(new Color(0.16f, 0.2f, 0.27f));
         var cromo = K.Escena("Cromo", new Color(0.7f, 0.72f, 0.75f));
 
-        // Molde: riel de 5 huecos, de 5' (izquierda) a 3' (derecha).
-        var molde = K.Grupo(g, "Molde", new Vector3(0f, 0f, -0.33f));
+        // Molde: riel de 5 huecos, de 5' (izquierda) a 3' (derecha). Detrás de la bandeja: los bloques se cogen 5-6
+        // veces y el molde los encaja solos a 12 cm, así que lo que se agarra va delante (antes la bandeja estaba a 0,58 m).
+        var molde = K.Grupo(g, "Molde", new Vector3(0f, 0f, -0.44f));
         K.Caja(molde, "Base", new Vector3(0f, 0.01f, 0f), new Vector3(0.74f, 0.02f, 0.12f), oscuro);
         K.Caja(molde, "Hebra", new Vector3(0f, 0.021f, -0.045f), new Vector3(0.7f, 0.003f, 0.008f), K.Plano(new Color(1f, 0.6f, 0.15f)));
         K.Texto(molde, "<b>5'</b>", new Vector3(0.355f, 0.022f, 0.02f), 0.22f, K.Amarillo, 0.06f, 0.05f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
@@ -473,7 +474,7 @@ public static class MontajeVacuna
         }
 
         // Bandeja con los 6 bloques, desordenados.
-        var bandeja = K.Grupo(g, "Bandeja", new Vector3(0f, 0f, -0.58f));
+        var bandeja = K.Grupo(g, "Bandeja", new Vector3(0f, 0f, -0.23f));
         K.Caja(bandeja, "Base", new Vector3(0f, 0.0075f, 0f), new Vector3(0.8f, 0.015f, 0.12f), cromo);
         int[] orden = { 2, 4, 0, 5, 3, 1 };
         r.bloques = new PiezaVacuna[orden.Length];
@@ -504,13 +505,18 @@ public static class MontajeVacuna
         var oscuro = K.Plano(new Color(0.16f, 0.2f, 0.27f));
         var vidrio = K.Vidrio(new Color(0.85f, 0.95f, 1f, 0.3f));
 
-        // Gradilla con 5 frascos (su contenido cambia según el paso: síntesis o ensayo de neutralización).
-        var gr = K.Grupo(g, "Gradilla", new Vector3(0f, 0f, -0.63f));
-        K.Caja(gr, "Base", new Vector3(0f, 0.02f, 0f), new Vector3(0.58f, 0.04f, 0.1f), K.Escena("PlasticoAzul", new Color(0.2f, 0.4f, 0.8f)));
+        // Alcance: el mueble frena el cuerpo en el borde del mostrador, así que lo que se toca a menudo va a menos de
+        // ~0,45 m de fondo. Antes la gradilla estaba a 0,63 m (brazo estirado del todo para meter la punta en una boca
+        // de 5 cm) y la SÍNTESIS tardaba 7-8 min en las pruebas. Ahora: FRASCOS DELANTE (se visitan 3 veces o más) y
+        // detrás, a 0,5 m, lo que se usa una sola vez (soporte de la pipeta, termobloque con su botón, tubo).
+        // Gradilla con 5 frascos (su contenido cambia según el paso: síntesis o ensayo de neutralización). Fuera de esos
+        // pasos se oculta entera (RetoVacuna.PrepararMesa): ocupa el sitio de los atriles de los botones A y B.
+        var gr = K.Grupo(g, "Gradilla", new Vector3(0f, 0f, -0.27f));
+        K.Caja(gr, "Base", new Vector3(0f, 0.02f, 0f), new Vector3(0.52f, 0.04f, 0.1f), K.Escena("PlasticoAzul", new Color(0.2f, 0.4f, 0.8f)));
         r.frascos = new PuntoPipeta[5];
         for (int i = 0; i < 5; i++)
         {
-            float x = 0.22f - i * 0.11f;
+            float x = 0.2f - i * 0.1f;
             var f = K.Grupo(gr, "Frasco" + i, new Vector3(x, 0.04f, 0f));
             K.Pieza(f, "Vidrio", PrimitiveType.Cylinder, new Vector3(0f, 0.045f, 0f), new Vector3(0.045f, 0.045f, 0.045f), vidrio);
             var liq = K.Pieza(f, "Liquido", PrimitiveType.Cylinder, new Vector3(0f, 0.03f, 0f), new Vector3(0.039f, 0.028f, 0.039f), K.Plano(Color.white));
@@ -518,13 +524,13 @@ public static class MontajeVacuna
             var punto = K.Grupo(f, "Boca", new Vector3(0f, 0.09f, 0f)).gameObject.AddComponent<PuntoPipeta>();
             punto.radio = 0.05f;
             punto.liquido = liq;
-            punto.rotulo = K.Texto(gr, "", new Vector3(x, 0.022f, 0.051f), 0.13f, Color.white, 0.105f, 0.04f, TextAlignmentOptions.Center, false, false, Quaternion.Euler(0f, 180f, 0f));
+            punto.rotulo = K.Texto(gr, "", new Vector3(x, 0.022f, 0.051f), 0.13f, Color.white, 0.095f, 0.04f, TextAlignmentOptions.Center, false, false, Quaternion.Euler(0f, 180f, 0f));
             K.AutoTam(punto.rotulo, 0.08f);
             r.frascos[i] = punto;
         }
 
         // Pipeta en su soporte (a la izquierda).
-        var soporte = K.Grupo(g, "SoportePipeta", new Vector3(-0.33f, 0f, -0.42f));
+        var soporte = K.Grupo(g, "SoportePipeta", new Vector3(-0.31f, 0f, -0.5f));
         K.Pieza(soporte, "Base", PrimitiveType.Cylinder, new Vector3(0f, 0.005f, 0f), new Vector3(0.08f, 0.005f, 0.08f), metal);
         K.Pieza(soporte, "Aro", PrimitiveType.Cylinder, new Vector3(0f, 0.03f, 0f), new Vector3(0.045f, 0.004f, 0.045f), oscuro);
         K.Texto(soporte, "PIPETA", new Vector3(0f, 0.002f, 0.06f), 0.14f, K.Cian, 0.15f, 0.03f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
@@ -552,7 +558,7 @@ public static class MontajeVacuna
         r.pipeta = pip;
 
         // Termobloque (37 °C) con su botón INCUBAR.
-        var termo = K.Grupo(g, "Termobloque", new Vector3(-0.05f, 0f, -0.42f));
+        var termo = K.Grupo(g, "Termobloque", new Vector3(-0.08f, 0f, -0.5f));
         K.Caja(termo, "Cuerpo", new Vector3(0f, 0.035f, 0f), new Vector3(0.2f, 0.07f, 0.15f), metal, true);
         K.Caja(termo, "Bloque", new Vector3(0f, 0.071f, 0f), new Vector3(0.14f, 0.004f, 0.1f), K.Plano(new Color(0.55f, 0.58f, 0.62f)));
         K.Pieza(termo, "Pocillo", PrimitiveType.Cylinder, new Vector3(0f, 0.073f, 0f), new Vector3(0.042f, 0.001f, 0.042f), K.Plano(new Color(0.1f, 0.1f, 0.12f)));
@@ -561,10 +567,11 @@ public static class MontajeVacuna
         K.AutoTam(r.pantallaTermo, 0.07f);
         r.huecoTermo = A.Zona(termo, "Pocillo", "tubo", new Vector3(0f, 0.04f, 0f), Quaternion.identity,
             Fantasma(PrimitiveType.Cylinder, new Vector3(0f, 0.05f, 0f), new Vector3(0.036f, 0.05f, 0.036f)));
-        r.grupoIncubarTubo = BotonMaquina(raiz, "IncubarTubo", "INCUBAR 37 °C", new Vector3(cx - 0.05f, T, -0.18f), new Color(0.85f, 0.35f, 0.15f), out r.incubarTubo);
+        // El botón INCUBAR, pegado al termobloque (es su mando), no delante de los frascos.
+        r.grupoIncubarTubo = BotonMaquina(raiz, "IncubarTubo", "INCUBAR 37 °C", new Vector3(cx + 0.11f, T, -0.5f), new Color(0.85f, 0.35f, 0.15f), out r.incubarTubo);
 
         // Tubo de reacción en su gradilla pequeña.
-        var porta = K.Grupo(g, "PortaTubo", new Vector3(0.24f, 0f, -0.42f));
+        var porta = K.Grupo(g, "PortaTubo", new Vector3(0.29f, 0f, -0.5f));
         K.Caja(porta, "Base", new Vector3(0f, 0.015f, 0f), new Vector3(0.07f, 0.03f, 0.07f), K.Escena("PlasticoAzul", new Color(0.2f, 0.4f, 0.8f)));
         K.Texto(porta, "TUBO DE\nREACCIÓN", new Vector3(0f, 0.002f, 0.07f), 0.12f, K.Cian, 0.15f, 0.05f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
         var casaTubo = A.Zona(porta, "Sitio", "tubo", new Vector3(0f, 0.02f, 0f), Quaternion.identity,

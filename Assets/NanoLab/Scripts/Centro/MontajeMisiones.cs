@@ -236,7 +236,7 @@ public static class MontajeMisiones
         }
         K.Pieza(g, "Tapa", PrimitiveType.Cylinder, new Vector3(0f, 0.02f, 0f), new Vector3(0.155f, 0.002f, 0.155f), vidrio);
         Fuente(g, Misiones.MuestraHongo, Misiones.EtiquetaB, new Vector3(0f, 0.035f, 0f), new Vector3(0.17f, 0.07f, 0.17f));
-        Rotulo(g, "B", new Vector3(0f, 0.15f, 0f));
+        Rotulo(g, "B");
     }
 
     // MUESTRA C: tubo con el hisopo nasal en medio de transporte, en su gradilla.
@@ -249,7 +249,7 @@ public static class MontajeMisiones
         K.Pieza(g, "Tapon", PrimitiveType.Cylinder, new Vector3(0f, 0.14f, 0f), new Vector3(0.03f, 0.008f, 0.03f), K.Plano(new Color(0.85f, 0.2f, 0.25f)));
         K.Pieza(g, "Hisopo", PrimitiveType.Cylinder, new Vector3(0f, 0.09f, 0f), new Vector3(0.004f, 0.05f, 0.004f), K.Plano(Color.white));
         Fuente(g, Misiones.MuestraVirus, Misiones.EtiquetaC, new Vector3(0f, 0.08f, 0f), new Vector3(0.1f, 0.16f, 0.1f));
-        Rotulo(g, "C", new Vector3(0f, 0.22f, 0f));
+        Rotulo(g, "C");
     }
 
     static void Fuente(Transform g, MuestraData m, string etiqueta, Vector3 centro, Vector3 tam)
@@ -263,9 +263,12 @@ public static class MontajeMisiones
         bc.size = tam;
     }
 
-    static void Rotulo(Transform g, string letra, Vector3 pos)
+    // Etiqueta IMPRESA en el mostrador, delante de la muestra (como la de PORTAOBJETOS), en lugar de un rótulo que
+    // flotaba 15-22 cm por encima: menos texto en el aire y se lee igual al inclinarse sobre el banco.
+    static void Rotulo(Transform g, string letra)
     {
-        var t = K.Texto(g, $"<b>MUESTRA {letra}</b>", pos, 0.32f, new Color(0.37f, 0.83f, 1f), 0.4f, 0.06f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(0f, 180f, 0f));
+        var t = K.Texto(g, $"<b>MUESTRA {letra}</b>", new Vector3(0f, -0.017f, 0.11f), 0.2f, new Color(0.37f, 0.83f, 1f), 0.24f, 0.045f,
+                        TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
         t.outlineWidth = 0.2f;
         t.outlineColor = new Color32(0, 0, 0, 220);
     }

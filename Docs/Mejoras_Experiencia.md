@@ -42,6 +42,19 @@ Tras probar la misión 1: "no es tan directo", "tengo que ir a la mesa del costa
 | **Letras más grandes** | Todos los textos 3D se agrandan un 40 % (antes, un 25 %); si un texto no cabe, encoge para no salirse. | `LegibilidadTextos.Escala` |
 | **Demostración animada del gesto** | Un portaobjetos holográfico cian sale del tuyo (o de la bandeja), viaja en arco hasta donde hay que tocar, "toca" con un anillo que se abre y se repite. Encima, una etiqueta corta: `COGE UN PORTAOBJETOS`, `TOCA LA MUESTRA A`, `GOTERO 2 DE 4 · Lugol`, `LÍMPIALO AQUÍ`, `PONLO EN LA PLATINA`. Sigue lo que llevas de verdad y se apaga con la cara en el ocular o lejos (más de 4,5 m). | `DemoGesto.cs` (nuevo) |
 
+## Ubicaciones, alcance y respuesta a los errores (18/11/2026)
+
+A partir de las métricas de la sesión del 18/11 (misión 3, 28 min): SÍNTESIS tardó 7,7 min y DISEÑO 6,5 min, y en FASES y TÍTULO el mismo botón equivocado se pulsó 5-8 veces seguidas (el jugador no veía que había fallado).
+
+| Mejora | Qué ve el jugador | Archivos |
+|---|---|---|
+| **Frascos al alcance** | La gradilla de la mesa SÍNTESIS pasa de 0,63 m a 0,27 m de fondo (se usa 3 veces o más con la punta de la pipeta). Detrás, a 0,5 m, lo que se usa una vez: soporte de la pipeta, termobloque con su botón INCUBAR al lado y tubo. Fuera de síntesis y neutralización, la gradilla se oculta (deja sitio a los atriles de A-E). | `MontajeVacuna.MesaSintesis`, `RetoVacuna.PrepararMesa` |
+| **Bloques al alcance** | En DISEÑO, la bandeja de bloques va delante (0,23 m) y el molde detrás (0,44 m), porque los bloques se cogen 5-6 veces y el molde los encaja solos a 12 cm. | `MontajeVacuna.MesaDiseno` |
+| **"AÚN NO" en el botón** | Al fallar con A-E, la tapa se pone roja y la letra tiembla, y sale un aviso corto junto a la mano: "AÚN NO: mira la pantalla de la izquierda". En TÍTULO (rayo), el mismo aviso junto a la columna. | `BotonFisico.MarcarError`, `RetoVacuna.NoEra` |
+| **Repetir no penaliza** | Pulsar otra vez la misma respuesta equivocada en menos de 8 s no cuenta como error nuevo (ni en las métricas). Avisa con "Esa ya la probaste…". | `RetoVacuna.Fallo` |
+| **Menos texto flotante** | Los rótulos "MUESTRA B/C", que flotaban sobre las muestras del BANCO, ahora van impresos en el mostrador delante de cada una. | `MontajeMisiones.Rotulo` |
+| **Auditoría de ubicaciones** | `NanoLab › Auditar ubicaciones (play mode)` escribe `Docs/Auditoria_Ubicaciones.md` con objetos que flotan o se hunden, cosas que se tocan fuera de 0,75-1,45 m de altura o a más de 0,5 m del borde, y estaciones que se pisan. La variante "y corregir lo que flota" los baja a la superficie durante esa sesión de Play. | `Editor/AuditarUbicaciones.cs` |
+
 ## Pendiente
 
 - Hornear la luz tras el reordenamiento: `NanoLab › Recorrido en U: hornear la luz` (tarda unos minutos).

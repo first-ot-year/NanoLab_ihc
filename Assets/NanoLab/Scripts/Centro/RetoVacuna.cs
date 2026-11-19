@@ -367,6 +367,9 @@ public class RetoVacuna : MonoBehaviour
 
         P[] fuentes = e == EtapaVacuna.Sintesis ? OrdenFrascosSintesis.Select(i => C.ReactivosSintesis[i]).ToArray()
                     : e == EtapaVacuna.Neutralizacion ? OrdenFrascosEnsayo.Select(i => C.ReactivosEnsayo[i]).ToArray() : null;
+        // La gradilla entera solo se ve cuando hay frascos (síntesis y neutralización): está delante, en el sitio de los
+        // atriles de los botones A y B, que se usan en otros pasos.
+        if (frascos.Length > 0 && frascos[0].transform.parent.parent != null) frascos[0].transform.parent.parent.gameObject.SetActive(fuentes != null);
         for (int i = 0; i < frascos.Length; i++)
         {
             var p = fuentes != null && i < fuentes.Length ? fuentes[i] : null;
@@ -903,6 +906,7 @@ public class RetoVacuna : MonoBehaviour
         else
         {
             Fallo($"Microscopio {microOk + 1}/{PreguntasMicro}: {o.corto}", pos);
+            NoEra(i, pos);
             mensaje = $"<color=#FF8A70><b>AÚN NO.</b></color> {o.respuesta}\n<color=#A9BED2>Mira otra vez el monitor y prueba otra letra.</color>";
         }
         Refrescar();
@@ -939,13 +943,23 @@ public class RetoVacuna : MonoBehaviour
         }
         else
         {
-            if (!Resuelta) Fallo($"Título: {PlacaNeutralizacion.Diluciones[c]}", pos); else Sonidos.Clic(pos);
+            if (!Resuelta) { Fallo($"Título: {PlacaNeutralizacion.Diluciones[c]}", pos); if (!falloRepetido) Aviso.Mostrar("AÚN NO: mira la pantalla de la izquierda", pos, Aviso.Tipo.Error, 2.5f); }
+            else Sonidos.Clic(pos);
             mensaje = $"<color=#FF8A70><b>AÚN NO.</b></color> {r}";
         }
         Refrescar();
     }
 
     // ------------------------------------------------------------------ 8 · fases y 9 · eficacia (botones)
+
+    // Respuesta equivocada con un botón A-E: la tapa se pone roja y un aviso corto sale junto a la mano, que es donde
+    // mira el jugador al pulsar (la explicación larga sigue en la pantalla del caso).
+    void NoEra(int boton, Vector3 pos)
+    {
+        if (boton >= 0 && boton < opciones.Length) opciones[boton].MarcarError();
+        if (falloRepetido) return;   // ya avisó Fallo
+        Aviso.Mostrar("AÚN NO: mira la pantalla de la izquierda", pos, Aviso.Tipo.Error, 2f);
+    }
 
     void AlPulsarOpcion(int boton)
     {
@@ -1042,6 +1056,7 @@ public class RetoVacuna : MonoBehaviour
         else
         {
             Fallo($"Fases: {pasos[paso].boton} en lugar de {pasos[progreso].boton}", pos);
+            NoEra(boton, pos);
             mensaje = $"<color=#FF8A70><b>AÚN NO.</b></color> {C.ErrorFases(progreso, paso)}";
         }
         Refrescar();
@@ -1083,6 +1098,7 @@ public class RetoVacuna : MonoBehaviour
         else
         {
             Fallo($"Eficacia {progreso + 1}/{qs.Length}: {o.corto}", pos);
+            NoEra(i, pos);
             mensaje = $"<color=#FF8A70><b>AÚN NO.</b></color> {o.respuesta}\n<color=#A9BED2>Mira otra vez las barras y prueba otra letra.</color>";
         }
         Refrescar();
@@ -1554,8 +1570,26 @@ public class RetoVacuna : MonoBehaviour
 
     // ------------------------------------------------------------------ comunes
 
+    // Último error registrado: pulsar otra vez la MISMA respuesta equivocada en pocos segundos no es un error nuevo
+    // (en las pruebas del 18/11 un mismo botón equivocado se registró 8 veces en 10 s e inflaba las métricas).
+    string ultimoFallo;
+    float tUltimoFallo = -99f;
+    bool falloRepetido;
+    const float RepeticionFallo = 8f;
+
     void Fallo(string que, Vector3 pos)
     {
+        bool repetido = que == ultimoFallo && Time.time - tUltimoFallo < RepeticionFallo;
+        ultimoFallo = que;
+        tUltimoFallo = Time.time;
+        falloRepetido = repetido;
+        if (repetido)
+        {
+            Sonidos.Error(pos);
+            ManosRig.Vibrar(pos, 0.3f, 0.1f);
+            Aviso.Mostrar("Esa ya la probaste: lee por qué en la pantalla y elige otra.", pos, Aviso.Tipo.Error, 2.5f);
+            return;
+        }
         Errores++;
         erroresEtapa.TryGetValue(Actual, out int n);
         erroresEtapa[Actual] = n + 1;

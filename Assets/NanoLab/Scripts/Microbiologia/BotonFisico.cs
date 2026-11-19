@@ -34,15 +34,17 @@ public class BotonFisico : Apuntable
     static readonly Color TapaVerde = new Color(0.35f, 1f, 0.5f, 1f);
     static readonly Color TapaGris = new Color(0.32f, 0.36f, 0.4f, 1f);
     static readonly Color EtiquetaGris = new Color(0.55f, 0.62f, 0.68f);
+    static readonly Color TapaRoja = new Color(1f, 0.32f, 0.25f, 1f);
+    static readonly Color EtiquetaRoja = new Color(1f, 0.55f, 0.48f);
 
     PokeInteractable poke;
     InteractableColorVisual colorTapa;
     Transform bloquePoke;                // bloque poke entero: se hunde al pulsar con el rayo (con el dedo ya lo hunde el SDK)
     Vector3 bloquePos;
     float hundido;
-    bool seleccionado, encima, tapaVerde;
-    float ultimo = -1f, hastaRayo, destello, verde;
-    Vector3 tapaPos, escalaEtiqueta, escalaHalo;
+    bool seleccionado, encima, tapaVerde, tapaRoja;
+    float ultimo = -1f, hastaRayo, destello, verde, hastaRojo;
+    Vector3 tapaPos, escalaEtiqueta, escalaHalo, posEtiqueta;
     MaterialPropertyBlock mpb;
 
     public override string Accion => "pulsar " + (etiqueta != null ? etiqueta.text : "el botón");
@@ -60,7 +62,7 @@ public class BotonFisico : Apuntable
         }
         if (tapa != null) tapaPos = tapa.localPosition;
         if (halo != null) { escalaHalo = halo.transform.localScale; halo.enabled = false; }
-        if (etiqueta != null) escalaEtiqueta = etiqueta.transform.localScale;
+        if (etiqueta != null) { escalaEtiqueta = etiqueta.transform.localScale; posEtiqueta = etiqueta.transform.localPosition; }
         mpb = new MaterialPropertyBlock();
         PintarLed();
         if (!Habilitado) AplicarColorTapa();   // lo deshabilitaron antes de este Awake
@@ -108,6 +110,19 @@ public class BotonFisico : Apuntable
         Pulsado?.Invoke();
     }
 
+    // Respuesta equivocada: la tapa se pone ROJA y la etiqueta tiembla un instante, justo donde está el dedo. Así el
+    // "AÚN NO" se ve en el botón y no solo en la pantalla del fondo (las métricas mostraban el mismo botón equivocado
+    // pulsado 5-8 veces seguidas: el jugador no veía que había fallado).
+    public void MarcarError()
+    {
+        verde = 0f;
+        tapaVerde = false;
+        tapaRoja = true;
+        hastaRojo = Time.time + 0.9f;
+        destello = 0f;
+        AplicarColorTapa();
+    }
+
     // Para los botones que alternan: el LED queda encendido mientras la función está activa.
     public void MarcarActivo(bool activo)
     {
@@ -120,7 +135,7 @@ public class BotonFisico : Apuntable
     // al InteractableColorVisual a aplicarlos (lo hace al reactivarse).
     void PonerVerde(bool si)
     {
-        if (colorTapa == null || si == tapaVerde) return;
+        if (colorTapa == null || si == tapaVerde || (si && tapaRoja)) return;
         tapaVerde = si;
         AplicarColorTapa();
     }
@@ -138,7 +153,7 @@ public class BotonFisico : Apuntable
     {
         if (colorTapa == null) return;
         bool si = tapaVerde;
-        var normal = Habilitado ? colorReposo : TapaGris;
+        var normal = tapaRoja ? TapaRoja : Habilitado ? colorReposo : TapaGris;
         var encimaReposo = Habilitado ? Color.Lerp(normal * 1.8f, Color.white, 0.2f) : Color.Lerp(TapaGris, Color.white, 0.15f); encimaReposo.a = 1f;
         colorTapa.InjectOptionalNormalColorState(new InteractableColorVisual.ColorState { Color = si ? TapaVerde : normal, ColorTime = si ? 0.05f : 0.4f });
         colorTapa.InjectOptionalHoverColorState(new InteractableColorVisual.ColorState { Color = si ? Color.Lerp(TapaVerde, Color.white, 0.25f) : encimaReposo, ColorTime = 0.08f });
@@ -162,6 +177,7 @@ public class BotonFisico : Apuntable
 
         // Tapa verde ~1 s tras pulsar (o mientras la función esté activa) y halo que se expande y se apaga.
         verde = Mathf.MoveTowards(verde, 0f, Time.deltaTime / 1.1f);
+        if (tapaRoja && Time.time > hastaRojo) { tapaRoja = false; AplicarColorTapa(); }
         if (verde <= 0f && tapaVerde && !Activo && !seleccionado) PonerVerde(false);
         if (halo != null)
         {
@@ -180,9 +196,12 @@ public class BotonFisico : Apuntable
         destello = Mathf.MoveTowards(destello, 0f, Time.deltaTime * 4f);
         if (etiqueta != null)
         {
-            var c = !Habilitado ? EtiquetaGris : Presionado || verde > 0.3f || Activo ? Pulsando : encima ? Encima : Reposo;
+            var c = tapaRoja ? EtiquetaRoja : !Habilitado ? EtiquetaGris : Presionado || verde > 0.3f || Activo ? Pulsando : encima ? Encima : Reposo;
             etiqueta.color = Color.Lerp(etiqueta.color, c, Time.deltaTime * 15f);
             etiqueta.transform.localScale = escalaEtiqueta * (1f + 0.18f * destello);
+            // Temblor lateral corto (como un "no" con la cabeza) mientras la tapa está roja.
+            float temblor = tapaRoja ? Mathf.Sin(Time.time * 55f) * 0.004f * Mathf.Clamp01((hastaRojo - Time.time) / 0.9f) : 0f;
+            etiqueta.transform.localPosition = new Vector3(posEtiqueta.x + temblor, posEtiqueta.y, posEtiqueta.z);
         }
     }
 
