@@ -46,7 +46,7 @@ public class JugadorNanoLab : MonoBehaviour
     FirstPersonLocomotor locomotor;
     SlideLocomotionBroadcaster[] slides = new SlideLocomotionBroadcaster[0];
     TurnerEventBroadcaster[] turners = new TurnerEventBroadcaster[0];
-    bool respaldo, girando, pausado, esperarSoltar;
+    bool respaldo, girando, pausado, esperarSoltar, esperarNeutro;
     Silla sentadoEn;
 
     // Desplazamiento vertical de la vista que se aplica ahora (m).
@@ -127,7 +127,8 @@ public class JugadorNanoLab : MonoBehaviour
         if (GetComponent<GestorPartida>() == null) gameObject.AddComponent<GestorPartida>();         // guardar y continuar la partida
         if (GetComponent<AdaptadorEscena>() == null) gameObject.AddComponent<AdaptadorEscena>();     // sin química, puerta del centro, tableros de cristal
         if (GetComponent<AvisoInicio>() == null) gameObject.AddComponent<AvisoInicio>();             // aviso cuadrado + tutorial corto (X para continuar)
-        if (GetComponent<BrazaleteBaymax>() == null) gameObject.AddComponent<BrazaleteBaymax>();     // objetivo y avisos en la muñeca (presencia)
+        if (BrazaleteBaymax.Activo && GetComponent<BrazaleteBaymax>() == null) gameObject.AddComponent<BrazaleteBaymax>();
+        else if (!BrazaleteBaymax.Activo) foreach (var b in GetComponentsInChildren<BrazaleteBaymax>(true)) Destroy(b);     // objetivo y avisos en la muñeca (presencia)
         ConfigurarGrupos();
         ConfigurarLocomotor();
         ConfigurarAgarre();
@@ -417,17 +418,56 @@ public class JugadorNanoLab : MonoBehaviour
         locomotor.Acceleration = 5f;
         locomotor.GroundDamping = amortiguacion;
         locomotor.SpeedFactor = velocidad * amortiguacion / locomotor.Acceleration;
+        // Revisión de la demo ("¿qué pasa con la cámara?"): la viñeta de Meta por acercar la cabeza a una pared o a un
+        // cartel cerraba la vista en un círculo gris (WallPenetrationTunneling). Se quita; la de caminar y girar queda
+        // suave y translúcida, solo en el borde, para que no tape la exploración.
+        foreach (var w in GetComponentsInChildren<WallPenetrationTunneling>(true)) w.enabled = false;
+        foreach (var t in GetComponentsInChildren<TunnelingEffect>(true))
+        {
+            t.UserFOV = 360f;
+            t.AlphaStrength = 0.4f;
+            t.ExtraFeatheredFOV = 45f;
+        }
     }
 
     // Mientras se mira por el microscopio el joystick cambia pestañas: se pausa caminar y girar.
     // Sentado en una silla también se pausa (se levanta con el joystick izquierdo).
+    // Revisión (playtest: "termino de analizar el microscopio y me regresa"): al apartar la cara del ocular, el joystick
+    // seguía empujado (el derecho hace zoom y hacia atrás es MEDIA VUELTA; el izquierdo movía la muestra) y el
+    // movimiento volvía al instante. Además el cuerpo de Meta (FirstPersonLocomotor) se quedaba atrás, frenado por la
+    // mesa, y al tocar el joystick devolvía la vista hasta él de golpe. Ahora, al reanudar: el cuerpo se alinea bajo la
+    // cabeza sin mover la vista y el movimiento espera a que se suelten los dos joysticks.
     public void PausarLocomocion(bool pausar)
     {
+        bool reanudar = pausado && !pausar;
         pausado = pausar;
+        if (reanudar)
+        {
+            esperarNeutro = true;
+            girando = true;
+            AlinearCuerpo();
+        }
         ActualizarPausa();
     }
 
-    public bool LocomocionPausada => pausado || sentadoEn != null;
+    public bool LocomocionPausada => pausado || sentadoEn != null || esperarNeutro;
+
+    void AlinearCuerpo()
+    {
+        if (locomotor == null || sentadoEn != null || rig == null || rig.centerEyeAnchor == null || !Pies(out var pies, out _)) return;
+        var f = Vector3.ProjectOnPlane(rig.centerEyeAnchor.forward, Vector3.up);
+        if (f.sqrMagnitude < 1e-4f) f = transform.forward;
+        f.Normalize();
+        if (PosicionValida(pies)) { Mover(pies, f); return; }
+        var atras = pies - f * 0.35f;   // la cabeza quedó sobre la mesa: el cuerpo, justo delante de ella
+        if (PosicionValida(atras)) Mover(atras, f);
+    }
+
+    static bool JoysticksSueltos()
+    {
+        return OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch).magnitude < 0.25f &&
+               OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch).magnitude < 0.25f;
+    }
 
     void ActualizarPausa()
     {
@@ -440,6 +480,7 @@ public class JugadorNanoLab : MonoBehaviour
     {
         ComprobarLevantarse();
         if (rig != null && rig.centerEyeAnchor != null && Time.timeSinceLevelLoad > 1.5f) VigilarCaida();
+        if (esperarNeutro && !pausado && JoysticksSueltos()) { esperarNeutro = false; girando = false; ActualizarPausa(); }
         if (LocomocionPausada || rig == null || rig.centerEyeAnchor == null) return;
         var cabeza = rig.centerEyeAnchor;
         Girar(cabeza);

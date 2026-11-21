@@ -394,13 +394,23 @@ public static class MontajeVacuna
         K.Pieza(g, "Base", PrimitiveType.Cylinder, new Vector3(0f, 0.012f, 0f), new Vector3(0.2f, 0.012f, 0.2f), K.Escena("Oscuro", Color.black));
         K.Pieza(g, "Lente", PrimitiveType.Cylinder, new Vector3(0f, 0.026f, 0f), new Vector3(0.13f, 0.003f, 0.13f), K.Plano(cian));
         K.Pieza(g, "Haz", PrimitiveType.Cylinder, new Vector3(0f, 0.09f, 0f), new Vector3(0.14f, 0.065f, 0.14f), K.Vidrio(new Color(cian.r, cian.g, cian.b, 0.08f)));
-        K.Texto(g, "HOLOGRAMA · tócalo o gíralo con el grip", new Vector3(0f, 0.002f, 0.14f), 0.11f, K.Cian, 0.5f, 0.03f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
+        K.Texto(g, "VIRUS DEL BROTE · gíralo para explorarlo", new Vector3(0f, 0.002f, 0.14f), 0.11f, K.Cian, 0.5f, 0.03f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
         r.holograma = VirusVacuna.CrearHolograma(g, new Vector3(0f, 0.3f, 0f), Quaternion.Euler(0f, 180f, 0f));
         r.holograma.transform.localScale = Vector3.one * 0.62f;   // grande para tocarlo, sin tapar las pantallas
         r.holograma.Colocar(Vector3.zero, 0.62f, false);
         var vh = g.gameObject.AddComponent<VirusHolograma>();
         vh.virus = r.holograma;
         vh.radio = 0.22f;
+        // Revisión del playtest ("girarlo como un globo terráqueo"): asa de agarre del SDK de Meta (de cerca); el virus
+        // no se mueve, gira sobre su centro siguiendo el punto de agarre.
+        try
+        {
+            var asa = new GameObject("AsaVirus");
+            asa.transform.SetParent(g, false);
+            asa.transform.localPosition = new Vector3(0f, 0.3f, 0f);
+            vh.asa = AgarreRuntime.Asa(asa, 0.17f);
+        }
+        catch (System.Exception e) { Debug.LogWarning("[Vacuna] Sin asa de agarre para el virus (queda el grip propio): " + e.Message); }
         r.grupoHolograma = g.gameObject;
     }
 
@@ -703,7 +713,9 @@ public static class MontajeVacuna
             float alto = armario ? 0.2f : 0.02f;
             var cuerpo = a.id == "ultra" ? K.Plano(new Color(0.2f, 0.32f, 0.5f)) : a.id == "nevera" ? blanco : K.Escena("Madera", new Color(0.6f, 0.45f, 0.3f));
             K.Caja(u, "Display", new Vector3(0f, alto + 0.045f, 0.06f), new Vector3(0.14f, 0.07f, 0.004f), pantalla);
-            var txt = K.Texto(u, $"<b>{a.nombre}</b>\n<size=140%>{a.sub}</size>", new Vector3(0f, alto + 0.045f, 0.057f), 0.09f, a.color, 0.13f, 0.065f, TextAlignmentOptions.Center, false, false, Quaternion.Euler(0f, 180f, 0f));
+            // El texto va DELANTE de la cara de la pantalla que mira al usuario (+z): antes quedaba dentro de la caja y
+            // las pantallas se veían negras (revisión de la demo).
+            var txt = K.Texto(u, $"<b>{a.nombre}</b>\n<size=140%>{a.sub}</size>", new Vector3(0f, alto + 0.045f, 0.0645f), 0.09f, a.color, 0.13f, 0.065f, TextAlignmentOptions.Center, false, false, Quaternion.Euler(0f, 180f, 0f));
             K.AutoTam(txt, 0.05f);
             var fantasma = Fantasma(PrimitiveType.Cylinder, new Vector3(0f, 0.035f, 0f), new Vector3(0.036f, 0.035f, 0.036f));
             if (!armario)

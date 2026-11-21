@@ -150,8 +150,7 @@ public class CamaraDescontaminacion : MonoBehaviour
         estado = Estado.Sellando;
         tVolver = 0f;
         Pantallas("SELLANDO PUERTAS", "Quédate dentro de la cámara", "EN USO");
-        Aviso.Mostrar("Cámara de descontaminación: quédate dentro hasta que se abra la puerta",
-            transform.position + Vector3.up * 1.75f, Aviso.Tipo.Info, 4f);
+        // Sin letrero flotante (revisión de la demo): las pantallas de la cámara ya dicen qué hacer.
     }
 
     void EmpezarCiclo()
@@ -200,8 +199,7 @@ public class CamaraDescontaminacion : MonoBehaviour
         Sonidos.Etapa(transform.position + Vector3.up * 1.6f);
         if (origen == Lado.BSL) DescontaminarMuestras();
         Pantallas("DESCONTAMINACIÓN COMPLETA", origen == Lado.Laboratorio ? "Puedes entrar al laboratorio BSL-3" : "Puedes salir a la sala principal", "EN USO");
-        Aviso.Mostrar(origen == Lado.Laboratorio ? "Descontaminación completa: puedes entrar al BSL-3" : "Descontaminación completa: puedes salir",
-            transform.position + Vector3.up * 1.75f, Aviso.Tipo.Ok, 3f);
+        Sonidos.Logro(transform.position + Vector3.up * 1.5f);   // la puerta que se abre y la pantalla lo dicen
     }
 
     void Abortar()

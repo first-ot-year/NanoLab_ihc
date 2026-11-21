@@ -36,7 +36,10 @@ public static class RecorridoCentro
         ("Equipamiento/Autoclave", 11.3f, RecorridoU.ParedZ - 0.43f, 180f),
         // Entrada: archivo de recuerdos (Baymax y el progreso) junto a la puerta.
         ("Estaciones/8_Archivo", 7.55f, 4.6f, 90f),
-        ("Recepcion/Bienvenida", 7.6f, 6.85f, 150f),   // al entrar, a la derecha, fuera del paso
+        // Revisión del playtest: en (7.6, 6.85) se cruzaba con el cartel 8 (ARCHIVO) y en medio de la sala tapaba el
+        // archivo ("esos carteles ordénalos mejor"). Va contra la pared oeste, al norte de la puerta, mirando a la sala:
+        // se lee al entrar girando a la izquierda y no estorba el paso a la sala de vacunas (x 7,35-8,85).
+        ("Recepcion/Bienvenida", 7.3f, 9.95f, -90f),
         // Misión 3: sala de vacunas (la mesa se monta al jugar en RecorridoU.PosVacuna).
         ("Equipamiento/Ultracongelador", 11.1f, RecorridoU.Z1 - 0.38f, 180f),
         ("Equipamiento/IncubadoraCO2", 19.9f, RecorridoU.Z1 - 0.38f, 180f),
@@ -60,6 +63,13 @@ public static class RecorridoCentro
             t.SetPositionAndRotation(new Vector3(x, suelo, z), Quaternion.Euler(0f, yaw, 0f));
             movidos++;
         }
+
+        // Revisión del playtest ("ese espejo ponlo a otro lado"): el espejo del centro quedaba metido en el panel del
+        // ARCHIVO (pared oeste, z 2,9-6,3). El del recibidor (sala principal) se va a la pared de enfrente.
+        // El espejo del centro se quita: su sitio (al norte de la puerta) es ahora el del tótem y ya hay uno en el recibidor.
+        var espejoCentro = Object.FindObjectsOfType<EspejoAvatar>(true).FirstOrDefault(x => x.name == "EspejoCentro");
+        if (espejoCentro != null && espejoCentro.gameObject.activeSelf) { Undo.RecordObject(espejoCentro.gameObject, "Recorrido en U"); espejoCentro.gameObject.SetActive(false); movidos++; }
+        movidos += EspejoAlOtroLado("EspejoRecibidor") ? 1 : 0;
 
         // Menos carga visual: fuera los rótulos numerados del suelo (queda la franja de color) y el tótem "TU OBJETIVO"
         // (el objetivo ya está en el reloj y en la torre).
@@ -97,6 +107,48 @@ public static class RecorridoCentro
             $"Listo: {movidos} estaciones y equipos reubicados y la escena guardada.\n\n" +
             "La pared de vidrio, la sala de vacunas y las conclusiones se colocan solas al darle Play.\n\n" +
             "Recomendado: NanoLab › Recorrido en U: hornear la luz (tarda unos minutos) para que las sombras sigan a los muebles.", "OK");
+    }
+
+    // 'mira' = hacia dónde da la cara del espejo (su -z local), como en ConvertirBaymax.Espejo.
+    static bool MoverEspejo(string nombre, Vector3 pie, float mira)
+    {
+        var e = Object.FindObjectsOfType<EspejoAvatar>(true).FirstOrDefault(x => x.name == nombre);
+        if (e == null) { Debug.LogWarning($"[Recorrido] No está '{nombre}'."); return false; }
+        Undo.RecordObject(e.transform, "Recorrido en U");
+        e.transform.SetPositionAndRotation(pie, Quaternion.Euler(0f, mira + 180f, 0f));
+        Debug.Log($"[Recorrido] {nombre} en {pie:F2}, mirando a {mira}°");
+        return true;
+    }
+
+    const string MarcaReubicado = "ReubicadoRevision";
+
+    // Lleva el espejo a la pared que tiene delante (la de enfrente de la sala), mirando hacia donde estaba.
+    static bool EspejoAlOtroLado(string nombre)
+    {
+        var e = Object.FindObjectsOfType<EspejoAvatar>(true).FirstOrDefault(x => x.name == nombre);
+        if (e == null || e.superficie == null) return false;
+        if (e.transform.Find(MarcaReubicado) != null) return false;   // ya se movió (así el menú se puede repetir)
+        var cara = Vector3.ProjectOnPlane(-e.superficie.transform.forward, Vector3.up).normalized;   // hacia la sala
+        if (cara.sqrMagnitude < 0.5f) return false;
+        Physics.SyncTransforms();
+        var desde = e.transform.position + Vector3.up * 1.4f + cara * 0.2f;
+        foreach (var hit in Physics.RaycastAll(desde, cara, 15f, ~0, QueryTriggerInteraction.Ignore).OrderBy(h => h.distance))
+        {
+            if (hit.collider.transform.IsChildOf(e.transform)) continue;
+            var b = hit.collider.bounds;
+            bool pared = b.size.y > 2.2f && Mathf.Max(b.size.x, b.size.z) > 2.5f && Mathf.Abs(Vector3.Dot(hit.normal, cara)) > 0.9f;
+            if (!pared) { Debug.Log($"[Recorrido] {nombre}: '{hit.collider.name}' no es pared, sigo buscando."); continue; }
+            if (hit.distance < 1.5f) break;
+            var pie = new Vector3(hit.point.x, e.transform.position.y, hit.point.z) + hit.normal * 0.03f;
+            var mira = Quaternion.LookRotation(hit.normal).eulerAngles.y;
+            if (!MoverEspejo(nombre, pie, mira)) return false;
+            var marca = new GameObject(MarcaReubicado);
+            Undo.RegisterCreatedObjectUndo(marca, "Recorrido en U");
+            marca.transform.SetParent(e.transform, false);
+            return true;
+        }
+        Debug.LogWarning($"[Recorrido] {nombre}: no encontré una pared libre enfrente; se deja donde está.");
+        return false;
     }
 
     [MenuItem("NanoLab/Recorrido en U: hornear la luz", false, 31)]

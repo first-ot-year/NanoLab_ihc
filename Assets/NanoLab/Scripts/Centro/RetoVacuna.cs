@@ -81,7 +81,29 @@ public class RetoVacuna : MonoBehaviour
     public int Errores { get; private set; }
     public int Pistas { get; private set; }
 
-    const int NumPasos = 9;
+    // MODO CORTO (Misiones.ModoCorto, reseñas del playtest): tarjeta "virus de ARN" y un solo CONTINUAR > tocar la
+    // espícula > armar el ARNm con los bloques (rayo + gatillo: cada bloque salta a su hueco) > llevar el vial al
+    // ULTRACONGELADOR > ver la vacuna creada. Sin cuestionarios ni prueba y error; los pasos avanzan solos.
+    static bool Corto => Misiones.ModoCorto;
+    // Revisión del playtest ("muy simple, agrega un paso más"): NANOPARTÍCULAS entre el diseño y el frío. Los 4 lípidos
+    // ya están en el mezclador; el estudiante lleva el TUBO con su ARNm a la entrada y pulsa MEZCLAR (ve cómo la grasa
+    // envuelve al ARNm en la pantalla).
+    static readonly EtapaVacuna[] EtapasCortas = { EtapaVacuna.Antigeno, EtapaVacuna.Diseno, EtapaVacuna.Encapsulado, EtapaVacuna.Calidad };
+    static readonly string[] NombresCortos = { "ANTÍGENO", "ARMA EL ARNm", "NANOPARTÍCULAS", "GUÁRDALA EN FRÍO" };
+    const float EsperaAuto = 2.5f;
+    const float EsperaAyuda = 7f;        // modo corto: la mano-guía y la flecha salen solo si llevas este rato sin avanzar
+    const float GradosPorParte = 75f;    // explorar girando: cada ~75° de giro se descubre una parte del virus
+    static readonly int[] OrdenDescubrir = { 2, 1, 3, 0 };   // envoltura (fuera) > espiga > proteína N > ARN (dentro)
+    float tActividad, gradosRevelados, gradosPrevios;
+    bool AyudaLista => !Corto || Time.time - tActividad > EsperaAyuda;
+    const float SegundosExplorar = 2f;   // al empezar ANTÍGENO, tocar el virus no cuenta: primero se agarra y se mira   // segundos para leer el "¡bien!" antes de pasar solo al siguiente paso
+    int NumPasos => Corto ? EtapasCortas.Length : 9;
+    int NumeroPaso(EtapaVacuna e) => Corto ? System.Array.IndexOf(EtapasCortas, e) + 1 : (int)e;
+    string NombrePaso(int n) => n < 1 ? "" : Corto ? NombresCortos[Mathf.Min(n, NombresCortos.Length) - 1] : C.Pasos[n - 1];
+    static string DondeDe(EtapaVacuna e) => C.Donde[Mathf.Clamp((int)e - 1, 0, C.Donde.Length - 1)];
+    public int PulsacionesContinuar { get; private set; }   // métrica: cuántas veces hubo que pulsar CONTINUAR
+    float tAuto = -1f;
+    GameObject vitrina;
     static readonly string[] Letras = { "A", "B", "C", "D", "E" };
     static readonly string[] IdsSintesis = { "molde", "t7", "ntp" };
     // Orden en que se ven los frascos en la gradilla (desordenados, para que no se adivine por la posición).
@@ -159,6 +181,27 @@ public class RetoVacuna : MonoBehaviour
         demo.pantalla = anclaMirar;
         for (int i = 0; i < selectoresColumna.Length; i++) { int k = i; selectoresColumna[i].alActivar = () => ElegirColumna(k); }
         foreach (var h in huecosMolde) h.Cambio += AlCambiarMolde;
+        if (tubo != null)
+        {
+            var selTubo = tubo.GetComponent<SelectorVacuna>() ?? tubo.gameObject.AddComponent<SelectorVacuna>();
+            selTubo.tactil = false;
+            selTubo.accion = "llevarlo al mezclador";
+            selTubo.alcanceRayo = 3f;
+            selTubo.alActivar = ColocarTubo;
+            selTubo.enabled = false;
+        }
+        // Modo corto: cada bloque se puede apuntar con el rayo (gatillo) y salta solo a su hueco del molde.
+        foreach (var b in bloques)
+        {
+            if (b == null || b.datos == null || !b.datos.correcta) continue;
+            var sel = b.GetComponent<SelectorVacuna>() ?? b.gameObject.AddComponent<SelectorVacuna>();
+            sel.tactil = false;
+            sel.accion = "ponerlo en el molde";
+            sel.alcanceRayo = 3f;
+            var bloque = b;
+            sel.alActivar = () => ColocarBloque(bloque);
+            sel.enabled = false;
+        }
         foreach (var h in huecosLipido) h.Cambio += AlCambiarLipido;
         huecoMezclaTubo.Cambio += _ => AlCambiarEntradaTubo();
         huecoTermo.Cambio += _ => { if (!silencio) { RefrescarMaquinas(); Refrescar(); } };
@@ -207,6 +250,9 @@ public class RetoVacuna : MonoBehaviour
             rotulosMesa[i].color = si ? K.Cian : K.Gris * 0.8f;
         }
         if (presentando && Time.time > finPresentacion) TerminarPresentacion();
+        AvanceAutomatico();
+        ExplorarGirando();
+        if (modeloVitrina != null) modeloVitrina.Rotate(Vector3.up, 40f * Time.deltaTime, Space.World);
         ActualizarPlan(cab);
         ActualizarVentana();
         GuiarPasoAPaso();
@@ -239,10 +285,28 @@ public class RetoVacuna : MonoBehaviour
         progreso = 0;
         mensaje = null;
         metricas?.Etapa(e.ToString());
-        if (e == EtapaVacuna.Antigeno) metricas?.Empezar();
+        if (e == EtapaVacuna.Antigeno)
+        {
+            metricas?.Empezar();
+            VirusHolograma.TactilDesde = Time.time + SegundosExplorar;
+            for (int k = 0; k < analizada.Length; k++) analizada[k] = false;
+            var vhP = grupoHolograma != null ? grupoHolograma.GetComponent<VirusHolograma>() : null;
+            if (vhP != null) vhP.ReiniciarAgarre();
+            gradosRevelados = gradosPrevios = 0f;
+            ActualizarLeyenda();
+        }
+        tActividad = Time.time;
         if (e == EtapaVacuna.Neutralizacion) StartCoroutine(MicrografiasCultivo.Preparar());   // las imágenes del microscopio, sin tirones
         if (e == EtapaVacuna.Titulo) { vistoMicro = false; microOk = 0; if (microscopio != null) microscopio.Apagar(); }
         if (demo != null) demo.Detener();   // el gesto de AYUDA es del paso anterior
+        tAuto = -1f;
+        // Modo corto: la ayuda va siempre delante (PASO A PASO: una acción a la vez con su animación).
+        if (Corto && e >= EtapaVacuna.Antigeno && e <= EtapaVacuna.Eficacia && !PasoAPaso)
+        {
+            PasoAPaso = true;
+            if (pasoAPaso != null) pasoAPaso.MarcarActivo(true);
+            claveGuia = -1;
+        }
         PrepararVisual(e);
         PrepararMesa(e);
         plan = Plan(e);
@@ -273,8 +337,8 @@ public class RetoVacuna : MonoBehaviour
                 virus.Anticuerpos(false);
                 tituloVisual.text = "EL VIRUS DEL BROTE";
                 pieVisual.text = e == EtapaVacuna.Intro
-                    ? "Coronavirus del brote (modelo). Mide unos 100 nm: mil veces más pequeño que el grosor de un cabello."
-                    : C.Antigeno.visual;
+                    ? (Corto ? "VIRUS DE ARN · ~100 nm · las espículas (S) son su llave para entrar." : "Coronavirus del brote (modelo). Mide unos 100 nm: mil veces más pequeño que el grosor de un cabello.")
+                    : (Corto ? "Un virus que nadie conoce. Gíralo: al explorarlo descubrirás sus partes." : C.Antigeno.visual);
                 break;
             case EtapaVacuna.Diseno:
                 tituloVisual.text = "TU ARN MENSAJERO";
@@ -361,8 +425,11 @@ public class RetoVacuna : MonoBehaviour
         grupoDiseno.SetActive(diseno);
         foreach (var b in bloques)
         {
-            Ver(b, diseno);
-            if (diseno) b.Encajable.Bloquear(e != EtapaVacuna.Diseno);
+            bool sobra = Corto && (b.datos == null || !b.datos.correcta);   // modo corto: sin el bloque trampa
+            Ver(b, diseno && !sobra);
+            if (diseno && !sobra) b.Encajable.Bloquear(e != EtapaVacuna.Diseno);
+            var sel = b.GetComponent<SelectorVacuna>();
+            if (sel != null) sel.enabled = Corto && e == EtapaVacuna.Diseno && !sobra;
         }
 
         P[] fuentes = e == EtapaVacuna.Sintesis ? OrdenFrascosSintesis.Select(i => C.ReactivosSintesis[i]).ToArray()
@@ -380,6 +447,8 @@ public class RetoVacuna : MonoBehaviour
         pipeta.gameObject.SetActive(conPipeta);
 
         Ver(tubo, !tuboConsumido && (e == EtapaVacuna.Sintesis || e == EtapaVacuna.Encapsulado));
+        var selT = tubo.GetComponent<SelectorVacuna>();
+        if (selT != null) selT.enabled = Corto && e == EtapaVacuna.Encapsulado;
         grupoCartuchos.SetActive(e == EtapaVacuna.Encapsulado);
         foreach (var c in cartuchos) Ver(c, e == EtapaVacuna.Encapsulado && !(mezclado && EnMezclador(c)));
         Ver(vial, mezclado && e >= EtapaVacuna.Encapsulado);
@@ -412,10 +481,88 @@ public class RetoVacuna : MonoBehaviour
 
     // ------------------------------------------------------------------ 1 · antígeno
 
+    // Modo corto, revisión del playtest ("no se entiende, no hay interacción; debería moverse y poder analizarlo paso a
+    // paso"): el paso 1 tiene dos fases. ANALIZAR: cada parte que se toca o se apunta se ilumina y un rótulo junto al
+    // virus dice qué es y dónde está (sin decir si es la respuesta), hasta conocer las 4. ELEGIR: con las 4 vistas,
+    // la parte que se toca es la elección del antígeno (un error explica por qué, sin contar como fallo).
+    static readonly string[] NombresParte = { "ARN (genoma)", "ESPIGA S", "ENVOLTURA", "PROTEÍNA N" };
+    static readonly string[] AnalisisParte =
+    {
+        "Las instrucciones del virus. Está DENTRO, protegido.",
+        "Sobresale por FUERA. Es la llave que se une a tus células para entrar.",
+        "Capa de grasa que lo rodea: es igual que la de nuestras células.",
+        "Envuelve al ARN. También está DENTRO del virus.",
+    };
+    readonly bool[] analizada = new bool[4];
+    public int Analizadas => analizada.Count(x => x);
+    bool AnalisisCompleto => Analizadas >= analizada.Length;
+
+    void AnalizarParte(int i, Vector3 pos)
+    {
+        bool nueva = !analizada[i];
+        analizada[i] = true;
+        virus.Resaltar((VirusVacuna.Parte)i);
+        if (holograma != null) holograma.Resaltar((VirusVacuna.Parte)i);
+        metricas?.Indagacion($"Analiza: {NombresParte[i]}");
+        if (nueva) Sonidos.Carga(pos); else Sonidos.Clic(pos);
+        ManosRig.Vibrar(pos, 0.3f, 0.05f);
+        tActividad = Time.time;
+        ActualizarLeyenda();
+        MostrarAnalisis($"DESCUBIERTO · {NombresParte[i]} · {Analizadas}/4",
+                        AnalisisParte[i] + (AnalisisCompleto ? "\n<color=#8FD8FF><b>Ya conoces sus 4 partes: ¿cuál usa para ENTRAR?</b></color>" : ""));
+        mensaje = $"<color=#FFD25A><b>{NombresParte[i]} ({Analizadas}/4).</b></color> {AnalisisParte[i]}" +
+                  (AnalisisCompleto ? "\n<color=#8FD8FF><b>¿Qué parte enseñarías al cuerpo para reconocerlo ANTES de que entre?</b> Tócala o apúntala.</color>" : "");
+        if (nueva && AnalisisCompleto) { Aviso.Mostrar("Ya conoces sus 4 partes: ahora ELIGE tu antígeno", pos, Aviso.Tipo.Ok, 3.5f); tPlan = Time.time - 100f; }
+        Refrescar();
+    }
+
+    // Lo descubierto se lee en la PANTALLA de la derecha (título + pie, dentro de su marco), junto a la parte que se
+    // ilumina en el virus grande: nada flota suelto en la sala ni tapa la guía.
+    // Pantalla derecha, modo corto: la clave de colores se va completando según se descubre (de fuera hacia dentro).
+    static readonly string[] ColorParte = { "<color=#FF9926><b>NARANJA</b></color> · ARN (genoma)", "<color=#F2474D><b>ROJO</b></color> · espiga S",
+                                            "<color=#8CCCFF><b>AZUL</b></color> · envoltura", "<color=#FAE65A><b>AMARILLO</b></color> · proteína N" };
+    void ActualizarLeyenda()
+    {
+        if (leyendaAntigeno == null || !Corto) return;
+        leyendaAntigeno.text = string.Join("\n", OrdenDescubrir.Select(k => analizada[k] ? ColorParte[k] : "<color=#3A4A5C>· · ·  sin descubrir</color>")) +
+                               (AnalisisCompleto ? "" : "\n\n<size=75%><color=#A9BED2>Gíralo para descubrir más</color></size>");
+    }
+    public string TextoAnalisis => (tituloVisual != null ? tituloVisual.text : "") + "\n" + (pieVisual != null ? pieVisual.text : "");
+    void MostrarAnalisis(string titulo, string pie)
+    {
+        if (tituloVisual == null || pieVisual == null) return;
+        tituloPasoVisual = titulo;
+        if (presentando) { piePasoVisual = pie; return; }
+        tituloVisual.text = titulo;
+        pieVisual.text = pie;
+    }
+
+    // Explorar girando (modo corto): cada ~75° de giro del holograma descubre la siguiente parte, de fuera hacia
+    // dentro. Tocar o apuntar una parte sigue funcionando como atajo.
+    void ExplorarGirando()
+    {
+        if (Actual != EtapaVacuna.Antigeno || grupoHolograma == null) return;
+        var vh = grupoHolograma.GetComponent<VirusHolograma>();
+        if (vh == null) return;
+        if (vh.Girando || Mathf.Abs(vh.GradosGirados - gradosPrevios) > 0.5f) tActividad = Time.time;
+        gradosPrevios = vh.GradosGirados;
+        if (!Corto || Resuelta || AnalisisCompleto) return;
+        if (vh.GradosGirados - gradosRevelados < GradosPorParte) return;
+        gradosRevelados = vh.GradosGirados;
+        int sig = System.Array.Find(OrdenDescubrir, k => !analizada[k]);
+        AnalizarParte(sig, holograma != null ? holograma.Centro + Vector3.up * 0.3f : transform.position + Vector3.up);
+    }
+
     public void ElegirAntigeno(int i)
     {
         if (Actual != EtapaVacuna.Antigeno) return;
         TerminarPresentacion();
+        var posA = holograma != null ? holograma.Centro + Vector3.up * 0.3f : selectoresVirus[i].transform.position + Vector3.up * 0.12f;
+        if (Corto && !Resuelta && (!AnalisisCompleto || !analizada[i]))
+        {
+            AnalizarParte(i, posA);
+            return;
+        }
         var p = C.Antigeno;
         var o = p.opciones[i];
         seleccion = i;
@@ -439,9 +586,13 @@ public class RetoVacuna : MonoBehaviour
         }
         else
         {
-            if (!Resuelta) Fallo($"Antígeno: {o.corto}", pos); else Sonidos.Clic(pos);
+            if (!Resuelta && !Corto) Fallo($"Antígeno: {o.corto}", pos); else Sonidos.Clic(pos);
             mensaje = $"<color=#FF8A70><b>AÚN NO.</b></color> {o.respuesta}" + (Resuelta ? "\n<color=#A9BED2>(Ya resolviste este paso: pulsa CONTINUAR.)</color>" : "\n<color=#A9BED2>Toca otra parte.</color>");
         }
+        if (Corto)
+            MostrarAnalisis(o.correcta ? "¡TU ANTÍGENO: LA ESPIGA S!" : $"{NombresParte[i]}: NO SIRVE",
+                            o.correcta ? "Anticuerpos (verde) tapando las espigas: el virus ya no puede entrar en tus células."
+                                       : $"{AnalisisParte[i]} Busca la que está FUERA y abre la puerta.");
         Refrescar();
     }
 
@@ -455,6 +606,19 @@ public class RetoVacuna : MonoBehaviour
     {
         if (silencio || Actual != EtapaVacuna.Diseno || Resuelta) return;
         TerminarPresentacion();
+        // Modo corto: sin prueba y error. Un bloque soltado en otro hueco salta al suyo.
+        if (Corto && e != null && e.Encajada != null)
+        {
+            var pb = e.GetComponent<PiezaVacuna>();
+            int suyo = pb != null ? System.Array.IndexOf(C.OrdenDiseno, pb.Id) : -1;
+            int donde = System.Array.IndexOf(huecosMolde, e.Encajada);
+            if (suyo >= 0 && donde >= 0 && suyo != donde)
+            {
+                silencio = true;
+                if (huecosMolde[suyo].Libre) e.Encajar(huecosMolde[suyo], true); else e.VolverACasa();
+                silencio = false;
+            }
+        }
         var ids = IdsMolde();
         int n = ids.Count(x => x != null);
         var p = e != null ? e.GetComponent<PiezaVacuna>() : null;
@@ -736,6 +900,14 @@ public class RetoVacuna : MonoBehaviour
             ManosRig.Vibrar(pos, 0.5f, 0.12f);
             calidad.Estado("<color=#39FF88>LOTE 001 · APROBADO Y GUARDADO A -70 °C</color>");
             mensaje = $"{C.CalidadHecho}\n<color=#8FD8FF>{a.explica}</color>";
+        }
+        else if (Corto)
+        {
+            // Modo corto: no cuenta como error; se dice dónde va y el vial vuelve.
+            mensaje = "<color=#FFD25A><b>AQUÍ NO.</b></color> El ARNm se rompe con el calor: va al ULTRACONGELADOR (-70 °C). Sigue la flecha.";
+            Aviso.Mostrar("Va al ULTRACONGELADOR (-70 °C)", pos, Aviso.Tipo.Info, 3f);
+            Sonidos.Clic(pos);
+            StartCoroutine(DevolverVial(1.2f));
         }
         else
         {
@@ -1143,12 +1315,25 @@ public class RetoVacuna : MonoBehaviour
         System.Func<Transform> holo = () => holograma != null ? T(holograma) : T(virus);
         if (PasoAPaso && PlanGuiado(e, l))
         {
-            l.Add(new SubPaso("Pulsa CONTINUAR (verde) para seguir", () => T(continuar), () => false).Con(I.Pulsar, () => T(continuar))
+            if (Corto) l.Add(new SubPaso("¡Muy bien! Sigues solo en un momento", () => null, () => false).Con(I.Ninguno).Nino("¡Muy bien! Sigues solo en un momento…"));
+            else l.Add(new SubPaso("Pulsa CONTINUAR (verde) para seguir", () => T(continuar), () => false).Con(I.Pulsar, () => T(continuar))
                 .Nino("¡Muy bien! PULSA el botón verde CONTINUAR", "PULSA CONTINUAR"));
             return l.ToArray();
         }
         switch (e)
         {
+            case EtapaVacuna.Antigeno when Corto:
+            {
+                var vhPlan = grupoHolograma != null ? grupoHolograma.GetComponent<VirusHolograma>() : null;
+                l.Add(new SubPaso("Explora el virus: gíralo como un globo", holo,
+                        () => (vhPlan != null && vhPlan.YaAgarrado) || Analizadas > 0 || Resuelta).Con(I.Grip, holo)
+                    .Nino("Explóralo: GÍRALO como un globo", "GRIP Y GIRA"));
+                l.Add(new SubPaso(() => $"Sigue girándolo: descubre sus 4 partes ({Analizadas}/4)", holo, () => AnalisisCompleto || Resuelta).Con(I.Grip, holo)
+                    .Nino(() => $"Sigue girándolo: descubre sus 4 partes ({Analizadas}/4)", () => "SIGUE GIRANDO", null));
+                l.Add(new SubPaso("¿Qué parte usa para ENTRAR en tus células? Elígela", holo, () => Resuelta).Con(I.Pulsar, holo)
+                    .Nino("¿Qué parte usa para ENTRAR en tus células? Elígela", "TÓCALA"));
+                break;
+            }
             case EtapaVacuna.Antigeno:
                 l.Add(new SubPaso("Toca una parte del VIRUS HOLOGRÁFICO del mostrador (mano o rayo + gatillo)", holo, () => seleccion >= 0 || Resuelta).Con(I.Pulsar, holo)
                     .Nino("TOCA el virus con la mano", "TÓCALO"));
@@ -1245,7 +1430,8 @@ public class RetoVacuna : MonoBehaviour
             default:
                 return new SubPaso[0];
         }
-        l.Add(new SubPaso("Pulsa CONTINUAR (verde) para seguir", () => T(continuar), () => false).Con(I.Pulsar, () => T(continuar))
+        if (Corto) l.Add(new SubPaso("¡Muy bien! Sigues solo en un momento", () => null, () => false).Con(I.Ninguno).Nino("¡Muy bien! Sigues solo en un momento…"));
+        else l.Add(new SubPaso("Pulsa CONTINUAR (verde) para seguir", () => T(continuar), () => false).Con(I.Pulsar, () => T(continuar))
             .Nino("¡Muy bien! PULSA el botón verde CONTINUAR", "PULSA CONTINUAR"));
         return l.ToArray();
     }
@@ -1263,6 +1449,17 @@ public class RetoVacuna : MonoBehaviour
     {
         switch (e)
         {
+            case EtapaVacuna.Diseno when Corto:
+                for (int k = 0; k < C.OrdenDiseno.Length; k++)
+                {
+                    int q = k;
+                    string id = C.OrdenDiseno[q], nombre = NombreBloque(id);
+                    l.Add(new SubPaso($"Apunta al bloque {nombre} con el rayo y aprieta el gatillo", () => T(Bloque(id)), () => IdsMolde()[q] == id || Resuelta)
+                        .Con(I.Gatillo, () => T(Bloque(id)), () => T(huecosMolde[q]))
+                        .Nino($"APUNTA al bloque {nombre} y aprieta el GATILLO (o cógelo y suéltalo en el molde)", $"{nombre}", $"HUECO {q + 1}"));
+                }
+                return true;
+
             case EtapaVacuna.Diseno:
                 for (int k = 0; k < C.OrdenDiseno.Length; k++)
                 {
@@ -1310,6 +1507,14 @@ public class RetoVacuna : MonoBehaviour
                     .Con(I.Grip, () => T(tubo), () => T(huecoMezclaTubo)).Nino("COGE el tubo y PONLO en la entrada ARNm", "COGE EL TUBO", "PONLO AQUÍ"));
                 l.Add(new SubPaso("Pulsa MEZCLAR", () => T(mezclar), () => mezclando || mezclado).Con(I.Pulsar, () => T(mezclar))
                     .Nino("PULSA el botón MEZCLAR", "PULSA MEZCLAR"));
+                return true;
+
+            case EtapaVacuna.Calidad when Corto:
+                l.Add(new SubPaso("Coge el VIAL de tu vacuna", () => T(vial), () => vial.Encajable.Agarrado || Resuelta)
+                    .Con(I.Grip, () => T(vial), () => T(huecosAlmacen[0])).Nino("COGE el vial de tu vacuna con el grip", "COGE EL VIAL", "ULTRACONGELADOR"));
+                l.Add(new SubPaso("Llévalo al ULTRACONGELADOR (-70 °C): sigue la flecha", () => T(huecosAlmacen[0]), () => Resuelta)
+                    .Con(I.Grip, () => T(vial), () => T(huecosAlmacen[0]))
+                    .Nino("LLÉVALO al ULTRACONGELADOR: acércalo y la puerta se abre", "EL VIAL", "ULTRACONGELADOR"));
                 return true;
 
             case EtapaVacuna.Calidad:
@@ -1374,18 +1579,19 @@ public class RetoVacuna : MonoBehaviour
             }
             indicePlan = i;
             cambio = true;
+            tActividad = Time.time;
         }
         if (cambio) Refrescar();
 
         var objetivo = plan[i].objetivo != null ? plan[i].objetivo() : null;
         // En PASO A PASO la animación ya señala el objeto: la flecha amarilla se oculta para no tapar.
-        bool ver = objetivo != null && dentro && !Animando && Actual != EtapaVacuna.Cierre && !guiando;
+        bool ver = objetivo != null && dentro && !Animando && Actual != EtapaVacuna.Cierre && !guiando && AyudaLista;
         if (marcador.gameObject.activeSelf != ver) marcador.gameObject.SetActive(ver);
         if (!ver) return;
         marcador.position = objetivo.position;
         flecha.localPosition = new Vector3(0f, 0.17f + 0.025f * Mathf.Sin(Time.time * 4f), 0f);
         flecha.Rotate(0f, 90f * Time.deltaTime, 0f, Space.Self);
-        marcadorTxt.text = $"{i + 1}/{plan.Length} · {plan[i].texto()}";
+        marcadorTxt.text = Corto && plan[i].txtDesde != null ? plan[i].txtDesde() : $"{i + 1}/{plan.Length} · {plan[i].texto()}";
         if (cab != null)
         {
             var d = marcadorTxt.transform.position - cab.position; d.y = 0f;
@@ -1411,15 +1617,15 @@ public class RetoVacuna : MonoBehaviour
     // Al pulsar CONTINUAR, la pantalla derecha presenta el paso que viene y su plan (se va agregando línea a línea).
     void Presentar(EtapaVacuna e)
     {
-        int n = (int)e;
+        int n = NumeroPaso(e);
         OcultarVisuales();
         presentando = true;
         var lineas = PasoAPaso ? new[] { plan[0].Sencillo() } : plan.Take(plan.Length - 1).Select(p => p.texto()).ToArray();
-        finPresentacion = Time.time + 0.5f + 0.45f * lineas.Length + 3.5f;
+        finPresentacion = Time.time + 0.5f + 0.45f * lineas.Length + (Corto ? 2f : 3.5f);
         tituloVisual.text = $"SIGUIENTE · PASO {n} DE {NumPasos}";
         piePasoVisual = pieVisual.text;
         pieVisual.text = "";
-        siguiente.Mostrar($"PASO {n}/{NumPasos} · {C.Pasos[n - 1]}", TituloEtapa(), "Dónde: " + C.Donde[n - 1], lineas);
+        siguiente.Mostrar($"PASO {n}/{NumPasos} · {NombrePaso(n)}", TituloEtapa(), "Dónde: " + DondeDe(e), lineas);
     }
 
     void TerminarPresentacion()
@@ -1451,8 +1657,10 @@ public class RetoVacuna : MonoBehaviour
             case EtapaVacuna.Cierre: ventana.Mostrar(true, "¡MISIÓN COMPLETA!", "Mira tu informe o pulsa REPETIR para volver a jugar", I.Ninguno); return;
         }
         if (plan.Length == 0) { ventana.Mostrar(false, "", "", I.Ninguno); return; }
-        int n = (int)Actual, i = PasoActualDelPlan();
-        string cab = $"PASO {n}/{NumPasos} · {C.Pasos[n - 1]}   ·   {i + 1}/{plan.Length}" + (PasoAPaso ? "   ·   <color=#B07CFF>PASO A PASO</color>" : "");
+        int n = NumeroPaso(Actual), i = PasoActualDelPlan();
+        string cab = Corto
+            ? $"{NombrePaso(n)}   <color=#8FD8FF>{new string('●', Mathf.Min(i + 1, plan.Length))}<color=#3A4A5C>{new string('●', Mathf.Max(0, plan.Length - i - 1))}</color></color>"
+            : $"PASO {n}/{NumPasos} · {NombrePaso(n)}   ·   {i + 1}/{plan.Length}" + (PasoAPaso ? "   ·   <color=#B07CFF>PASO A PASO</color>" : "");
         if (Animando) ventana.Mostrar(true, cab, "Espera a que termine la máquina…", I.Ninguno);
         else ventana.Mostrar(true, cab, PasoAPaso ? plan[i].Sencillo() : plan[i].texto(), plan[i].icono);
     }
@@ -1462,7 +1670,7 @@ public class RetoVacuna : MonoBehaviour
     void GuiarPasoAPaso()
     {
         if (demo == null) return;
-        bool activo = PasoAPaso && Actual >= EtapaVacuna.Antigeno && Actual <= EtapaVacuna.Eficacia && plan.Length > 0 && !Animando;
+        bool activo = PasoAPaso && Actual >= EtapaVacuna.Antigeno && Actual <= EtapaVacuna.Eficacia && plan.Length > 0 && !Animando && AyudaLista;
         if (!activo)
         {
             if (guiando) { demo.Detener(); guiando = false; claveGuia = -1; }
@@ -1587,6 +1795,7 @@ public class RetoVacuna : MonoBehaviour
     {
         var pos = continuar.transform.position + Vector3.up * 0.3f;
         metricas?.Actividad();
+        PulsacionesContinuar++;
         if (EnCuestionario)
         {
             if (quizTerminado) { TerminarCuestionario(); return; }
@@ -1604,7 +1813,8 @@ public class RetoVacuna : MonoBehaviour
             return;
         }
         // Antes del paso 1, las preguntas de comprensión (una vez por partida; al REPETIR no se vuelven a hacer).
-        if (Actual == EtapaVacuna.Intro && !preHecho) { EmpezarCuestionario(Cuestionario.Antes); return; }
+        // En modo corto no hay cuestionario: la Intro es una tarjeta de lectura ("virus de ARN").
+        if (Actual == EtapaVacuna.Intro && !preHecho && !Corto) { EmpezarCuestionario(Cuestionario.Antes); return; }
         if (Animando) { Aviso.Mostrar("Espera a que termine la máquina.", pos, Aviso.Tipo.Info, 2f); return; }
         if (!Resuelta)
         {
@@ -1614,8 +1824,98 @@ public class RetoVacuna : MonoBehaviour
             EnsenarGesto();
             return;
         }
-        if (Actual == EtapaVacuna.Eficacia) { EmpezarCuestionario(Cuestionario.Despues); return; }
-        Poner(Actual + 1);
+        Avanzar();
+    }
+
+    // Siguiente paso: el largo recorre los 9; el corto, ANTÍGENO > DISEÑO > CALIDAD > cierre.
+    EtapaVacuna Siguiente(EtapaVacuna e)
+    {
+        if (!Corto) return e + 1;
+        int i = System.Array.IndexOf(EtapasCortas, e);
+        return e == EtapaVacuna.Intro ? EtapasCortas[0] : i >= 0 && i + 1 < EtapasCortas.Length ? EtapasCortas[i + 1] : EtapaVacuna.Cierre;
+    }
+
+    void Avanzar()
+    {
+        tAuto = -1f;
+        var sig = Siguiente(Actual);
+        if (sig == EtapaVacuna.Cierre)
+        {
+            if (Corto) Completar(); else EmpezarCuestionario(Cuestionario.Despues);   // tras EFICACIA, las preguntas del final
+            return;
+        }
+        bool encapsular = Corto && sig == EtapaVacuna.Encapsulado;
+        bool vacunaLista = Corto && sig == EtapaVacuna.Calidad;
+        if (encapsular)
+        {
+            // Modo corto: la síntesis se hace sola; el tubo ya trae tu ARNm copiado.
+            tubo.contenido.Clear();
+            foreach (var id in IdsSintesis) tubo.contenido.Add(id);
+            tubo.contenido.Add("arnm");
+            tubo.Liquido(new Color(1f, 0.6f, 0.15f), 0.55f);
+            tubo.etiqueta.text = "ARNm";
+            Registrar("ARNm copiado en el tubo (síntesis)", true);
+        }
+        if (vacunaLista)
+        {
+            // Modo corto: el lote sale ya analizado y aprobado.
+            mezclado = true;
+            tuboConsumido = true;
+            analizado = true;
+            pantallaAnalizador.text = "LOTE 001\n<color=#39FF88>APROBADO</color>";
+        }
+        Poner(sig);
+        if (encapsular)
+        {
+            CargarLipidosCorto();
+            mensaje = "<color=#39FF88><b>TU ARNm YA ESTÁ COPIADO</b></color> en el tubo. Solo se rompería en el cuerpo: envuélvelo en grasa. Lleva el TUBO al MEZCLADOR y pulsa MEZCLAR.";
+            Refrescar();
+        }
+        if (vacunaLista)
+        {
+            mensaje = "<color=#39FF88><b>¡TU VACUNA ESTÁ LISTA!</b></color> El ARNm va dentro de nanopartículas de grasa. Llévala al frío.";
+            Refrescar();
+        }
+    }
+
+    // Modo corto: los 4 lípidos correctos ya están en el mezclador y el cartucho que sobra no aparece.
+    void CargarLipidosCorto()
+    {
+        silencio = true;
+        var buenos = cartuchos.Where(c => c != null && c.datos != null && c.datos.correcta).ToArray();
+        for (int i = 0; i < buenos.Length && i < huecosLipido.Length; i++)
+            if (!EnMezclador(buenos[i])) { buenos[i].gameObject.SetActive(true); buenos[i].Encajable.Encajar(huecosLipido[i], false); }
+        foreach (var c in cartuchos) if (c != null && (c.datos == null || !c.datos.correcta)) c.gameObject.SetActive(false);
+        foreach (var c in buenos) c.Encajable.Bloquear(true);
+        silencio = false;
+        ActualizarLnp();
+        RefrescarMaquinas();
+    }
+
+    // Modo corto: el tubo apuntado (rayo + gatillo) salta a la entrada de ARNm del mezclador.
+    public void ColocarTubo()
+    {
+        if (!Corto || Actual != EtapaVacuna.Encapsulado || mezclado || mezclando || tubo.Encajable.Agarrado || TuboEnMezclador()) return;
+        tubo.Encajable.Encajar(huecoMezclaTubo, true);
+    }
+
+    // Modo corto: un paso resuelto pasa solo al siguiente tras unos segundos (el botón CONTINUAR lo adelanta).
+    void AvanceAutomatico()
+    {
+        bool paso = Actual >= EtapaVacuna.Antigeno && Actual <= EtapaVacuna.Eficacia;
+        if (!Corto || !paso || !Resuelta || EnCuestionario || Animando) { tAuto = -1f; return; }
+        if (tAuto < 0f) { tAuto = Time.time + EsperaAuto; return; }
+        if (Time.time >= tAuto) Avanzar();
+    }
+
+    // Modo corto: el bloque apuntado (rayo + gatillo) salta a su hueco del molde.
+    public void ColocarBloque(PiezaVacuna b)
+    {
+        if (!Corto || b == null || Actual != EtapaVacuna.Diseno || Resuelta || b.Encajable.Agarrado) return;
+        int i = System.Array.IndexOf(C.OrdenDiseno, b.Id);
+        if (i < 0 || b.Encajable.Encajada == huecosMolde[i]) return;
+        if (!huecosMolde[i].Libre) { var otro = huecosMolde[i].Actual; silencio = true; otro.VolverACasa(); silencio = false; }
+        b.Encajable.Encajar(huecosMolde[i], true);
     }
 
     string QueFalta()
@@ -1694,6 +1994,7 @@ public class RetoVacuna : MonoBehaviour
         // Tercer recuerdo de Baymax (MISIÓN 3 · CREAR); los dos primeros los dan las misiones 1 y 2.
         RecuerdosBaymax.Recuperar(Misiones.Recuerdo3);
         RecuerdoAnimado.Reproducir(Misiones.Recuerdo3, Misiones.TextoRecuerdo3);
+        MostrarVitrina();
         if (!guardado) { metricas?.Guardar(true); guardado = true; }
         bool cp = Partida.GuardarCheckpoint(C.Codigo);
         Aviso.EnMuneca($"{C.Codigo} COMPLETA · ¡Creaste una vacuna! Baymax recupera un recuerdo científico ({RecuerdosBaymax.Cantidad}/{RecuerdosBaymax.Total})" + (cp ? "\nProgreso guardado (checkpoint)." : ""),
@@ -1701,8 +2002,54 @@ public class RetoVacuna : MonoBehaviour
         Refrescar();
     }
 
+    // Modo corto: tarjetas de lectura (sustituyen a las preguntas de comprensión dentro del visor).
+    const string TarjetaVirusArn =
+        "<b><color=#FFD25A>VIRUS DE ARN</color></b>\nSu información genética es ARN. Usa las ESPÍCULAS de su superficie como llave para entrar en tus células.\n" +
+        "<b><color=#8FD8FF>VACUNA DE ARNm</color></b>\nLleva las instrucciones de la espícula: tus células la fabrican un rato y tu cuerpo aprende a reconocer al virus.";
+    const string TarjetaTuVacuna =
+        "<b><color=#8FD8FF>TU VACUNA</color></b>\nARNm con las instrucciones de la espícula (CAP · UTR · GEN S · UTR · POLI-A), envuelto en nanopartículas de grasa y guardado a -70 °C.\n" +
+        "<size=85%>Al vacunarte, tus células fabrican la espícula y tu cuerpo crea anticuerpos (verde) que bloquean al virus.</size>";
+
+    // Modo corto: "que vea lo que creó". Una copia grande del vial gira junto al virus, con su nombre.
+    Transform modeloVitrina;
+    void MostrarVitrina()
+    {
+        if (!Corto || vial == null) return;
+        if (vitrina != null) Destroy(vitrina);
+        vitrina = new GameObject("VitrinaVacuna");
+        var t = vitrina.transform;
+        t.SetParent(transform, false);
+        var baseLocal = grupoHolograma != null ? transform.InverseTransformPoint(grupoHolograma.transform.position) : new Vector3(0f, 1f, -0.22f);
+        t.localPosition = baseLocal + new Vector3(0.6f, 0.3f, 0f);   // al lado del virus, sin taparlo
+        // El estudiante mira el mostrador desde +z local hacia -z: el texto mira hacia él.
+        var f = Vector3.ProjectOnPlane(-transform.forward, Vector3.up);
+        if (f.sqrMagnitude > 1e-4f) t.rotation = Quaternion.LookRotation(f.normalized, Vector3.up);
+        modeloVitrina = new GameObject("Vial").transform;
+        modeloVitrina.SetParent(t, false);
+        var v = vial.transform;
+        foreach (var mr in vial.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            var mf = mr.GetComponent<MeshFilter>();
+            if (mf == null || mf.sharedMesh == null || mr.GetComponent<TMP_Text>() != null) continue;
+            var go = new GameObject(mr.name);
+            go.transform.SetParent(modeloVitrina, false);
+            go.transform.localPosition = v.InverseTransformPoint(mr.transform.position);
+            go.transform.localRotation = Quaternion.Inverse(v.rotation) * mr.transform.rotation;
+            var ls = mr.transform.lossyScale; var vs = v.lossyScale;
+            go.transform.localScale = new Vector3(ls.x / Mathf.Max(1e-4f, vs.x), ls.y / Mathf.Max(1e-4f, vs.y), ls.z / Mathf.Max(1e-4f, vs.z));
+            go.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+            go.AddComponent<MeshRenderer>().sharedMaterials = mr.sharedMaterials;
+        }
+        modeloVitrina.localScale = Vector3.one * 2.6f;
+        K.Panel(t, "Base", new Vector3(0f, -0.15f, 0.01f), 0.34f, 0.09f, new Color(0.05f, 0.1f, 0.18f, 0.97f), K.Cian, 0.003f, 0.02f);
+        K.Texto(t, "<b>TU VACUNA DE ARNm</b>\n<size=75%>Lote 001 · -70 °C</size>", new Vector3(0f, -0.15f, -0.002f), 0.2f, Color.white, 0.32f, 0.08f, TextAlignmentOptions.Center);
+        Sonidos.Exito(t.position);
+    }
+
     public void Reiniciar()
     {
+        if (vitrina != null) Destroy(vitrina);
+        PulsacionesContinuar = 0;
         if (!guardado && metricas != null) metricas.Guardar(false);
         StopAllCoroutines();
         metricas = new MetricsLogger(C.Codigo);
@@ -1921,12 +2268,17 @@ public class RetoVacuna : MonoBehaviour
     void Refrescar()
     {
         if (titulo == null) return;
-        int paso = (int)Actual;   // 1..9 para los pasos del reto
+        int paso = NumeroPaso(Actual);   // 1..9 (1..3 en modo corto) para los pasos del reto
         bool fin = Actual == EtapaVacuna.Cierre;
 
         cabecera.text = $"LABORATORIO DE VACUNAS   ·   {C.Codigo}: {C.Titulo.ToUpper()} DE ARNm";
         for (int i = 0; i < segmentos.Length; i++)
         {
+            bool ver = i < NumPasos;   // modo corto: solo 3 segmentos en la barra
+            if (segmentos[i].gameObject.activeSelf != ver) segmentos[i].gameObject.SetActive(ver);
+            if (etiquetasSegmento[i].gameObject.activeSelf != ver) etiquetasSegmento[i].gameObject.SetActive(ver);
+            if (!ver) continue;
+            etiquetasSegmento[i].text = NombrePaso(i + 1);
             var c = i + 1 < paso || fin ? K.Verde : i + 1 == paso ? K.Cian : new Color(0.25f, 0.32f, 0.4f);
             K.Pintar(segmentos[i], c);
             etiquetasSegmento[i].color = i + 1 == paso ? Color.white : i + 1 < paso || fin ? K.Verde : K.Gris;
@@ -1966,6 +2318,15 @@ public class RetoVacuna : MonoBehaviour
 
         switch (Actual)
         {
+            case EtapaVacuna.Intro when Corto:
+            {
+                // Tarjeta de lectura corta (antes: 4 preguntas de comprensión).
+                titulo.text = $"{C.Codigo} · {C.Titulo.ToUpper()} DE ARNm";
+                enunciado.text = TarjetaVirusArn;
+                opcionesTxt.text = "<b>4 pasos</b>\n1 · Explora el virus girándolo y elige su punto débil\n2 · Arma el ARNm con los bloques (rayo + gatillo)\n3 · Envuélvelo en NANOPARTÍCULAS (mezclador)\n4 · Guarda tu vacuna en el ULTRACONGELADOR";
+                respuesta.text = !Misiones.VacunaDesbloqueada ? C.Bloqueada : "Pulsa <color=#39FF88><b>CONTINUAR</b></color> para empezar.";
+                break;
+            }
             case EtapaVacuna.Intro:
             {
                 titulo.text = $"{C.Codigo} · {C.Titulo.ToUpper()} DE ARNm";
@@ -1985,7 +2346,8 @@ public class RetoVacuna : MonoBehaviour
             case EtapaVacuna.Cierre:
             {
                 titulo.text = $"{C.Codigo} COMPLETA · ¡CREASTE UNA VACUNA!";
-                enunciado.text = $"<color=#8FD8FF><b>Lo que aprendiste</b></color>\n<size=85%>{C.Aprendido}</size>\n<size=80%>{C.EnElCuerpo}</size>";
+                enunciado.text = Corto ? TarjetaTuVacuna
+                    : $"<color=#8FD8FF><b>Lo que aprendiste</b></color>\n<size=85%>{C.Aprendido}</size>\n<size=80%>{C.EnElCuerpo}</size>";
                 opcionesTxt.text = "";
                 var sb = new StringBuilder();
                 sb.AppendLine($"<color=#8FD8FF><b>Tu recorrido</b></color>   <size=85%>Errores: {Errores}   ·   Ayudas: {Pistas}   ·   Tiempo: {Tiempo()}</size>");
@@ -2001,18 +2363,20 @@ public class RetoVacuna : MonoBehaviour
                 if (PasoAPaso && plan.Length > 0)
                 {
                     int ia = PasoActualDelPlan();
-                    titulo.text = $"PASO {paso}/{NumPasos} · {C.Pasos[paso - 1]}";
+                    titulo.text = $"PASO {paso}/{NumPasos} · {NombrePaso(paso)}";
                     enunciado.text = "";
                     opcionesTxt.text = ConEstado ? Estado() : "";
-                    accionGrande.text = $"<size=55%><color=#FFD25A>ACCIÓN {ia + 1} DE {plan.Length}</color></size>\n{plan[ia].Sencillo()}";
+                    accionGrande.text = Corto
+                        ? $"<size=70%><color=#FFD25A>{new string('●', Mathf.Min(ia + 1, plan.Length))}</color><color=#3A4A5C>{new string('●', Mathf.Max(0, plan.Length - ia - 1))}</color></size>\n{plan[ia].Sencillo()}"
+                        : $"<size=55%><color=#FFD25A>ACCIÓN {ia + 1} DE {plan.Length}</color></size>\n{plan[ia].Sencillo()}";
                     EstiloNanoLab.Poner(iconoPaso, plan[ia].icono);
-                    respuesta.text = mensaje != null ? PrimeraFrase(mensaje) : $"<color=#A9BED2>{C.Donde[paso - 1].ToUpper()}</color>";
+                    respuesta.text = mensaje != null ? PrimeraFrase(mensaje) : $"<color=#A9BED2>{DondeDe(Actual).ToUpper()}</color>";
                     break;
                 }
                 titulo.text = $"PASO {paso}/{NumPasos} · {TituloEtapa()}";
                 enunciado.text = EnunciadoEtapa();
                 opcionesTxt.text = PlanTexto() + (ConEstado ? "\n" + Estado() : "");
-                respuesta.text = mensaje ?? $"<color=#A9BED2>{C.Donde[paso - 1].ToUpper()}.</color> {Indicacion()}";
+                respuesta.text = mensaje ?? $"<color=#A9BED2>{DondeDe(Actual).ToUpper()}.</color> {Indicacion()}";
                 break;
         }
         bool grande = PasoAPaso && !fin && Actual != EtapaVacuna.Intro && plan.Length > 0;
@@ -2021,7 +2385,8 @@ public class RetoVacuna : MonoBehaviour
         if (grupoPasoAPaso != null) grupoPasoAPaso.SetActive(!fin);
         estado.text = fin ? "<color=#A9BED2>Pulsa REPETIR para volver a hacer el caso.</color>"
             : $"Errores: {Errores}   ·   Ayudas: {Pistas}   ·   " + (Resuelta
-                ? $"<color=#39FF88><b>¡Hecho! Siguiente: {(paso < NumPasos ? C.Pasos[paso] : "INFORME FINAL")} > pulsa CONTINUAR (verde)</b></color>"
+                ? (Corto ? $"<color=#39FF88><b>¡Hecho! Ahora: {(paso < NumPasos ? NombrePaso(paso + 1) : "TU VACUNA")}…</b></color>"
+                         : $"<color=#39FF88><b>¡Hecho! Siguiente: {(paso < NumPasos ? C.Pasos[paso] : "INFORME FINAL")} > pulsa CONTINUAR (verde)</b></color>")
                 : "<color=#FFD25A>AYUDA (amarillo) si te atascas</color>");
     }
 
@@ -2235,7 +2600,11 @@ public class RetoVacuna : MonoBehaviour
 
         yield return null;
         yield return null;
-        if (Actual != EtapaVacuna.Intro) { Reiniciar(); Poner(EtapaVacuna.Intro, false); }
+        // Recorrido LARGO (9 pasos, preguntas y errores típicos): el modo corto se apaga durante la prueba.
+        bool cortoAntes = Misiones.ModoCorto;
+        Misiones.ModoCorto = false;
+        if (Actual != EtapaVacuna.Intro) Reiniciar();
+        Poner(EtapaVacuna.Intro, false);
         // Orden fijo de las misiones: sin la MISIÓN 2 la vacuna está bloqueada.
         bool desbloqueada = Misiones.VacunaDesbloqueada;
         if (!desbloqueada)
@@ -2310,6 +2679,144 @@ public class RetoVacuna : MonoBehaviour
         Comprobar(vial.Encajable.Encajada == huecosAlmacen[0], "El vial quedó en el ultracongelador");
         yield return new WaitForSeconds(0.6f);
         Momento?.Invoke("vacuna_9_cierre");
+        Misiones.ForzarDesbloqueo = false;
+        Misiones.ModoCorto = cortoAntes;
+        Informe = log.ToString();
+        PruebaCorrecta = ok;
+        PruebaTerminada = true;
+    }
+
+    // Recorrido CORTO (reseñas del playtest): un CONTINUAR, 3 pasos que avanzan solos, sin preguntas ni errores.
+    public IEnumerator SimularCorto()
+    {
+        PruebaTerminada = false;
+        var log = new StringBuilder();
+        bool ok = true;
+        void Comprobar(bool cond, string s) { log.AppendLine((cond ? "OK    " : "FALLO ") + s); if (!cond) { ok = false; Debug.LogError("[PruebaVacuna] FALLO: " + s); } else Debug.Log("[PruebaVacuna] " + s); }
+        IEnumerator Esperar(System.Func<bool> c, float max) { float t0 = Time.time; while (!c() && Time.time - t0 < max) yield return null; }
+
+        yield return null;
+        yield return null;
+        Misiones.ModoCorto = true;
+        Misiones.ForzarDesbloqueo = true;
+        if (Actual != EtapaVacuna.Intro) Reiniciar();
+        Poner(EtapaVacuna.Intro, false);
+        PasoAPaso = false;
+        PulsacionesContinuar = 0;
+        int erroresAntes = Errores;
+        Comprobar(enunciado.text.Contains("VIRUS DE ARN") && !EnCuestionario, "La entrada es una tarjeta corta de lectura (VIRUS DE ARN), sin preguntas");
+        Momento?.Invoke("vacuna_corto_0_intro");
+        Continuar();
+        Comprobar(Actual == EtapaVacuna.Antigeno && !EnCuestionario && !preHecho, "Un solo CONTINUAR y empieza el paso 1 (sin cuestionario)");
+        Comprobar(NumPasos == 4 && titulo.text.Contains("PASO 1/4") && segmentos.Count(s => s.gameObject.activeSelf) == 4,
+                  $"La barra y el título cuentan 4 pasos (\"{titulo.text}\")");
+        Comprobar(VirusHolograma.TactilDesde > Time.time + 1f, $"Paso 1: los primeros {SegundosExplorar} s tocar el virus no cuenta (no se elige por accidente)");
+        var vh = holograma != null ? holograma.GetComponentInParent<VirusHolograma>() : null;
+        Comprobar(vh != null && holograma.Modelo != null && holograma.Modelo.Find("Envoltura") != null &&
+                  holograma.Modelo.Find("Envoltura").GetComponent<MeshFilter>().sharedMesh.name != "MediaEsfera",
+                  "Paso 1: el virus holográfico está completo (envoltura entera)");
+        Comprobar(vh != null && vh.asa != null && vh.asa.GetComponent<Oculus.Interaction.GrabInteractable>() != null && vh.asa.GetComponent<Oculus.Interaction.DistanceGrabInteractable>() == null,
+                  "Paso 1: el virus se agarra de cerca con el grip (Grabbable de Meta), sin que el rayo se lo lleve a la mano");
+        Comprobar(!guiando && !marcador.gameObject.activeSelf, "Paso 1: la mano-guía y la flecha NO salen de entrada (primero se explora)");
+        if (vh != null && holograma.Modelo != null)
+        {
+            // Girarlo como un globo: un impulso lo hace rodar sobre su centro, no se mueve de sitio y se frena solo.
+            var pos0 = holograma.Modelo.position;
+            var rot0 = holograma.Modelo.rotation;
+            vh.Impulsar(Vector3.up * 240f);
+            yield return new WaitForSeconds(0.5f);
+            float girado = Quaternion.Angle(rot0, holograma.Modelo.rotation);
+            float movido = (holograma.Modelo.position - pos0).magnitude;
+            yield return new WaitForSeconds(2.5f);
+            Comprobar(girado > 30f && movido < 0.001f && vh.VelocidadAngular.magnitude < 60f,
+                      $"Paso 1: el virus gira como un globo sobre su centro ({girado:0}° en 0,5 s, se movió {movido * 100f:0.0} cm) y se frena solo");
+            Comprobar(Analizadas >= 1 && analizada[OrdenDescubrir[0]] && TextoAnalisis.Contains("DESCUBIERTO") && !Resuelta,
+                      $"Paso 1: GIRARLO descubre partes de fuera hacia dentro ({Analizadas}/4; pantalla: \"{tituloVisual.text}\")");
+        }
+        Comprobar(PasoAPaso && plan.Length > 0 && accionGrande != null && accionGrande.gameObject.activeSelf, "El panel dice desde el principio la acción, una a la vez");
+        yield return Esperar(() => guiando, EsperaAyuda + 5f);
+        Comprobar(guiando, $"Paso 1: si te quedas quieto ~{EsperaAyuda:0} s aparece la mano-guía");
+        Momento?.Invoke("vacuna_corto_1_ayuda");
+
+        // 1 · Antígeno: analizar las 4 partes y luego elegir. Avanza solo.
+        int buena = System.Array.FindIndex(C.Antigeno.opciones, o => o.correcta);
+        int libre = System.Array.FindLastIndex(OrdenDescubrir, k => !analizada[k]);
+        libre = libre >= 0 ? OrdenDescubrir[libre] : buena;
+        int antes = Analizadas;
+        ElegirAntigeno(libre);   // tocar una parte sin descubrir es un atajo: se ANALIZA, no se elige
+        Comprobar(!Resuelta && Analizadas == Mathf.Min(4, antes + 1) && TextoAnalisis.Contains(NombresParte[libre]) && grupoHolograma.transform.Find("RotuloAnalisis") == null,
+                  $"Paso 1: tocar una parte también la descubre y se lee en la PANTALLA (\"{tituloVisual.text}\"), sin recuadros sueltos");
+        yield return new WaitForSeconds(0.3f);
+        Momento?.Invoke("vacuna_corto_1_analisis");
+        for (int k = 0; k < 4; k++) ElegirAntigeno(k);
+        Comprobar(Analizadas == 4 && !Resuelta && plan.Length >= 3 && PasoActualDelPlan() == 2, "Paso 1: con las 4 partes analizadas, la guía pasa a ELEGIR el antígeno");
+        int mala = System.Array.FindIndex(C.Antigeno.opciones, o => !o.correcta);
+        ElegirAntigeno(mala);
+        Comprobar(!Resuelta && Errores == erroresAntes, "Paso 1: elegir una parte que no sirve explica por qué, sin contar como error");
+        ElegirAntigeno(buena);
+        Comprobar(Resuelta, "Paso 1: elegir la espiga S lo resuelve (salen los anticuerpos)");
+        yield return new WaitForSeconds(0.3f);
+        Momento?.Invoke("vacuna_corto_1_antigeno");
+        yield return Esperar(() => Actual == EtapaVacuna.Diseno, EsperaAuto + 3f);
+        Comprobar(Actual == EtapaVacuna.Diseno && PulsacionesContinuar == 1, $"Paso 1 > paso 2 SIN pulsar CONTINUAR (avanza solo en {EsperaAuto} s)");
+
+        // 2 · Diseño: sin bloque trampa; un bloque soltado en otro hueco salta al suyo; el resto, con el rayo.
+        yield return Esperar(() => !presentando, 4f);
+        Comprobar(bloques.Where(b => b.datos != null && !b.datos.correcta).All(b => !b.gameObject.activeSelf), "Paso 2: el bloque trampa (GEN N) no aparece");
+        var cola = Bloque(C.OrdenDiseno[4]);
+        cola.Encajable.Encajar(huecosMolde[0], true);   // soltado en el hueco equivocado
+        yield return null;
+        Comprobar(cola.Encajable.Encajada == huecosMolde[4] && Errores == erroresAntes, "Paso 2: un bloque soltado en otro hueco salta al suyo, sin contar error");
+        var selectores = bloques.Where(b => b.gameObject.activeSelf).Select(b => b.GetComponent<SelectorVacuna>()).ToArray();
+        Comprobar(selectores.All(s => s != null && s.enabled && s.Disponible), $"Paso 2: los {selectores.Length} bloques se pueden apuntar con el rayo");
+        foreach (var id in C.OrdenDiseno.Reverse())
+        {
+            var b = Bloque(id);
+            if (b.Encajable.Encajada == huecosMolde[System.Array.IndexOf(C.OrdenDiseno, id)]) continue;
+            b.GetComponent<SelectorVacuna>().Activar();   // lo que hace el rayo + gatillo
+            yield return new WaitForSeconds(0.1f);
+        }
+        Comprobar(Resuelta && Errores == erroresAntes, "Paso 2: con el rayo cada bloque va a su hueco y el ARNm queda bien a la primera");
+        yield return new WaitForSeconds(0.3f);
+        Momento?.Invoke("vacuna_corto_2_diseno");
+        yield return Esperar(() => Actual == EtapaVacuna.Encapsulado, EsperaAuto + 3f);
+        Comprobar(Actual == EtapaVacuna.Encapsulado && PulsacionesContinuar == 1 && tubo.contenido.Contains("arnm") && tubo.gameObject.activeInHierarchy,
+                  "Paso 2 > paso 3 (NANOPARTÍCULAS) solo: el tubo ya trae tu ARNm copiado");
+
+        // 3 · Nanopartículas: los 4 lípidos ya están; el tubo al mezclador (rayo) y MEZCLAR.
+        yield return Esperar(() => !presentando, 4f);
+        Comprobar(LipidosCorrectos() == 4 && cartuchos.Where(c => c.datos != null && !c.datos.correcta).All(c => !c.gameObject.activeSelf),
+                  "Paso 3: los 4 lípidos ya están en el mezclador y el cartucho que sobra no aparece");
+        Mezclar();
+        Comprobar(!mezclando && Errores == erroresAntes, "Paso 3: MEZCLAR sin el tubo solo avisa (no cuenta como error)");
+        tubo.GetComponent<SelectorVacuna>().Activar();   // rayo + gatillo sobre el tubo
+        Comprobar(TuboEnMezclador(), "Paso 3: con el rayo el tubo va a la entrada de ARNm del mezclador");
+        Mezclar();
+        yield return Esperar(() => Resuelta, 12f);
+        Comprobar(Resuelta && mezclado && Errores == erroresAntes, "Paso 3: MEZCLAR envuelve el ARNm en nanopartículas y sale el vial");
+        yield return new WaitForSeconds(0.3f);
+        Momento?.Invoke("vacuna_corto_3_nanoparticulas");
+        yield return Esperar(() => Actual == EtapaVacuna.Calidad, EsperaAuto + 3f);
+        Comprobar(Actual == EtapaVacuna.Calidad && vial.gameObject.activeInHierarchy && PulsacionesContinuar == 1,
+                  "Paso 3 > paso 4 solo: el vial aprobado espera para ir al frío");
+
+        // 4 · Guardar en frío: la flecha lleva al ultracongelador; otro sitio no cuenta como error.
+        yield return Esperar(() => !presentando, 4f);
+        Comprobar(plan.Length > 0 && plan.Any(p => p.texto().Contains("ULTRACONGELADOR")), "Paso 4: la guía dice adónde llevar el vial (ULTRACONGELADOR)");
+        Momento?.Invoke("vacuna_corto_4_calidad");
+        vial.Encajable.Encajar(huecosAlmacen[1], true);
+        yield return new WaitForSeconds(0.4f);
+        Momento?.Invoke("vacuna_corto_4_nevera");
+        yield return Esperar(() => vial.Encajable.Encajada == vial.Encajable.casa, 5f);
+        Comprobar(!Resuelta && Errores == erroresAntes && vial.Encajable.Encajada != huecosAlmacen[1], "Paso 4: dejarlo en la nevera no cuenta como error; el vial vuelve y se dice dónde va");
+        vial.Encajable.Encajar(huecosAlmacen[0], true);
+        Comprobar(Resuelta, "Paso 4: en el ULTRACONGELADOR la vacuna queda guardada");
+        yield return Esperar(() => Actual == EtapaVacuna.Cierre, EsperaAuto + 3f);
+        Comprobar(Actual == EtapaVacuna.Cierre && Misiones.Tiene(Misiones.Recuerdo3), "Se llega al cierre solo y Baymax recupera el recuerdo 3");
+        Comprobar(vitrina != null && vitrina.GetComponentsInChildren<MeshRenderer>().Length > 1, "El cierre enseña la vacuna creada (vitrina con el vial que gira)");
+        Comprobar(PulsacionesContinuar == 1 && Errores == erroresAntes, $"Toda la misión 3 con {PulsacionesContinuar} CONTINUAR y {Errores - erroresAntes} errores");
+        yield return new WaitForSeconds(1.5f);
+        Momento?.Invoke("vacuna_corto_cierre");
         Misiones.ForzarDesbloqueo = false;
         Informe = log.ToString();
         PruebaCorrecta = ok;

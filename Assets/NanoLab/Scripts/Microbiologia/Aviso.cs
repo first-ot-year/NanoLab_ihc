@@ -36,8 +36,10 @@ public static class Aviso
             b.Notificar(texto, tipo);
             return;
         }
+        // Sin reloj (demo): la información y los logros ya los enseñan sus pantallas y el indicador de recuerdos; solo
+        // las pistas y los "falta algo" salen delante, para no llenar la vista de letreros.
         var cab = ManosRig.Cabeza;
-        if (cab == null) { Registrar(texto, tipo); return; }
+        if (cab == null || tipo == Tipo.Info || tipo == Tipo.Ok) { Registrar(texto, tipo); return; }
         var f = Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized;
         Mostrar(texto, cab.position + f * 0.9f, tipo);
     }

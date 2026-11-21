@@ -43,9 +43,16 @@ public class DebugReto : MonoBehaviour
         return false;
     }
 
+    bool cortoAntes = true;
+
     public IEnumerator Simular(bool fallarPrimero)
     {
         Terminado = false; fallo = false; log.Clear();
+        // Recorrido LARGO (tinción manual, CONCLUSIONES, TERMINAL...): el modo corto se apaga durante la prueba y las
+        // muestras B y C vuelven a la bandeja, que es donde las busca este recorrido.
+        cortoAntes = Misiones.ModoCorto;
+        Misiones.ModoCorto = false;
+        MontajeMisiones.DevolverComparacionABandeja();
         yield return null;
         var rm = RetoManager.Instancia;
         if (!Comprobar(rm != null, "Hay RetoManager en la escena")) { Fin(); yield break; }
@@ -81,8 +88,12 @@ public class DebugReto : MonoBehaviour
         Comprobar(preparadas.Any(x => x.muestra == rm.muestraHongo) && preparadas.Any(x => x.muestra == rm.muestraVirus),
                   $"Las MUESTRAS B y C esperan preparadas junto a los microscopios ({preparadas.Length} portaobjetos)");
         var brazalete = BrazaleteBaymax.Instancia;
-        Comprobar(brazalete != null && brazalete.Objetivo_ == rm.ObjetivoCorto,
-                  "El objetivo está en el brazalete de la muñeca, no en una tarjeta que sigue la vista (presencia)");
+        if (BrazaleteBaymax.Activo)
+            Comprobar(brazalete != null && brazalete.Objetivo_ == rm.ObjetivoCorto,
+                      "El objetivo está en el brazalete de la muñeca, no en una tarjeta que sigue la vista (presencia)");
+        else
+            Comprobar(brazalete == null && FindObjectsOfType<Transform>().All(x => x.name != "BrazaleteBaymax"),
+                      "Demo: no hay reloj en la muñeca (el objetivo va en los carteles y la luz guía)");
         // Poke de Meta (Interaction SDK): los botones de las misiones 1 y 2.
         var botonesMision = rm.terminal.botones.Concat(rm.terminal.botonesEstrategia ?? new BotonFisico[0])
             .Concat(new[] { prensa.formular, camara.activar, rm.resumen != null ? rm.resumen.reiniciar : null })
@@ -312,9 +323,9 @@ public class DebugReto : MonoBehaviour
             Comprobar(RecuerdoAnimado.Actual != null && RecuerdoAnimado.Actual.Titulo == Misiones.Recuerdo1,
                       "Baymax recupera el recuerdo 1 con una animación (núcleo de memoria que vuela a su pecho)");
             yield return new WaitForSeconds(1.2f);
-            var nucleoRec = RecuerdoAnimado.Actual != null ? RecuerdoAnimado.Actual.transform.Find("Nucleo") : null;
-            float tamNucleo = nucleoRec != null ? nucleoRec.GetComponent<Renderer>().bounds.size.x : 0f;
-            Comprobar(tamNucleo > 0.1f && tamNucleo < 0.3f, $"El núcleo del recuerdo tiene un tamaño cómodo, sin tapar la vista ({tamNucleo:0.00} m)");
+            var enVista = RecuerdoAnimado.Actual != null ? RecuerdoAnimado.Actual.PosicionEnLaVista : Vector3.zero;
+            Comprobar(enVista.x > 0.1f && enVista.z > 0.4f && enVista.z < 1f,
+                      $"El recuerdo se ve como indicador a la DERECHA de la vista (x {enVista.x:0.00} m, a {enVista.z:0.00} m), sin tapar el centro");
             Momento?.Invoke("recuerdo_baymax");
             int errM2 = rm.Metricas.Datos.errores;
             rm.terminal.Elegir(opcionIncorrecta);
@@ -323,8 +334,9 @@ public class DebugReto : MonoBehaviour
                       $"MISIÓN 2 · paso 1 de {pasosM2}; con la A identificada, la pregunta 1 de la terminal ya no cuenta errores (H5)");
             Momento?.Invoke("mision1_completa");
             yield return null;   // RetoManager entrega el aviso de la misión al frame siguiente
-            Comprobar(brazalete != null && brazalete.HayPendiente && brazalete.Pendiente.Contains("MISIÓN 1 COMPLETA"),
-                      "MISIÓN 1 COMPLETA llega a la muñeca (vibra y espera), no delante de la cara");
+            if (BrazaleteBaymax.Activo)
+                Comprobar(brazalete != null && brazalete.HayPendiente && brazalete.Pendiente.Contains("MISIÓN 1 COMPLETA"),
+                          "MISIÓN 1 COMPLETA llega a la muñeca (vibra y espera), no delante de la cara");
             if (brazalete != null) brazalete.Llamar();
             yield return new WaitForSeconds(0.35f);
             Momento?.Invoke("presencia_brazalete");
@@ -522,6 +534,132 @@ public class DebugReto : MonoBehaviour
         camara.portaDespues.ColocarEn(camara.anclajeDespues.position, camara.anclajeDespues.rotation);
     }
 
+    // Recorrido CORTO (reseñas del playtest): misión 1 y misión 2 en 3 pasos cada una, sin preguntas.
+    public IEnumerator SimularCorto()
+    {
+        Terminado = false; fallo = false; log.Clear();
+        cortoAntes = true;
+        Misiones.ModoCorto = true;
+        yield return null;
+        var rm = RetoManager.Instancia;
+        if (!Comprobar(rm != null, "Hay RetoManager en la escena")) { Fin(); yield break; }
+        for (float t = 0f; t < 5f && rm.conclusiones == null; t += Time.deltaTime) yield return null;
+        if (rm.Actual != EtapaReto.Exploracion) rm.Reiniciar();
+        MontajeMisiones.PrepararComparacion(rm);
+        var zona = rm.zona;
+        bool EnZona(Component c) => zona.Contains(new Vector3(c.transform.position.x, zona.center.y, c.transform.position.z));
+        var porta = Portaobjetos.Todos.Where(p => EnZona(p) && !p.Despues && p.muestra == null && p.Encajada == null).OrderBy(p => p.name).FirstOrDefault();
+        var fuentePlaca = rm.placa.GetComponent<FuenteMuestra>();
+        var micros = FindObjectsOfType<MicroscopioOptico>().Where(m => m.modoReto && m.platina != null).ToArray();
+        var microB = micros.FirstOrDefault(m => m.platina.Actual != null && m.platina.Actual.muestra == rm.muestraHongo);
+        var microC = micros.FirstOrDefault(m => m.platina.Actual != null && m.platina.Actual.muestra == rm.muestraVirus);
+        var libre = micros.Where(m => m.platina.Libre).OrderBy(m => microB != null ? (m.transform.position - microB.transform.position).sqrMagnitude : 0f).FirstOrDefault();
+        var prensa = FindObjectOfType<PrensaCapsulas>();
+        var viales = FindObjectsOfType<VialAgente>();
+        var camara = rm.camara;
+        if (!Comprobar(porta != null && fuentePlaca != null && libre != null && prensa != null && camara != null, "Estaciones encontradas (portaobjetos, placa A, microscopio libre, prensa, cámara)")) { Fin(); yield break; }
+
+        // Revisión del playtest: carteles opacos por detrás, espejos y tótem reubicados, manos con sombreado propio.
+        yield return new WaitForSeconds(0.5f);
+        var insignia = FindObjectsOfType<Transform>().FirstOrDefault(x => x.name == "Insignia");
+        var respaldos = FindObjectsOfType<PanelRedondeado>().Count(p => p.transform.Find("Respaldo") != null);
+        var rigR = FindObjectOfType<OVRCameraRig>();
+        int enRig = rigR != null ? rigR.GetComponentsInChildren<Transform>(true).Count(x => x.name == "Respaldo") : 0;
+        Comprobar(enRig == 0 && FindObjectsOfType<MenuAjustes>(true).All(m => m.GetComponentsInChildren<Transform>(true).All(x => x.name != "Respaldo")),
+                  $"Sin placas azules sueltas: los paneles que se mueven o se abren y cierran no llevan respaldo ({enRig} en el rig)");
+        Comprobar(respaldos >= 6 && (insignia == null || !insignia.gameObject.activeInHierarchy || insignia.GetComponentsInChildren<Transform>(true).Any(x => x.name == "Respaldo")),
+                  $"Los carteles grandes tienen respaldo opaco por detrás ({respaldos} paneles; la insignia del recibidor también)");
+        var manos = FindObjectsOfType<SkinnedMeshRenderer>().FirstOrDefault(r => r.name == "Manos");
+        Comprobar(manos == null || manos.sharedMaterials.Any(m => m != null && m.shader != null && m.shader.name == "NanoLab/PielBaymax"),
+                  "Las manos de Baymax usan el sombreado NanoLab/PielBaymax (volumen, brillo y borde)");
+        var bienv = FindObjectsOfType<Transform>().FirstOrDefault(x => x.name == "Bienvenida" && x.parent != null && x.parent.name == "Recepcion");
+        var cartel8 = rm.estaciones.Length > 7 && rm.estaciones[7] != null ? rm.estaciones[7].transform : null;
+        if (bienv != null && cartel8 != null)
+        {
+            float sep = Vector2.Distance(new Vector2(bienv.position.x, bienv.position.z), new Vector2(cartel8.position.x, cartel8.position.z));
+            Comprobar(sep > 1.2f, $"El tótem de bienvenida ya no atraviesa el cartel 8 (ARCHIVO): {sep:0.00} m entre ellos");
+        }
+        foreach (var n in new[] { "revision_insignia", "revision_entrada", "revision_recibidor", "revision_manos" }) Momento?.Invoke(n);
+
+        // MISIÓN 1 · 3 pasos.
+        Comprobar(rm.Mision == 1 && rm.PasosMision == 3 && rm.PasoMision == 1 && rm.NombrePaso == "MUESTRA", $"MISIÓN 1 en 3 pasos: empieza en el 1 (MUESTRA). Objetivo: \"{rm.ObjetivoCorto}\"");
+        Comprobar(microB != null && microC != null && microB != microC, "La MUESTRA B y la MUESTRA C ya están puestas en dos microscopios (para comparar de frente)");
+        Comprobar(rm.conclusiones == null || !rm.conclusiones.gameObject.activeInHierarchy, "Modo corto: el panel CONCLUSIONES no está (no se usa y tapaba el cartel de la BIBLIOTECA)");
+        fuentePlaca.Aplicar(porta);
+        yield return null;
+        Comprobar(porta.muestra == rm.reto.muestra && !porta.TincionCompleta && rm.Actual == EtapaReto.Tincion && rm.ObjetivoCorto.Contains("GOTERO"),
+                  $"Paso 1: tocar la placa A carga la muestra y pide teñirla en un gotero: \"{rm.ObjetivoCorto}\"");
+        var gotero = FindObjectsOfType<FuenteMuestra>().Where(f => f.reactivo > 0).OrderBy(f => (f.transform.position - porta.transform.position).sqrMagnitude).FirstOrDefault();
+        if (gotero != null) gotero.Aplicar(porta);
+        float tTinc = Time.time;
+        while (!porta.TincionCompleta && Time.time - tTinc < 5f) yield return null;
+        yield return null;
+        Comprobar(gotero != null && porta.TincionCompleta && rm.Actual == EtapaReto.Observacion && Time.time - tTinc > 1.2f,
+                  $"Paso 1: un toque a un gotero hace la tinción de Gram entera, a la vista ({Time.time - tTinc:0.0} s) > Observación");
+        Comprobar(TincionVisible.De(porta).LupaVisible && TincionVisible.De(porta).TextoLupa.Contains("GRAM"), "Paso 1: la lupa dice el resultado de Gram en una frase");
+        yield return new WaitForSeconds(0.6f);
+        Momento?.Invoke("corto_m1_muestra");
+        Comprobar(rm.PasoMision == 2 && rm.ObjetivoCorto.Contains("MICROSCOPIO"), $"Paso 2: el objetivo pide el microscopio libre: \"{rm.ObjetivoCorto}\"");
+        porta.Encajar(libre.platina);
+        yield return null;
+        libre.ObservarAhora();
+        Comprobar(rm.Evidencias.All(x => x) && rm.PasoMision == 3, "Paso 2: un vistazo a la A basta para todas las evidencias > paso 3 (COMPARAR)");
+        yield return null;
+        Momento?.Invoke("hud_corto_a");
+        libre.DejarDeObservar();
+        microB.ObservarAhora();
+        yield return null;
+        microB.DejarDeObservar();
+        microC.ObservarAhora();
+        yield return null;
+        microC.DejarDeObservar();
+        Comprobar(rm.Hipotesis == rm.reto.muestra && Misiones.Tiene(Misiones.Recuerdo1) && rm.Mision == 2 && rm.Actual == EtapaReto.Preparacion,
+                  "Paso 3: al mirar la B y la C termina la MISIÓN 1 (sin CONCLUSIONES ni TERMINAL) y empieza la 2");
+        yield return new WaitForSeconds(1.2f);
+        Momento?.Invoke("corto_m1_completa");
+
+        // MISIÓN 2 · 3 pasos (la decisión: qué vial).
+        Comprobar(rm.PasosMision == 3 && rm.PasoMision == 1 && rm.ObjetivoCorto.Contains("PRENSA") && rm.ObjetivoCorto.Contains("PARED"),
+                  $"MISIÓN 2 en 3 pasos: el 1 pide el vial que rompe la PARED en la PRENSA: \"{rm.ObjetivoCorto}\"");
+        int malo = System.Array.FindIndex(rm.reto.agentes, a => !rm.EsCoherente(System.Array.IndexOf(rm.reto.agentes, a)));
+        int bueno = System.Array.FindIndex(rm.reto.agentes, a => rm.reto.Eficacia(a) >= rm.reto.umbralExito);
+        foreach (var agente in new[] { malo, bueno })
+        {
+            if (agente < 0) continue;
+            var vial = viales.First(v => v.agente == agente);
+            vial.Encajable.Encajar(prensa.ranura, false);
+            yield return null;
+            prensa.Formular();
+            if (prensa.EsperandoConfirmacion) { yield return null; prensa.Formular(); }
+            float t0 = Time.time;
+            while (rm.Actual != EtapaReto.Experimento && Time.time - t0 < 5f) yield return null;
+            Comprobar(rm.Actual == EtapaReto.Experimento && rm.PasoMision == 2, $"Vial {rm.reto.agentes[agente].sigla}: cápsula formulada > paso 2 (EXPERIMENTAR)");
+            rm.placa.GetComponent<Encajable>().Encajar(camara.zonaPlaca, false);
+            prensa.capsula.Encajable.Encajar(camara.zonaCapsula, false);
+            camara.Activar();
+            t0 = Time.time;
+            while (camara.Ocupada && Time.time - t0 < 20f) yield return null;
+            if (agente == malo)
+            {
+                Comprobar(rm.Actual == EtapaReto.Preparacion && rm.EstrategiaElegida != null && rm.ObjetivoCorto.Contains("PRENSA"),
+                          "Con el vial que no sirve, la cámara explica por qué y se vuelve directo a la PRENSA (sin TERMINAL)");
+                float tp = Time.time;
+                while (rm.placa.Tratada && Time.time - tp < 5f) yield return null;
+                continue;
+            }
+            Comprobar(rm.Actual == EtapaReto.Analisis && rm.PasoMision == 3 && camara.portaDespues.gameObject.activeSelf, "Con el vial bueno: portaobjetos DESPUÉS > paso 3 (COMPARAR)");
+            porta.ColocarEn(porta.transform.position + Vector3.up * 0.3f, Quaternion.identity);
+            camara.portaDespues.Encajar(libre.platina);
+            yield return null;
+            libre.ObservarAhora();
+            yield return null;
+            libre.DejarDeObservar();
+        }
+        Comprobar(rm.Actual == EtapaReto.Cierre && Misiones.Tiene(Misiones.Recuerdo2) && Misiones.VacunaDesbloqueada,
+                  "Mirar el DESPUÉS termina la MISIÓN 2 (sin preguntas en CONCLUSIONES) y desbloquea la vacuna");
+        Fin();
+    }
+
     // Evento sorpresa tras el primer experimento: alarma, bloqueo, pulverizador, limpieza y vuelta a la normalidad.
     IEnumerator Bioseguridad(RetoManager rm, CamaraExperimental camara, MicroscopioOptico micro, Portaobjetos porta)
     {
@@ -576,6 +714,7 @@ public class DebugReto : MonoBehaviour
 
     void Fin()
     {
+        Misiones.ModoCorto = cortoAntes;
         Correcto = !fallo;
         Informe = log.ToString();
         Terminado = true;

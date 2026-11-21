@@ -15,6 +15,10 @@ public class LegibilidadTextos : MonoBehaviour
 {
     public const int ColaMinima = 3100;
     public const float Escala = 1.25f;
+    // Revisión de la demo ("las letras de los paneles azules de la sala de experimentación, un poquito más grandes"):
+    // los carteles de estación y los tableros informativos del centro crecen un 15 % más.
+    public const float EscalaSala = 1.15f;
+    static readonly HashSet<string> Tableros = new HashSet<string> { "Procedimiento", "Comparar", "Agentes" };
 
     static readonly Dictionary<Material, Material> copias = new Dictionary<Material, Material>();
     readonly Dictionary<TextMeshPro, string> revisado = new Dictionary<TextMeshPro, string>();
@@ -62,12 +66,26 @@ public class LegibilidadTextos : MonoBehaviour
             }
             if (agrandados.Add(tx.GetInstanceID()))
             {
-                if (tx.enableAutoSizing) tx.fontSizeMax *= Escala;
-                tx.fontSize *= Escala;
+                float e = Escala * (EnPanelDeSala(tx.transform) ? EscalaSala : 1f);
+                if (tx.enableAutoSizing) tx.fontSizeMax *= e;
+                tx.fontSize *= e;
             }
             Ajustar(tx);
         }
         return n;
+    }
+
+    // Textos de los carteles y tableros del centro de experimentación (no las etiquetas de los objetos que se agarran).
+    public static bool EnPanelDeSala(Transform t)
+    {
+        bool objeto = false;
+        for (var p = t; p != null; p = p.parent)
+        {
+            if (p.GetComponent<Rigidbody>() != null || p.GetComponent<Oculus.Interaction.Grabbable>() != null) objeto = true;
+            if (p.GetComponent<EstacionGuia>() != null || Tableros.Contains(p.name)) return true;
+            if (p.name == "CentroExperimentacion") return !objeto;
+        }
+        return false;
     }
 
     // Cola de los paneles redondeados de la escena + 1 (como mínimo 3100).

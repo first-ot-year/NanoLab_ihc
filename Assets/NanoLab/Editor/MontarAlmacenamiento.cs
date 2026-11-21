@@ -49,6 +49,151 @@ public static class MontarAlmacenamiento
         MontarSalaAltoRiesgo.Reconstruir();
     }
 
+    // Revisión de la demo ("no se puede abrir; crea objetos de un laboratorio de microbiología que puedan estar allí"):
+    // las mesas con cajones del CENTRO DE EXPERIMENTACIÓN también se abren (cajones correderos y vitrina) y guardan
+    // material de microbiología SIN muestras (asas de siembra, hisopos, placas de Petri, tubos de cultivo, frascos de
+    // medio, guantes y puntas de pipeta), así no se mezcla con las muestras de las misiones. No hornea la luz.
+    const string EscenaMicro = "Assets/NanoLab/Scenes/Microbiologia.unity";
+
+    [MenuItem("NanoLab/Cajones del centro: abrir y llenar (sin hornear)", false, 4)]
+    public static void CajonesCentro()
+    {
+        var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (scene.path != EscenaMicro) scene = EditorSceneManager.OpenScene(EscenaMicro, OpenSceneMode.Single);
+        MM.CrearMateriales();
+        MM.suelo = ML.AlturaSuelo(ML.BoundsEscena());
+        Physics.SyncTransforms();
+        var centro = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == MC.NombreRaiz);
+        if (centro == null) { Debug.LogError("[Almacen] No está el CENTRO DE EXPERIMENTACIÓN en la escena."); return; }
+        // Lo que se hubiera llenado antes se rehace (sin duplicar objetos).
+        foreach (var g in centro.GetComponentsInChildren<Transform>(true).Where(t => t != null && t.name == "Huecos").ToArray())
+            if (g != null) Object.DestroyImmediate(g.gameObject);
+        var mesas = centro.GetComponentsInChildren<Transform>(true).Where(t => t.Find(Armazon) != null && t.Find(Cajones[0]) != null).ToList();
+        int n = 0, objetos = 0;
+        foreach (var t in mesas)
+        {
+            var m = ConvertirMesa(t);
+            if (m == null) continue;
+            n++;
+            objetos += LlenarMicro(m);
+        }
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log($"[Almacen] Centro de experimentación: {n} de {mesas.Count} mesas con cajones que se abren, {objetos} objetos de microbiología guardados.");
+    }
+
+    static int LlenarMicro(MesaConvertida m)
+    {
+        int total = 0;
+        for (int i = 0; i < m.vitrina.Count; i++)
+        {
+            var v = m.vitrina[i];
+            if (v.comp != null) v.comp.avisoAlAbrir = "Vitrina de microbiología: tubos de cultivo, placas y medios.\nSuelta un objeto sobre una silueta azul para guardarlo.";
+            if (i == 0) total += LlenarContar(Huecos(v, new Vector2(0.24f, 0.13f), 3), Varios(3, GradillaTubos));
+            else if (i == 1) total += LlenarContar(Huecos(v, PasoPlaca, 8), Varios(6, PlacaVacia));
+            else total += LlenarContar(Huecos(v, new Vector2(0.1f, 0.12f), 6), Varios(4, FrascoMedio));
+        }
+        string[] rotulos = { "ASAS Y HISOPOS", "PLACAS DE PETRI", "GUANTES Y PUNTAS" };
+        for (int i = 0; i < m.cajones.Count; i++)
+        {
+            var c = m.cajones[i];
+            RotuloCajon(c, rotulos[Mathf.Min(i, rotulos.Length - 1)]);
+            if (i == 0) total += LlenarContar(Huecos(c, new Vector2(0.045f, 0.2f), 8), Enumerable.Range(0, 8).Select(k => k % 2 == 0 ? AsaSiembra() : Hisopo()).ToList());
+            else if (i == 1) total += LlenarContar(Huecos(c, PasoPlaca, 12), Varios(6, PlacaVacia));
+            else total += LlenarContar(Huecos(c, new Vector2(0.14f, 0.13f), 4), Enumerable.Range(0, 4).Select(k => k % 2 == 0 ? CajaGuantes() : CajaPuntas()).ToList());
+        }
+        return total;
+    }
+
+    static int LlenarContar(List<Hueco> huecos, IEnumerable<GameObject> objetos)
+    {
+        var lista = objetos.ToList();
+        Llenar(huecos, lista);
+        return Mathf.Min(huecos.Count, lista.Count);
+    }
+
+    static Material MatColor(string nombre, Color c, float liso = 0.5f) =>
+        M.TryGetValue(nombre, out var m) && m != null ? m : (M[nombre] = MM.Mat(nombre, Shader.Find("Standard"), c, 0f, liso));
+
+    // Asa de siembra: mango azul, alambre de nicrom y el aro en la punta (tumbada a lo largo de z).
+    static GameObject AsaSiembra()
+    {
+        var go = new GameObject("AsaDeSiembra");
+        var tumbado = Quaternion.Euler(90f, 0f, 0f);
+        MM.Cilindro(go.transform, "Mango", new Vector3(0f, 0.006f, -0.03f), new Vector3(0.011f, 0.05f, 0.011f), tumbado, M["PlasticoAzul"]);
+        MM.Cilindro(go.transform, "Alambre", new Vector3(0f, 0.006f, 0.06f), new Vector3(0.0016f, 0.04f, 0.0016f), tumbado, M["Cromo"]);
+        MM.Cilindro(go.transform, "Aro", new Vector3(0f, 0.006f, 0.104f), new Vector3(0.009f, 0.0008f, 0.009f), Quaternion.Euler(0f, 0f, 90f), M["Cromo"]);
+        return Material(go, 0.02f);
+    }
+
+    // Hisopo estéril: palito blanco con algodón en las dos puntas.
+    static GameObject Hisopo()
+    {
+        var go = new GameObject("HisopoEsteril");
+        var algodon = MatColor("Algodon", new Color(0.97f, 0.97f, 0.95f), 0.1f);
+        MM.Cilindro(go.transform, "Palito", new Vector3(0f, 0.005f, 0f), new Vector3(0.0028f, 0.07f, 0.0028f), Quaternion.Euler(90f, 0f, 0f), M["BlancoMate"]);
+        MM.Cilindro(go.transform, "Algodon1", new Vector3(0f, 0.005f, 0.072f), new Vector3(0.008f, 0.009f, 0.008f), Quaternion.Euler(90f, 0f, 0f), algodon);
+        MM.Cilindro(go.transform, "Algodon2", new Vector3(0f, 0.005f, -0.072f), new Vector3(0.008f, 0.009f, 0.008f), Quaternion.Euler(90f, 0f, 0f), algodon);
+        return Material(go, 0.01f);
+    }
+
+    // Gradilla con 5 tubos de cultivo (caldo turbio, tapones de colores).
+    static GameObject GradillaTubos()
+    {
+        var go = new GameObject("GradillaTubosCultivo");
+        var rejilla = M["BlancoMate"];
+        MM.Caja(go.transform, "Base", new Vector3(0f, 0.003f, 0f), new Vector3(0.2f, 0.006f, 0.06f), rejilla, false);
+        MM.Caja(go.transform, "Rejilla", new Vector3(0f, 0.055f, 0f), new Vector3(0.2f, 0.008f, 0.06f), rejilla, false);
+        MM.Caja(go.transform, "LadoI", new Vector3(-0.097f, 0.03f, 0f), new Vector3(0.006f, 0.06f, 0.06f), rejilla, false);
+        MM.Caja(go.transform, "LadoD", new Vector3(0.097f, 0.03f, 0f), new Vector3(0.006f, 0.06f, 0.06f), rejilla, false);
+        var caldo = MatColor("CaldoCultivo", new Color(0.93f, 0.78f, 0.42f), 0.8f);
+        Color[] tapones = { new Color(0.9f, 0.25f, 0.25f), new Color(0.25f, 0.55f, 0.95f), new Color(0.3f, 0.8f, 0.4f), new Color(0.95f, 0.8f, 0.2f), new Color(0.7f, 0.4f, 0.9f) };
+        for (int i = 0; i < 5; i++)
+        {
+            float x = -0.072f + i * 0.036f;
+            MM.Cilindro(go.transform, "Tubo", new Vector3(x, 0.056f, 0f), new Vector3(0.016f, 0.05f, 0.016f), Quaternion.identity, M["VidrioReal"]);
+            MM.Cilindro(go.transform, "Caldo", new Vector3(x, 0.03f, 0f), new Vector3(0.0135f, 0.022f, 0.0135f), Quaternion.identity, caldo);
+            MM.Cilindro(go.transform, "Tapon", new Vector3(x, 0.109f, 0f), new Vector3(0.019f, 0.007f, 0.019f), Quaternion.identity, MatColor("Tapon" + i, tapones[i]));
+        }
+        return Material(go, 0.15f);
+    }
+
+    // Frasco de medio de cultivo (agar fundido, ámbar) con tapón azul y etiqueta.
+    static GameObject FrascoMedio()
+    {
+        var go = new GameObject("FrascoMedioCultivo");
+        MM.Cilindro(go.transform, "Vidrio", new Vector3(0f, 0.05f, 0f), new Vector3(0.06f, 0.05f, 0.06f), Quaternion.identity, M["VidrioReal"]);
+        MM.Cilindro(go.transform, "Medio", new Vector3(0f, 0.032f, 0f), new Vector3(0.055f, 0.03f, 0.055f), Quaternion.identity, MatColor("AgarFundido", new Color(0.86f, 0.62f, 0.25f), 0.85f));
+        MM.Cilindro(go.transform, "Etiqueta", new Vector3(0f, 0.055f, 0f), new Vector3(0.0608f, 0.014f, 0.0608f), Quaternion.identity, M["BlancoMate"]);
+        MM.Cilindro(go.transform, "Cuello", new Vector3(0f, 0.11f, 0f), new Vector3(0.03f, 0.012f, 0.03f), Quaternion.identity, M["VidrioReal"]);
+        MM.Cilindro(go.transform, "Tapon", new Vector3(0f, 0.126f, 0f), new Vector3(0.034f, 0.01f, 0.034f), Quaternion.identity, M["PlasticoAzul"]);
+        return Material(go, 0.3f);
+    }
+
+    // Caja de guantes de nitrilo (morada) con su abertura.
+    static GameObject CajaGuantes()
+    {
+        var go = new GameObject("CajaGuantesNitrilo");
+        MM.Caja(go.transform, "Caja", new Vector3(0f, 0.03f, 0f), new Vector3(0.12f, 0.06f, 0.11f), MatColor("CartonGuantes", new Color(0.48f, 0.42f, 0.92f), 0.2f), false);
+        MM.Caja(go.transform, "Abertura", new Vector3(0f, 0.0605f, 0f), new Vector3(0.07f, 0.002f, 0.03f), M["Oscuro"], false);
+        MM.Caja(go.transform, "Guante", new Vector3(0f, 0.063f, 0.004f), new Vector3(0.04f, 0.004f, 0.02f), MatColor("Nitrilo", new Color(0.55f, 0.6f, 1f), 0.4f), false);
+        MM.Caja(go.transform, "Franja", new Vector3(0f, 0.03f, 0.0555f), new Vector3(0.121f, 0.012f, 0.001f), M["BlancoMate"], false);
+        return Material(go, 0.2f);
+    }
+
+    // Caja de puntas de micropipeta (amarillas, 6 x 4).
+    static GameObject CajaPuntas()
+    {
+        var go = new GameObject("CajaPuntasPipeta");
+        MM.Caja(go.transform, "Caja", new Vector3(0f, 0.02f, 0f), new Vector3(0.12f, 0.04f, 0.08f), M["PlasticoAzul"], false);
+        MM.Caja(go.transform, "Placa", new Vector3(0f, 0.041f, 0f), new Vector3(0.118f, 0.003f, 0.078f), M["BlancoMate"], false);
+        var amarillo = MatColor("PuntaPipeta", new Color(1f, 0.85f, 0.25f), 0.6f);
+        for (int x = 0; x < 6; x++)
+            for (int z = 0; z < 4; z++)
+                MM.Cilindro(go.transform, "Punta", new Vector3(-0.045f + x * 0.018f, 0.047f, -0.027f + z * 0.018f), new Vector3(0.006f, 0.006f, 0.006f), Quaternion.identity, amarillo);
+        return Material(go, 0.12f);
+    }
+
     internal static MuestraData[] Muestras(TipoMuestra tipo) =>
         AssetDatabase.FindAssets("t:MuestraData", new[] { "Assets/NanoLab/Muestras" })
             .Select(g => AssetDatabase.LoadAssetAtPath<MuestraData>(AssetDatabase.GUIDToAssetPath(g)))

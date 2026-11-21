@@ -251,7 +251,9 @@ public static class MontajeMisiones
     public static void PrepararComparacion(RetoManager rm)
     {
         if (bandejaMicro == null || rm == null) return;
-        var portas = bandejaMicro.GetComponentsInChildren<Portaobjetos>(true);
+        // Se guardan la primera vez: al ponerlos en un microscopio ya no cuelgan de la bandeja.
+        if (portasComparacion == null || portasComparacion.Length == 0) portasComparacion = bandejaMicro.GetComponentsInChildren<Portaobjetos>(true);
+        var portas = portasComparacion;
         var muestras = new[] { (Misiones.MuestraHongo, Misiones.EtiquetaB), (Misiones.MuestraVirus, Misiones.EtiquetaC) };
         for (int i = 0; i < portas.Length && i < muestras.Length; i++)
         {
@@ -259,6 +261,32 @@ public static class MontajeMisiones
             if (m == null || portas[i].Agarrado) continue;
             if (portas[i].muestra != m) portas[i].Cargar(m, etiqueta);
         }
+        if (Misiones.ModoCorto) PonerEnMicroscopios(portas);
+    }
+
+    static Portaobjetos[] portasComparacion;
+
+    // Modo corto (reseñas del playtest): la B y la C esperan YA en los dos microscopios de al lado del que queda libre
+    // para la A, así se comparan de frente sin ir a buscarlas.
+    static void PonerEnMicroscopios(Portaobjetos[] portas)
+    {
+        var micros = Object.FindObjectsOfType<MicroscopioOptico>().Where(m => m.modoReto && m.platina != null)
+            .OrderBy(m => (m.transform.position - bandejaMicro.position).sqrMagnitude).ToArray();
+        if (micros.Length < 3) return;
+        for (int i = 0; i < portas.Length && i < 2; i++)
+        {
+            var p = portas[i];
+            var m = micros[i + 1];
+            if (p == null || p.Agarrado || p.muestra == null || p.Encajada == m.platina || !m.platina.Libre) continue;
+            p.Encajar(m.platina);
+        }
+    }
+
+    // Las pruebas del modo largo devuelven la B y la C a la bandeja (allí las va a buscar el recorrido largo).
+    public static void DevolverComparacionABandeja()
+    {
+        if (portasComparacion == null) return;
+        foreach (var p in portasComparacion) if (p != null && p.Encajada != null) p.VolverACasa();
     }
 
     static PanelConclusiones CrearConclusiones(Transform centro, Transform micro, float suelo)

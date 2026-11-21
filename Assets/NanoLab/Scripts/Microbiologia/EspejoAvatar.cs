@@ -46,7 +46,11 @@ public class EspejoAvatar : MonoBehaviour
         var n = -t.forward;                                   // normal del lado de la sala
         var centro = t.position;
         float lado = Vector3.Dot(ojo.position - centro, n);
-        if (lado <= 0.05f || (ojo.position - centro).sqrMagnitude > distanciaActiva * distanciaActiva) return;
+        // Rendimiento en Quest: el espejo vuelve a dibujar la sala. Solo de cerca (≤ 4 m), fuera del microscopio y si
+        // el cristal está delante de la vista.
+        float alcance = Mathf.Min(distanciaActiva, 4f);
+        if (lado <= 0.05f || (ojo.position - centro).sqrMagnitude > alcance * alcance || MicroscopioOptico.AlgunoActivo) return;
+        if (Vector3.Dot(ojo.forward, centro - ojo.position) < 0f) return;
         cada2 = !cada2;
         if (cada2) return;                                    // 36 Hz bastan para un espejo
         RenderizarDesde(ojo.position);

@@ -43,6 +43,13 @@ public static class Misiones
     // Para las pruebas automáticas de la vacuna (sin pasar por las misiones 1 y 2).
     public static bool ForzarDesbloqueo;
 
+    // MODO CORTO (reseñas del playtest, nov. 2026): pocas acciones por misión, sin cuestionarios y con la ayuda delante.
+    //   M1: muestra A al portaobjetos (sale teñida) > microscopio > comparar con B y C, ya puestas en otros microscopios.
+    //   M2: vial en la PRENSA > cápsula en la CÁMARA > ver el DESPUÉS (la única decisión: qué vial).
+    //   M3: tarjeta "virus de ARN" y un CONTINUAR > tocar la espícula > bloques con el rayo > vial al ultracongelador.
+    // Las etapas largas siguen en el código (se saltan, no se borran) y las pruebas largas las recorren con false.
+    public static bool ModoCorto = true;
+
     public static bool VacunaDesbloqueada => ForzarDesbloqueo || Tiene(Recuerdo2);
     public static bool Tiene(string recuerdo) { foreach (var r in RecuerdosBaymax.Lista) if (r == recuerdo) return true; return false; }
 

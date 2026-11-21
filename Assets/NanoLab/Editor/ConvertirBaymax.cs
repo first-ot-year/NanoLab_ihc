@@ -353,9 +353,8 @@ public static class ConvertirBaymax
             Espejo(rigRoot.scene, "EspejoRecibidor", new Vector3(hit.point.x - 0.03f, spawn.y, Mathf.Clamp(spawn.z + 0.3f, 0.9f, 3.2f)), -90f);
         else Debug.LogWarning($"[Baymax] {s.name}: no se encontró pared para el espejo del recibidor.");
 
-        // Espejo en la recepción del Centro de Experimentación (pared oeste del anexo).
-        if (Object.FindObjectOfType<RetoManager>(true) != null)
-            Espejo(rigRoot.scene, "EspejoCentro", new Vector3(MontarCentroExperimentacion.X0 + 0.03f, spawn.y, 5.6f), 90f);
+        // (El espejo del Centro de Experimentación se quitó en la revisión del playtest: chocaba con los carteles de la
+        // entrada. Queda el del recibidor.)
         Debug.Log($"[Baymax] {s.name}: avatar instalado en '{rigRoot.name}'.");
     }
 

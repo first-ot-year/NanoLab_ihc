@@ -123,14 +123,43 @@ public class AvatarBaymaxBebe : MonoBehaviour, IAvatarJugador
         return b;
     }
 
+    // Revisión (playtest: "haz que esas manos mejoren"): el marfil Standard quedaba blanco y plano con la luz horneada.
+    // Se cambia por el shader NanoLab/PielBaymax (Resources), con volumen, brillo de vinilo y borde; los ojos siguen negros.
+    static Material piel;
+    static Material MaterialPiel()
+    {
+        if (piel != null) return piel;
+        var sh = Resources.Load<Shader>("NanoLab/PielBaymax");
+        if (sh == null || !sh.isSupported) return null;
+        piel = new Material(sh) { name = "PielBaymax" };
+        return piel;
+    }
+
+    static void PonerPiel(Renderer r, Material m)
+    {
+        var mats = r.sharedMaterials;
+        bool cambio = false;
+        for (int i = 0; i < mats.Length; i++)
+        {
+            var x = mats[i];
+            if (x == null || x.name.Contains("Ojos") || !x.HasProperty("_Color") || x.color.grayscale < 0.5f) continue;   // ojos y piezas oscuras se quedan
+            mats[i] = m;
+            cambio = true;
+        }
+        if (cambio) r.sharedMaterials = mats;
+        r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.BlendProbes;
+    }
+
     void Start()
     {
         rig = GetComponentInParent<OVRCameraRig>();
         if (rig == null) rig = FindObjectOfType<OVRCameraRig>();
         if (animator != null) animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;   // el cuerpo solo lo ven los espejos
+        var piel = MaterialPiel();
         foreach (var r in GetComponentsInChildren<Renderer>(true))
         {
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            if (piel != null) PonerPiel(r, piel);
             bool esMano = r.name == "Manos";
             if (esMano) manosRenderer = r;
             bool visible = esMano ? !manosMetaEnPrimeraPersona : cuerpoEnPrimeraPersona && !r.name.StartsWith("Cara");
