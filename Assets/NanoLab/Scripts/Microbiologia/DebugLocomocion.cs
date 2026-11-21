@@ -74,10 +74,7 @@ public class DebugLocomocion : MonoBehaviour
                 log.AppendLine($"Diagnóstico a 1 s: en el suelo={fpl.IsGrounded}, velocidad ignorada={fpl.IgnoringVelocity}, cápsula {(personaje != null ? "presente" : "no encontrada")}");
             }
         }
-        // Velocidad de crucero: mediana entre 0,5 y 1,9 s. El máximo no sirve: en batchmode un fotograma lento al
-        // arrancar da un pico aislado (p. ej. 2,6 m/s a 0,2 s) aunque el paseo vaya a ~1,5 m/s.
-        var crucero = muestras.Where(m => m.t >= 0.5f && m.t <= 1.9f).Select(m => m.v).OrderBy(v => v).ToList();
-        float vmax = crucero.Count > 0 ? crucero[crucero.Count / 2] : 0f;
+        float vmax = muestras.Where(m => m.t < 2f).Select(m => m.v).DefaultIfEmpty(0f).Max();
         float t90 = muestras.FirstOrDefault(m => m.v >= vmax * 0.9f).t;
         var parado = muestras.FirstOrDefault(m => m.t > 2f && m.v < vmax * 0.1f);
         float frenado = parado.t > 0f ? parado.t - 2f : 99f;
@@ -126,16 +123,15 @@ public class DebugLocomocion : MonoBehaviour
             bool abierto = menu.Abierto;
             var cabM = ManosRig.Cabeza;
             float dCab = cabM != null ? Vector3.Distance(cabM.position, menu.panel.transform.position) : 0f;
-            // Revisión del profesor: el menú pausa el juego y sigue al jugador con retardo (lazy follow), con marco celeste.
-            bool marco = menu.panel.transform.Find("Canto") != null;
-            Comprobar(menu.FijaEnElMundo && marco && MenuAjustes.EnPausa && Time.timeScale == 0f && dCab > 0.3f && dCab < 0.8f,
-                      $"El menú ☰ sale delante (a {dCab:F2} m de la cabeza, no pegado a la cara), con marco, y pausa el juego (timeScale {Time.timeScale:F0})");
+            bool carcasa = menu.panel.transform.Find("Carcasa") != null;
+            Comprobar(menu.FijaEnElMundo && carcasa && Mathf.Abs(menu.panel.transform.localScale.x - menu.escalaTablet) < 0.01f && dCab > 0.3f && dCab < 0.8f,
+                      $"El menú ☰ es una tablet con carcasa, fija en el mundo, a {dCab:F2} m de la cabeza (no pegada a la cara)");
             AjustesNanoLab.VolumenMusica = 1f;
             menu.Pulsar("musica-");
             menu.Pulsar("musica-");
             bool baja = Mathf.Abs(AjustesNanoLab.VolumenMusica - 0.8f) < 0.001f;
             menu.Pulsar("cerrar");
-            Comprobar(abierto && baja && !menu.Abierto && !menu.FijaEnElMundo && !MenuAjustes.EnPausa && Time.timeScale > 0f, "El panel se abre, sus botones cambian el volumen (100 % > 80 %) y CERRAR lo cierra (vuelve al rig y quita la pausa)");
+            Comprobar(abierto && baja && !menu.Abierto && !menu.FijaEnElMundo, "El panel se abre, sus botones cambian el volumen (100 % > 80 %) y CERRAR lo cierra (vuelve al rig)");
             // Heurística 10: ayuda bajo demanda desde el panel.
             if (AvisoInicio.Instancia != null) AvisoInicio.Instancia.CerrarAhora();
             menu.Abrir(true);

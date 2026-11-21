@@ -79,8 +79,8 @@ public static class MontajeMisiones
 
     static readonly string[] Descripciones =
     {
-        "MISIÓN 1 · Coge un portaobjetos de la bandeja de aquí y toca con él la MUESTRA A (herida de piel). La B (moho) y la C (hisopado) ya están listas junto a los microscopios.",
-        "MISIÓN 1 · Tinción de Gram de la MUESTRA A: toca los goteros 1 > 2 > 3 > 4 con el portaobjetos. Aquí está el desinfectante (y más portaobjetos).",
+        "MISIÓN 1 · Aquí está la MUESTRA A (herida de piel): tócala con un portaobjetos. La B (moho) y la C (hisopado) ya están listas junto a los microscopios.",
+        "MISIÓN 1 · Tinción de Gram de la MUESTRA A: goteros 1 > 2 > 3 > 4. Aquí están los portaobjetos y el desinfectante.",
         "MISIONES 1 y 2 · Compara las muestras A, B y C y, en la misión 2, el ANTES | DESPUÉS. Al lado, el panel CONCLUSIONES.",
         "AYUDA OPCIONAL · Fichas de microorganismos: si dudas, busca cuál coincide con la MUESTRA A.",
         "Una pregunta a la vez y 3 botones · MISIÓN 1: ¿qué bacteria es la MUESTRA A? · MISIÓN 2: ¿qué estructura atacarás?",
@@ -182,34 +182,6 @@ public static class MontajeMisiones
         }
         PlacaMoho(banco, new Vector3(0.1f, h + 0.02f, -0.25f));
         TuboHisopado(banco, new Vector3(0.7f, h + 0.02f, -0.25f));
-        PortaobjetosEnBanco(banco, h);
-    }
-
-    // Bandeja de portaobjetos en el BANCO, junto a la MUESTRA A (pruebas con usuarios: "tengo que ir a la mesa del
-    // costado a por el portaobjetos"). Se mueven aquí 2 de los 4 de la mesa de TINCIÓN; allí quedan otros 2 para repetir.
-    public static Transform BandejaBanco { get; private set; }
-
-    static void PortaobjetosEnBanco(Transform banco, float h)
-    {
-        var tincion = banco.parent != null ? banco.parent.Cast<Transform>().FirstOrDefault(t => t.name == "2_Tincion") : null;
-        var puesto = tincion != null ? tincion.Find("Puesto") : null;
-        if (puesto == null) { Debug.LogWarning("[Misiones] No se encontró la bandeja de portaobjetos de TINCIÓN."); return; }
-        var libres = puesto.GetComponentsInChildren<Portaobjetos>(true).Where(p => p.muestra == null && !p.Despues).Take(2).ToArray();
-        if (libres.Length == 0) return;
-        const float x = -0.93f, z = -0.25f;
-        BandejaBanco = K.Grupo(banco, "BandejaPortaobjetos", new Vector3(x, h + 0.02f, z));
-        K.Caja(BandejaBanco, "Bandeja", new Vector3(0f, 0.006f, 0f), new Vector3(0.13f, 0.012f, 0.15f), K.Plano(new Color(0.12f, 0.14f, 0.16f)));
-        K.Caja(BandejaBanco, "Franja", new Vector3(0f, 0.0125f, 0.073f), new Vector3(0.13f, 0.002f, 0.006f), K.Plano(new Color(0.37f, 0.83f, 1f)));
-        foreach (var c in BandejaBanco.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
-        var tx = K.Texto(banco, "<b>PORTAOBJETOS</b>", new Vector3(x, h + 0.025f, z + 0.12f), 0.16f, Color.white, 0.3f, 0.04f,
-                         TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
-        tx.outlineWidth = 0.2f;
-        tx.outlineColor = new Color32(0, 0, 0, 220);
-        for (int i = 0; i < libres.Length; i++)
-        {
-            var pos = banco.TransformPoint(new Vector3(x, h + 0.035f, z - 0.035f + i * 0.07f));
-            libres[i].ColocarEn(pos, banco.rotation * Quaternion.Euler(0f, 180f, 0f));
-        }
     }
 
     // MUESTRA B: placa de agar con colonias doradas y un moho verde-azulado con un halo sin colonias alrededor
@@ -236,7 +208,7 @@ public static class MontajeMisiones
         }
         K.Pieza(g, "Tapa", PrimitiveType.Cylinder, new Vector3(0f, 0.02f, 0f), new Vector3(0.155f, 0.002f, 0.155f), vidrio);
         Fuente(g, Misiones.MuestraHongo, Misiones.EtiquetaB, new Vector3(0f, 0.035f, 0f), new Vector3(0.17f, 0.07f, 0.17f));
-        Rotulo(g, "B");
+        Rotulo(g, "B", new Vector3(0f, 0.15f, 0f));
     }
 
     // MUESTRA C: tubo con el hisopo nasal en medio de transporte, en su gradilla.
@@ -249,7 +221,7 @@ public static class MontajeMisiones
         K.Pieza(g, "Tapon", PrimitiveType.Cylinder, new Vector3(0f, 0.14f, 0f), new Vector3(0.03f, 0.008f, 0.03f), K.Plano(new Color(0.85f, 0.2f, 0.25f)));
         K.Pieza(g, "Hisopo", PrimitiveType.Cylinder, new Vector3(0f, 0.09f, 0f), new Vector3(0.004f, 0.05f, 0.004f), K.Plano(Color.white));
         Fuente(g, Misiones.MuestraVirus, Misiones.EtiquetaC, new Vector3(0f, 0.08f, 0f), new Vector3(0.1f, 0.16f, 0.1f));
-        Rotulo(g, "C");
+        Rotulo(g, "C", new Vector3(0f, 0.22f, 0f));
     }
 
     static void Fuente(Transform g, MuestraData m, string etiqueta, Vector3 centro, Vector3 tam)
@@ -263,12 +235,9 @@ public static class MontajeMisiones
         bc.size = tam;
     }
 
-    // Etiqueta IMPRESA en el mostrador, delante de la muestra (como la de PORTAOBJETOS), en lugar de un rótulo que
-    // flotaba 15-22 cm por encima: menos texto en el aire y se lee igual al inclinarse sobre el banco.
-    static void Rotulo(Transform g, string letra)
+    static void Rotulo(Transform g, string letra, Vector3 pos)
     {
-        var t = K.Texto(g, $"<b>MUESTRA {letra}</b>", new Vector3(0f, -0.017f, 0.11f), 0.2f, new Color(0.37f, 0.83f, 1f), 0.24f, 0.045f,
-                        TextAlignmentOptions.Center, true, false, Quaternion.Euler(90f, 180f, 0f));
+        var t = K.Texto(g, $"<b>MUESTRA {letra}</b>", pos, 0.32f, new Color(0.37f, 0.83f, 1f), 0.4f, 0.06f, TextAlignmentOptions.Center, true, false, Quaternion.Euler(0f, 180f, 0f));
         t.outlineWidth = 0.2f;
         t.outlineColor = new Color32(0, 0, 0, 220);
     }
@@ -282,7 +251,9 @@ public static class MontajeMisiones
     public static void PrepararComparacion(RetoManager rm)
     {
         if (bandejaMicro == null || rm == null) return;
-        var portas = bandejaMicro.GetComponentsInChildren<Portaobjetos>(true);
+        // Se guardan la primera vez: al ponerlos en un microscopio ya no cuelgan de la bandeja.
+        if (portasComparacion == null || portasComparacion.Length == 0) portasComparacion = bandejaMicro.GetComponentsInChildren<Portaobjetos>(true);
+        var portas = portasComparacion;
         var muestras = new[] { (Misiones.MuestraHongo, Misiones.EtiquetaB), (Misiones.MuestraVirus, Misiones.EtiquetaC) };
         for (int i = 0; i < portas.Length && i < muestras.Length; i++)
         {
@@ -290,6 +261,32 @@ public static class MontajeMisiones
             if (m == null || portas[i].Agarrado) continue;
             if (portas[i].muestra != m) portas[i].Cargar(m, etiqueta);
         }
+        if (Misiones.ModoCorto) PonerEnMicroscopios(portas);
+    }
+
+    static Portaobjetos[] portasComparacion;
+
+    // Modo corto (reseñas del playtest): la B y la C esperan YA en los dos microscopios de al lado del que queda libre
+    // para la A, así se comparan de frente sin ir a buscarlas.
+    static void PonerEnMicroscopios(Portaobjetos[] portas)
+    {
+        var micros = Object.FindObjectsOfType<MicroscopioOptico>().Where(m => m.modoReto && m.platina != null)
+            .OrderBy(m => (m.transform.position - bandejaMicro.position).sqrMagnitude).ToArray();
+        if (micros.Length < 3) return;
+        for (int i = 0; i < portas.Length && i < 2; i++)
+        {
+            var p = portas[i];
+            var m = micros[i + 1];
+            if (p == null || p.Agarrado || p.muestra == null || p.Encajada == m.platina || !m.platina.Libre) continue;
+            p.Encajar(m.platina);
+        }
+    }
+
+    // Las pruebas del modo largo devuelven la B y la C a la bandeja (allí las va a buscar el recorrido largo).
+    public static void DevolverComparacionABandeja()
+    {
+        if (portasComparacion == null) return;
+        foreach (var p in portasComparacion) if (p != null && p.Encajada != null) p.VolverACasa();
     }
 
     static PanelConclusiones CrearConclusiones(Transform centro, Transform micro, float suelo)

@@ -46,6 +46,17 @@ public class TincionVisible : MonoBehaviour
     }
 
     // Reactivo r (1-4) aplicado; correcto = en su orden.
+    // Modo corto: tinción completa de una vez, con una sola frase de resultado.
+    public void AplicarCompleta()
+    {
+        Aplicar(4, true);
+        var m = porta != null ? porta.muestra : null;
+        bool bacteria = m != null && m.tipo == TipoMuestra.Bacteria;
+        bool gramPos = m == null || !bacteria || m.gramPositiva;
+        texto.text = "<b>Muestra teñida (Gram)</b>\n" + (!bacteria ? "<color=#A9BED2>La tinción de Gram clasifica BACTERIAS.</color>"
+            : gramPos ? "<color=#C9A8FF>VIOLETA = pared gruesa → GRAM POSITIVA.</color>" : "<color=#FF9EC4>ROSA = pared delgada → GRAM NEGATIVA.</color>");
+    }
+
     public void Aplicar(int r, bool correcto)
     {
         if (porta == null) porta = GetComponent<Portaobjetos>();

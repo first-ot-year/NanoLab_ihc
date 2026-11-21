@@ -17,6 +17,7 @@ public static class PruebaVacuna
     const string ClaveT0 = "NanoLab.PruebaVacuna.t0";
     const float Limite = 240f;
     static bool lanzada;
+    const string ClaveCorto = "NanoLab.PruebaVacuna.corto";   // recorrido corto (Misiones.ModoCorto)
 
     static PruebaVacuna()
     {
@@ -24,9 +25,15 @@ public static class PruebaVacuna
         EditorApplication.update += Vigilar;
     }
 
+    [MenuItem("NanoLab/Probar reto de vacuna · modo corto (play mode)", false, 5)]
+    public static void EjecutarCorto() => Lanzar(true);
+
     [MenuItem("NanoLab/Probar reto de vacuna (play mode)", false, 5)]
-    public static void Ejecutar()
+    public static void Ejecutar() => Lanzar(false);
+
+    static void Lanzar(bool corto)
     {
+        SessionState.SetBool(ClaveCorto, corto);
         // Si la escena ya está abierta no se recarga (así no se pierden cambios sin guardar).
         if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().path != ScenePath)
         {
@@ -53,7 +60,7 @@ public static class PruebaVacuna
             lanzada = true;
             RetoVacuna.Momento -= Capturar;
             RetoVacuna.Momento += Capturar;
-            RetoVacuna.Instancia.StartCoroutine(RetoVacuna.Instancia.Simular());
+            RetoVacuna.Instancia.StartCoroutine(SessionState.GetBool(ClaveCorto, false) ? RetoVacuna.Instancia.SimularCorto() : RetoVacuna.Instancia.Simular());
         }
         if (!tiempo && (!EditorApplication.isPlaying || !RetoVacuna.PruebaTerminada)) return;
 
@@ -61,7 +68,7 @@ public static class PruebaVacuna
         string informe = RetoVacuna.PruebaTerminada ? RetoVacuna.Informe
             : RetoVacuna.Instancia == null ? "TIEMPO AGOTADO: no se montó la estación de la vacuna (¿falta el RetoManager del centro?)."
             : "TIEMPO AGOTADO: la simulación no terminó.\n" + RetoVacuna.Informe;
-        File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "Logs", "prueba_vacuna.txt"), (ok ? "RESULTADO: CORRECTO\n" : "RESULTADO: CON FALLOS\n") + informe);
+        File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "Logs", SessionState.GetBool(ClaveCorto, false) ? "prueba_vacuna_corto.txt" : "prueba_vacuna.txt"), (ok ? "RESULTADO: CORRECTO\n" : "RESULTADO: CON FALLOS\n") + informe);
         Debug.Log($"[PruebaVacuna] Terminado. Correcto: {ok}. Informe en Logs/prueba_vacuna.txt");
         SessionState.SetBool(Clave, false);
         EditorApplication.update -= Vigilar;

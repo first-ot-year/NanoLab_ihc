@@ -15,7 +15,6 @@ public class GuiaReto : MonoBehaviour
     const float Adelanto = 1.9f;          // cuánto va la luz por delante del jugador (m)
     const float AlturaVuelo = 1.45f;      // sobre el suelo, algo por debajo de los ojos
     const float VelocidadMax = 2.4f;      // m/s
-    const float SegundosAtasco = 60f;     // sin cambiar de paso: Baymax ofrece ayuda (una vez por paso)
     static readonly Color ColorLuz = new Color(0.45f, 0.9f, 1f);
 
     // Luz guía
@@ -35,9 +34,6 @@ public class GuiaReto : MonoBehaviour
     bool espejoVacuna;
     float tVacuna;
     string pasoVacuna;
-    // Brújula del reloj y ayuda si se atasca.
-    float tRumbo, tPaso;
-    bool atascoAvisado, libre;   // libre: destino sin cartel ni PISTA (el laboratorio de vacunas)
 
     public static GuiaReto Crear()
     {
@@ -62,8 +58,6 @@ public class GuiaReto : MonoBehaviour
         radioLlegada = DistanciaLlegada;
         // El mismo paso puede cambiar de sitio (p. ej. del microscopio al banco para cargar la muestra B).
         if (nueva || destino != antes) llegado = false;
-        if (nueva || destino != antes) { tPaso = Time.time; atascoAvisado = false; }
-        libre = false;
 
         if (espejoVacuna) { tVacuna = 0f; return; }   // el brazalete está enseñando la misión 3
         var b = Brazalete;
@@ -81,7 +75,6 @@ public class GuiaReto : MonoBehaviour
         numeroEstacion = 0;
         nombreEstacion = nombre;
         radioLlegada = radio;
-        libre = true;
     }
 
     // Meta fuera del ciclo de las misiones 1 y 2 (en la MISIÓN 3: un equipo del centro que hace falta, de EquiposCentro).
@@ -94,8 +87,7 @@ public class GuiaReto : MonoBehaviour
         numeroEstacion = estacion != null ? estacion.numero : 0;
         nombreEstacion = estacion != null ? estacion.titulo : "";
         radioLlegada = DistanciaLlegada;
-        if (nueva) { llegado = false; tPaso = Time.time; atascoAvisado = false; }
-        libre = false;
+        if (nueva) llegado = false;
         etapa = -1;   // al volver a Etapa(...) cuenta como paso nuevo
         var b = Brazalete;
         if (b == null) return;
@@ -127,50 +119,6 @@ public class GuiaReto : MonoBehaviour
         if (nuevoPaso && dentro) b.Notificar(null, Aviso.Tipo.Info);
     }
 
-    // ------------------------------------------------------------------ guía bajo demanda
-
-    void OnEnable() => BrazaleteBaymax.Llamado += Relanzar;
-    void OnDisable() => BrazaleteBaymax.Llamado -= Relanzar;
-
-    // Y ("¿adónde voy?"): la luz vuelve a nacer junto al jugador y lo lleva otra vez; si ya está en la estación,
-    // destella allí mismo.
-    public void Relanzar()
-    {
-        if (destino == null) return;
-        llegado = false;
-        destinoMostrado = null;
-        alfaLuz = 0f;
-        destello = -1f;
-    }
-
-    // Brújula del reloj: "TINCIÓN (2) · 4 m · a tu izquierda". Sin destino o ya en la estación, nada.
-    public string TextoRumbo()
-    {
-        var cab = ManosRig.Cabeza;
-        if (destino == null || llegado || cab == null || !dentro) return null;
-        var meta = destino.position;
-        bool puerta = RecorridoU.Activo && RecorridoU.AlNorte(meta) != RecorridoU.AlNorte(cab.position);
-        var d = new Vector3(meta.x - cab.position.x, 0f, meta.z - cab.position.z);
-        var haciaGiro = puerta ? RecorridoU.Puerta(RecorridoU.AlNorte(cab.position), 0f) - new Vector3(cab.position.x, 0f, cab.position.z) : d;
-        haciaGiro.y = 0f;
-        float ang = Vector3.SignedAngle(Horizontal(cab.forward), haciaGiro, Vector3.up);
-        string lado = Mathf.Abs(ang) < 35f ? "delante" : Mathf.Abs(ang) > 120f ? "detrás de ti" : ang > 0f ? "a tu derecha" : "a tu izquierda";
-        string nombre = string.IsNullOrEmpty(nombreEstacion) ? "DESTINO" : nombreEstacion.ToUpper();
-        if (numeroEstacion > 0) nombre += $" ({numeroEstacion})";
-        int m = Mathf.Max(1, Mathf.RoundToInt(d.magnitude));
-        return puerta ? $"{nombre} · {m} m · puerta de vidrio {lado}" : $"{nombre} · {m} m · {lado}";
-    }
-
-    void Atasco(RetoManager rm)
-    {
-        if (atascoAvisado || libre || destino == null || espejoVacuna || !dentro || MicroscopioOptico.AlgunoActivo) return;
-        if (Time.time - tPaso < SegundosAtasco) return;
-        atascoAvisado = true;
-        if (!llegado) Relanzar();
-        string donde = string.IsNullOrEmpty(nombreEstacion) ? "la estación" : nombreEstacion.ToUpper();
-        if (Brazalete != null) Brazalete.Notificar($"¿Te ayudo? Pulsa <b>PISTA</b> en el cartel de {donde}, o <b>Y</b> para que la luz te lleve.", Aviso.Tipo.Pista);
-    }
-
     // ------------------------------------------------------------------ cada frame
 
     void Update()
@@ -182,12 +130,6 @@ public class GuiaReto : MonoBehaviour
         dentro = ahora;
         if (Time.time >= tVacuna) { tVacuna = Time.time + 0.5f; EspejoVacuna(rm); }
         Luz(cab, dentro && !MicroscopioOptico.AlgunoActivo && destino != null);
-        if (Time.time >= tRumbo)
-        {
-            tRumbo = Time.time + 0.25f;
-            if (Brazalete != null) Brazalete.Rumbo(espejoVacuna ? null : TextoRumbo());
-            Atasco(rm);
-        }
     }
 
     // Posición de la luz que se usa en las pruebas y en las capturas.

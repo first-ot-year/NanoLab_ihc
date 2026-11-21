@@ -146,7 +146,13 @@ public class Portaobjetos : MonoBehaviour
         yield return null;
         if (Agarrado) yield break;
         var p = PlatinaCercana();
-        if (p != null) Encajar(p);
+        if (p != null)
+        {
+            // Revisión de la demo ("no se acomoda ese portaobjeto"): si en esa platina ya había otro (la B o la C del
+            // modo corto), se cambian: el que estaba vuelve a su sitio y el nuevo encaja recto, en vez de caer torcido.
+            if (!p.Libre && p.Actual != this) p.Actual.VolverACasa();
+            Encajar(p);
+        }
         else if (Hueco.Guardar(transform)) { }   // en una vitrina, cajón o ultracongelador abierto
         else if (PunteroMuestras.Destino(this, out var apuntada, out var punto, out var rot))
         {
@@ -157,16 +163,18 @@ public class Portaobjetos : MonoBehaviour
         else { rb.isKinematic = false; rb.useGravity = true; }
     }
 
+    // La platina más cercana a menos de ~20 cm de su anclaje (antes 12 cm y solo libres: soltarlo junto al microscopio
+    // lo dejaba caer torcido). Una libre gana a una ocupada a igual distancia.
     Platina PlatinaCercana()
     {
-        int n = Physics.OverlapSphereNonAlloc(transform.position, radioPlatina, buffer, CapasNanoLab.MascaraRayos, QueryTriggerInteraction.Collide);
+        float radio = Mathf.Max(radioPlatina, 0.2f);
         Platina mejor = null;
-        float d = float.MaxValue;
-        for (int i = 0; i < n; i++)
+        float d = radio * radio;
+        foreach (var p in Platina.Todas)
         {
-            var p = buffer[i].GetComponentInParent<Platina>();
-            if (p == null || !p.Libre || p.anclaje == null) continue;
-            float x = (p.anclaje.position - transform.position).sqrMagnitude;
+            if (p == null || p.anclaje == null) continue;
+            if (!p.Libre && p.Actual != this && (p.Actual == null || p.Actual.Agarrado)) continue;
+            float x = (p.anclaje.position - transform.position).sqrMagnitude * (p.Libre ? 1f : 1.6f);
             if (x < d) { d = x; mejor = p; }
         }
         return mejor;
@@ -262,27 +270,48 @@ public class Portaobjetos : MonoBehaviour
         Refrescar();
     }
 
+    // Mensajes de los goteros: check n/4 a la derecha de la vista (ProgresoTincion, como RECUERDO RECUPERADO), no
+    // junto al portaobjetos (se lleva en la mano: el aviso quedaba delante de la cara). Va al check de la derecha de la vista.
+    void AvisoTincion(string texto, Vector3 pos, Aviso.Tipo tipo, float duracion = -1f)
+    {
+        if (!ProgresoTincion.Mostrar(this, texto, tipo)) Aviso.Mostrar(texto, pos, tipo, duracion);
+    }
+
     // Toca un gotero de la tinción de Gram (1 cristal violeta, 2 lugol, 3 alcohol-acetona, 4 safranina).
     public void AplicarReactivo(int r)
     {
         var aviso = transform.position + Vector3.up * 0.12f;
         if (muestra == null)
         {
-            Aviso.Mostrar("Primero haz el frotis: toca la placa de la muestra con este portaobjetos.", aviso, Aviso.Tipo.Falta);
+            AvisoTincion("Primero haz el frotis: toca la placa de la muestra con este portaobjetos.", aviso, Aviso.Tipo.Falta);
             Sonidos.Pista(transform.position);
             return;
         }
         if (Despues) return;
+        // Modo corto: PASO A PASO (revisión de la demo). Cada toque a un gotero aplica UN reactivo, en el orden
+        // 1 > 2 > 3 > 4 (antes un solo toque hacía la tinción entera). En este modo no se puede estropear: si se toca un
+        // gotero que aún no toca, se dice cuál va antes y la tinción sigue siendo válida.
+        if (Misiones.ModoCorto && !TincionErronea)
+        {
+            if (TincionCompleta) { AvisoTincion("Ya está teñida: llévala al MICROSCOPIO.", aviso, Aviso.Tipo.Info, 2.5f); return; }
+            int siguiente = PasosTincion + 1;
+            if (r > siguiente)
+            {
+                AvisoTincion($"Aún no toca el gotero {r}. Primero el gotero {siguiente}: {Reactivos[siguiente]}.", aviso, Aviso.Tipo.Falta);
+                Sonidos.Pista(transform.position);
+                return;
+            }
+        }
         if (TincionErronea)
         {
-            Aviso.Mostrar("Tinción NO válida. Límpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
+            AvisoTincion("Tinción NO válida. Límpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
             Sonidos.Error(transform.position);
             return;
         }
         int esperado = PasosTincion + 1;
         if (r < esperado)
         {
-            Aviso.Mostrar(esperado <= 4 ? $"Ese reactivo ya está aplicado. Ahora toca el gotero {esperado}: {Reactivos[esperado]}." : "La tinción ya está completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Info);
+            AvisoTincion(esperado <= 4 ? $"Ese reactivo ya está aplicado. Ahora toca el gotero {esperado}: {Reactivos[esperado]}." : "La tinción ya está completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Info);
             return;
         }
         if (r > esperado)
@@ -291,7 +320,7 @@ public class Portaobjetos : MonoBehaviour
             string porQue = r == 3 && esperado <= 2 ? "Sin cristal violeta fijado con lugol, el alcohol decolora TODAS las células y el resultado engaña."
                           : r == 4 ? "La safranina va al final, después de decolorar con alcohol."
                           : $"Te saltaste el paso {esperado} ({Reactivos[esperado]}).";
-            Aviso.Mostrar($"Orden incorrecto. {porQue}\nLímpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
+            AvisoTincion($"Orden incorrecto. {porQue}\nLímpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
             Sonidos.Error(transform.position);
             ManosRig.Vibrar(transform.position, 0.8f, 0.2f);
             TincionVisible.De(this).Aplicar(r, false);
@@ -300,10 +329,49 @@ public class Portaobjetos : MonoBehaviour
         {
             PasosTincion = r;
             TincionVisible.De(this).Aplicar(r, true);
-            Aviso.Mostrar(r < 4 ? $"Paso {r}/4: {Reactivos[r]} - correcto\nSigue con el gotero {r + 1}." : "Paso 4/4: Safranina - correcto\nTinción de Gram completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Ok);
+            AvisoTincion(r < 4 ? $"Paso {r}/4: {Reactivos[r]} - correcto\nSigue con el gotero {r + 1}." : "Paso 4/4: Safranina - correcto\nTinción de Gram completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Ok);
             Sonidos.Gota(transform.position);
             ManosRig.Vibrar(transform.position, 0.4f, 0.06f);
         }
+        frotisDesde = colorFrotis;
+        tFrotis = 0f;
+        Refrescar(true);
+        TincionCambiada?.Invoke(this);
+    }
+
+    // MODO CORTO (Misiones.ModoCorto): el frotis de la muestra del reto sale ya teñido. La lupa enseña de una vez el
+    // resultado de Gram (violeta = pared gruesa, Gram +) en lugar de los 4 goteros.
+    bool tiñendo;
+    public bool Tiñendo => tiñendo;
+
+    IEnumerator TenirAnimado()
+    {
+        tiñendo = true;
+        Aviso.Mostrar("TINCIÓN DE GRAM: cristal violeta > lugol > alcohol > safranina", transform.position + Vector3.up * 0.14f, Aviso.Tipo.Info, 3f);
+        for (int r = PasosTincion + 1; r <= 4; r++)
+        {
+            if (muestra == null || Despues) break;
+            PasosTincion = r;
+            TincionVisible.De(this).Aplicar(r, true);
+            Sonidos.Gota(transform.position);
+            ManosRig.Vibrar(transform.position, 0.3f, 0.05f);
+            frotisDesde = colorFrotis;
+            tFrotis = 0f;
+            Refrescar(true);
+            TincionCambiada?.Invoke(this);
+            yield return new WaitForSeconds(0.6f);
+        }
+        tiñendo = false;
+        if (TincionCompleta) Aviso.Mostrar("¡Teñida! Ahora llévala al MICROSCOPIO.", transform.position + Vector3.up * 0.14f, Aviso.Tipo.Ok, 2.5f);
+    }
+
+    public void TenirDirecto()
+    {
+        if (muestra == null || Despues || TincionCompleta) return;
+        PasosTincion = 4;
+        TincionErronea = false;
+        TincionVisible.De(this).AplicarCompleta();
+        Sonidos.Gota(transform.position);
         frotisDesde = colorFrotis;
         tFrotis = 0f;
         Refrescar(true);

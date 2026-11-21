@@ -8,13 +8,19 @@ using UnityEngine;
 //     el panel se dibuja ENCIMA de sus letras y las deja como detrás de un velo (sortingOrder no lo arregla siempre).
 //     Aquí los textos 3D pasan a una cola posterior a la de los paneles: primero todos los paneles, luego las letras.
 //     Se usa una copia del material de cada fuente (no se toca el asset).
-//  2) Tamaño: el profesor vio las letras pequeñas. Cada texto 3D se agranda una vez un 40 % (Escala).
+//  2) Tamaño: el profesor vio las letras pequeñas. Cada texto 3D se agranda una vez un 25 % (Escala).
 //  3) Ajuste: si un texto no cabe en su recuadro, se activa el auto-tamaño (encoge hasta el 50 %) en vez de salirse.
 // Revisa los textos activos cada 1,5 s (los que se crean después también: avisos, fichas, terminal...).
 public class LegibilidadTextos : MonoBehaviour
 {
     public const int ColaMinima = 3100;
-    public const float Escala = 1.4f;   // antes 1,25: "aumenta un poco más las letras"
+    // Revisión (noviembre): "las letras auméntalas un poquito": de 1,25 a 1,35 (+8 %). Si un texto ya no cabe en su
+    // recuadro, Ajustar lo encoge solo.
+    public const float Escala = 1.35f;
+    // Revisión de la demo ("las letras de los paneles azules de la sala de experimentación, un poquito más grandes"):
+    // los carteles de estación y los tableros informativos del centro crecen un 15 % más.
+    public const float EscalaSala = 1.15f;
+    static readonly HashSet<string> Tableros = new HashSet<string> { "Procedimiento", "Comparar", "Agentes" };
 
     static readonly Dictionary<Material, Material> copias = new Dictionary<Material, Material>();
     readonly Dictionary<TextMeshPro, string> revisado = new Dictionary<TextMeshPro, string>();
@@ -62,12 +68,26 @@ public class LegibilidadTextos : MonoBehaviour
             }
             if (agrandados.Add(tx.GetInstanceID()))
             {
-                if (tx.enableAutoSizing) tx.fontSizeMax *= Escala;
-                tx.fontSize *= Escala;
+                float e = Escala * (EnPanelDeSala(tx.transform) ? EscalaSala : 1f);
+                if (tx.enableAutoSizing) tx.fontSizeMax *= e;
+                tx.fontSize *= e;
             }
             Ajustar(tx);
         }
         return n;
+    }
+
+    // Textos de los carteles y tableros del centro de experimentación (no las etiquetas de los objetos que se agarran).
+    public static bool EnPanelDeSala(Transform t)
+    {
+        bool objeto = false;
+        for (var p = t; p != null; p = p.parent)
+        {
+            if (p.GetComponent<Rigidbody>() != null || p.GetComponent<Oculus.Interaction.Grabbable>() != null) objeto = true;
+            if (p.GetComponent<EstacionGuia>() != null || Tableros.Contains(p.name)) return true;
+            if (p.name == "CentroExperimentacion") return !objeto;
+        }
+        return false;
     }
 
     // Cola de los paneles redondeados de la escena + 1 (como mínimo 3100).

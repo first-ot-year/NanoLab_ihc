@@ -23,14 +23,16 @@ public class ParedVacunas : MonoBehaviour
         float z = RecorridoU.ParedZ;
         var marco = K.Escena("Marco", new Color(0.55f, 0.58f, 0.62f));
         var blanco = K.Escena("Blanco", new Color(0.93f, 0.93f, 0.92f));
-        var vidrio = K.Vidrio(new Color(0.75f, 0.9f, 1f, 0.18f));
+        // Copia propia del vidrio en una cola anterior a la de los paneles (3000) y los textos (3100): así el vidrio nunca
+        // se dibuja ENCIMA de un cartel que tiene delante (el cartel del laboratorio de vacunas se veía transparente).
+        var vidrio = new Material(K.Vidrio(new Color(0.75f, 0.9f, 1f, 0.18f))) { name = "VidrioParedVacunas", renderQueue = 2950 };
 
         // Tramos de vidrio a ambos lados de la puerta, con montantes cada ~2,4 m, zócalo y dintel opaco hasta el techo.
         Tramo(t, RecorridoU.X0, RecorridoU.PuertaX0, z, marco, blanco, vidrio);
         Tramo(t, RecorridoU.PuertaX1, RecorridoU.X1, z, marco, blanco, vidrio);
         float xm = (RecorridoU.PuertaX0 + RecorridoU.PuertaX1) / 2f, ancho = RecorridoU.PuertaX1 - RecorridoU.PuertaX0;
         // Dintel sobre la puerta y marco.
-        K.Solido(K.Caja(t, "DintelPuerta", new Vector3(xm, (Alto + AltoTecho) / 2f, z), new Vector3(ancho, AltoTecho - Alto, 0.12f), blanco, true));
+        Fisico(K.Caja(t, "DintelPuerta", new Vector3(xm, (Alto + AltoTecho) / 2f, z), new Vector3(ancho, AltoTecho - Alto, 0.12f), blanco, true));
         K.Caja(t, "MarcoPuertaSup", new Vector3(xm, Alto - 0.04f, z), new Vector3(ancho, 0.08f, 0.1f), marco);
 
         // Hojas correderas (se meten por delante del vidrio, del lado de experimentos).
@@ -39,7 +41,7 @@ public class ParedVacunas : MonoBehaviour
         hojaDer = K.Grupo(t, "HojaDer", new Vector3(xm + hoja / 2f, 0f, z - 0.06f));
         foreach (var h in new[] { hojaIzq, hojaDer })
         {
-            K.Solido(K.Caja(h, "Vidrio", new Vector3(0f, Alto / 2f - 0.05f, 0f), new Vector3(hoja - 0.02f, Alto - 0.12f, 0.03f), vidrio));
+            Fisico(K.Caja(h, "Vidrio", new Vector3(0f, Alto / 2f - 0.05f, 0f), new Vector3(hoja - 0.02f, Alto - 0.12f, 0.03f), vidrio), 0.1f);
             K.Caja(h, "Canto", new Vector3(0f, 0.05f, 0f), new Vector3(hoja - 0.02f, 0.1f, 0.04f), marco);
             K.Caja(h, "Tirador", new Vector3(h == hojaIzq ? hoja / 2f - 0.08f : -hoja / 2f + 0.08f, 1.05f, -0.03f), new Vector3(0.025f, 0.4f, 0.025f), marco);
         }
@@ -49,7 +51,13 @@ public class ParedVacunas : MonoBehaviour
         // Rótulo sobre la puerta (mirando a la zona de experimentos) y luz de estado.
         var rot = Quaternion.identity;   // el texto se lee desde -z (lado de experimentos)
         var cartel = K.Grupo(t, "CartelVacunas", new Vector3(xm + 1.6f, 2.35f, z - 0.08f), rot);
-        K.Panel(cartel, "Fondo", Vector3.zero, 1.9f, 0.42f, new Color(0.06f, 0.19f, 0.34f, 1f), new Color(1f, 0.6f, 0.45f, 1f), 0.004f, 0.04f);
+        // Placa OPACA detrás (escribe profundidad: el vidrio de detrás no puede taparla) y el panel redondeado encima
+        // solo con el borde, como la pantalla de CONCLUSIONES. Antes el fondo era el panel transparente del SDK y, según
+        // desde dónde se mirara, el vidrio se dibujaba por encima y el cartel quedaba transparente.
+        var fondoAzul = new Color(0.06f, 0.19f, 0.34f);
+        K.Caja(cartel, "FondoOpaco", new Vector3(0f, 0f, 0.004f), new Vector3(1.9f, 0.42f, 0.006f), K.Opaco(fondoAzul));
+        var marcoCartel = K.Panel(cartel, "Fondo", Vector3.zero, 1.9f, 0.42f, new Color(fondoAzul.r, fondoAzul.g, fondoAzul.b, 0f), new Color(1f, 0.6f, 0.45f, 1f), 0.004f, 0.04f);
+        if (marcoCartel != null && marcoCartel.GetComponent<PanelRedondeado>() == null) marcoCartel.enabled = false;   // sin el SDK: solo la placa
         K.Texto(cartel, "<b>LABORATORIO DE VACUNAS</b>", new Vector3(0f, 0.09f, -0.004f), 0.3f, new Color(1f, 0.75f, 0.6f), 1.8f, 0.12f, TextAlignmentOptions.Center);
         estado = K.Texto(cartel, "", new Vector3(0f, -0.08f, -0.004f), 0.2f, Color.white, 1.8f, 0.16f, TextAlignmentOptions.Center);
         luz = K.Esfera(t, "LuzPuerta", new Vector3(xm, Alto + 0.12f, z - 0.08f), 0.09f, K.Plano(Color.white));
@@ -66,13 +74,26 @@ public class ParedVacunas : MonoBehaviour
         for (int i = 0; i < n; i++)
         {
             float x0 = xa + i * paso, xc = x0 + paso / 2f;
-            K.Solido(K.Caja(t, "Vidrio", new Vector3(xc, Alto / 2f, z), new Vector3(paso - 0.06f, Alto - 0.2f, Grosor), vidrio));
-            K.Caja(t, "Montante", new Vector3(x0 + 0.03f, Alto / 2f, z), new Vector3(0.06f, Alto, 0.09f), marco);
+            Fisico(K.Caja(t, "Vidrio", new Vector3(xc, Alto / 2f, z), new Vector3(paso - 0.06f, Alto - 0.2f, Grosor), vidrio), 0.12f);
+            Fisico(K.Caja(t, "Montante", new Vector3(x0 + 0.03f, Alto / 2f, z), new Vector3(0.06f, Alto, 0.09f), marco), 0.12f);
         }
-        K.Caja(t, "Montante", new Vector3(xb - 0.03f, Alto / 2f, z), new Vector3(0.06f, Alto, 0.09f), marco);
-        K.Caja(t, "Zocalo", new Vector3((xa + xb) / 2f, 0.05f, z), new Vector3(largo, 0.1f, 0.1f), blanco);
-        K.Caja(t, "Travesano", new Vector3((xa + xb) / 2f, Alto - 0.05f, z), new Vector3(largo, 0.1f, 0.1f), marco);
-        K.Solido(K.Caja(t, "Dintel", new Vector3((xa + xb) / 2f, (Alto + AltoTecho) / 2f, z), new Vector3(largo, AltoTecho - Alto, 0.12f), blanco, true));
+        Fisico(K.Caja(t, "Montante", new Vector3(xb - 0.03f, Alto / 2f, z), new Vector3(0.06f, Alto, 0.09f), marco), 0.12f);
+        Fisico(K.Caja(t, "Zocalo", new Vector3((xa + xb) / 2f, 0.05f, z), new Vector3(largo, 0.1f, 0.1f), blanco), 0.12f);
+        Fisico(K.Caja(t, "Travesano", new Vector3((xa + xb) / 2f, Alto - 0.05f, z), new Vector3(largo, 0.1f, 0.1f), marco), 0.12f);
+        Fisico(K.Caja(t, "Dintel", new Vector3((xa + xb) / 2f, (Alto + AltoTecho) / 2f, z), new Vector3(largo, AltoTecho - Alto, 0.12f), blanco, true));
+    }
+
+    // Pared con física de verdad (revisión: "el vidrio que divide el centro necesita físicas"). Antes los vidrios iban en la
+    // capa BloqueoJugador, que solo frena al jugador: los objetos que se lanzaban o se soltaban lo atravesaban y la cabeza
+    // podía meterse en él sin oscurecerse. Ahora es un collider normal (capa Default): choca con los objetos agarrables,
+    // frena al jugador (el Locomotor y el respaldo usan todas las capas) y ProteccionCabeza lo detecta.
+    // 'grosor' (m) ensancha solo el collider para que un objeto lanzado rápido no lo atraviese de un fotograma a otro.
+    static void Fisico(Renderer r, float grosor = 0f)
+    {
+        var bc = r.gameObject.AddComponent<BoxCollider>();
+        r.gameObject.layer = 0;
+        var e = r.transform.localScale;
+        if (grosor > 0f && Mathf.Abs(e.z) > 1e-4f && grosor > Mathf.Abs(e.z)) bc.size = new Vector3(1f, 1f, grosor / Mathf.Abs(e.z));
     }
 
     void Estado(bool abierta, bool anunciar)

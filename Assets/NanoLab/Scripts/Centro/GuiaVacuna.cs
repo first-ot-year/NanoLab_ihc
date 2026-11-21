@@ -245,21 +245,96 @@ public class VirusHolograma : MonoBehaviour
 {
     public VirusVacuna virus;
     public float radio = 0.3f;
+    // Revisión del playtest: "quiero poder girarlo como un globo terráqueo, no sostenerlo en la mano".
+    //  - El virus NO se mueve de su sitio: gira sobre su centro. Grip sobre el virus (mano o mando) y mover la mano lo
+    //    hace rodar como una bola de ratón (trackball); al soltar sigue girando un poco y se frena (inercia).
+    //  - Al empezar el paso hay unos segundos en los que tocar no elige (el rayo + gatillo sí).
+    //  - Para analizar o elegir con la mano hay que dejarla sobre la parte un momento y sin el grip.
+    public const float Retener = 0.45f;
+    public const float Frenado = 1.6f;   // 1/s: cuánto tarda en pararse la inercia
+    public static float TactilDesde;   // RetoVacuna lo pone al empezar el paso ANTÍGENO
+    public Oculus.Interaction.Grabbable asa;   // agarre del SDK de Meta (mano y mando, de cerca); lo pone MontajeVacuna
+    public bool Girando => agarre >= 0 || AsaAgarrada;
+    public bool YaAgarrado { get; private set; }   // se giró al menos una vez en este paso (lo reinicia RetoVacuna)
+    public void ReiniciarAgarre() { YaAgarrado = false; GradosGirados = 0f; }
+    public float GradosGirados { get; private set; }   // giro acumulado en este paso (explorar girando descubre partes)
+    public Vector3 VelocidadAngular => velocidad;   // grados/s (eje * velocidad)
+    bool AsaAgarrada => asa != null && asa.isActiveAndEnabled && asa.SelectingPointsCount > 0;
     readonly Collider[] buffer = new Collider[16];
     readonly SelectorVacuna[] tocando = new SelectorVacuna[2];
-    readonly Vector3?[] previo = new Vector3?[2];
+    readonly float[] desde = new float[2];
+    readonly bool[] elegido = new bool[2];
+    int agarre = -1;            // giro con el grip propio (sin asa del SDK)
+    Vector3? previo;            // del centro al punto de agarre, el frame anterior
+    Vector3 velocidad;
+    Vector3 casaPos;
+    bool casaGuardada;
+
+    // Impulso de giro (lo usan las pruebas; también sirve para un "empujón" desde fuera).
+    public void Impulsar(Vector3 gradosPorSegundo) => velocidad = gradosPorSegundo;
 
     void Update()
     {
-        if (virus == null) return;
+        if (virus == null || virus.Modelo == null) return;
+        var m = virus.Modelo;
+        if (!casaGuardada) { casaPos = m.localPosition; casaGuardada = true; }
+        m.localPosition = casaPos;   // el globo no se mueve de su pie
+        var centro = m.position;
+
         Mano(0, ManosRig.ManoIzq, OVRInput.Controller.LTouch);
         Mano(1, ManosRig.ManoDer, OVRInput.Controller.RTouch);
+
+        // Punto que "arrastra" la superficie: el agarre del SDK o la mano con el grip propio.
+        Vector3? punto = null;
+        if (AsaAgarrada && asa.SelectingPoints.Count > 0) punto = asa.SelectingPoints[0].position;
+        else if (agarre >= 0) { var mano = agarre == 0 ? ManosRig.ManoIzq : ManosRig.ManoDer; if (mano != null) punto = mano.position; }
+
+        if (punto.HasValue)
+        {
+            var d = punto.Value - centro;
+            if (previo.HasValue && d.sqrMagnitude > 1e-5f && previo.Value.sqrMagnitude > 1e-5f)
+            {
+                var q = Quaternion.FromToRotation(previo.Value, d);
+                m.rotation = q * m.rotation;
+                q.ToAngleAxis(out float ang, out Vector3 eje);
+                if (ang > 180f) ang -= 360f;
+                GradosGirados += Mathf.Abs(ang);
+                var v = Time.deltaTime > 1e-4f ? eje * (ang / Time.deltaTime) : Vector3.zero;
+                velocidad = Vector3.Lerp(velocidad, v, 0.35f);   // se suaviza para la inercia al soltar
+            }
+            previo = d;
+            YaAgarrado = true;
+        }
+        else
+        {
+            previo = null;
+            float w = velocidad.magnitude;
+            if (w > 2f) { m.rotation = Quaternion.AngleAxis(w * Time.deltaTime, velocidad / w) * m.rotation; GradosGirados += w * Time.deltaTime; }
+            velocidad *= Mathf.Exp(-Frenado * Time.deltaTime);
+        }
+        // El asa vuelve siempre al centro del virus cuando no se está agarrando.
+        if (asa != null && !AsaAgarrada) asa.transform.SetPositionAndRotation(centro, Quaternion.identity);
     }
 
     void Mano(int i, Transform mano, OVRInput.Controller mando)
     {
         if (mano == null) return;
-        // Tocar: la parte del virus que toca la mano (con su forma real, no un punto).
+        bool grip = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, mando) > 0.55f;
+
+        // Sin asa del SDK: grip cerca del virus = girarlo (no cogerlo).
+        if (asa == null)
+        {
+            if (agarre == i && !grip) { agarre = -1; Sonidos.Clic(virus.Centro); }
+            else if (agarre < 0 && grip && (mano.position - virus.Centro).magnitude < radio * 1.4f)
+            {
+                agarre = i;
+                previo = null;
+                ManosRig.Vibrar(virus.Centro, 0.3f, 0.05f);
+                Sonidos.Clic(virus.Centro);
+            }
+        }
+
+        // Tocar para analizar o elegir: la parte que toca la mano (con su forma real), dejándola un momento y sin grip.
         SelectorVacuna s = null;
         int n = Physics.OverlapSphereNonAlloc(mano.position, 0.03f, buffer, ~0, QueryTriggerInteraction.Collide);
         for (int k = 0; k < n && s == null; k++)
@@ -267,17 +342,8 @@ public class VirusHolograma : MonoBehaviour
             var x = buffer[k].GetComponent<SelectorVacuna>();
             if (x != null && x.transform.IsChildOf(virus.transform)) s = x;
         }
-        if (s != null && s != tocando[i]) s.Activar();
-        tocando[i] = s;
-
-        // Girar: grip cerca del virus y mover la mano alrededor.
-        var d = mano.position - virus.Centro;
-        bool grip = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, mando) > 0.55f;
-        if (grip && d.magnitude < radio * 1.6f && d.sqrMagnitude > 1e-4f)
-        {
-            if (previo[i].HasValue) virus.Girar(Quaternion.FromToRotation(previo[i].Value, d));
-            previo[i] = d;
-        }
-        else previo[i] = null;
+        if (s != tocando[i]) { tocando[i] = s; desde[i] = Time.time; elegido[i] = false; }
+        if (s == null || grip || Girando || elegido[i] || Time.time < TactilDesde) return;
+        if (Time.time - desde[i] >= Retener) { elegido[i] = true; s.Activar(); }
     }
 }

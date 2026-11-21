@@ -15,6 +15,7 @@ public static class PruebaReto
     const string Clave = "NanoLab.PruebaReto";
     const string ClaveT0 = "NanoLab.PruebaReto.t0";
     const float Limite = 240f;
+    const string ClaveCorto = "NanoLab.PruebaReto.corto";   // recorrido corto (Misiones.ModoCorto)
 
     static PruebaReto()
     {
@@ -23,9 +24,15 @@ public static class PruebaReto
         EditorApplication.update += Vigilar;
     }
 
+    [MenuItem("NanoLab/Probar misiones 1 y 2 · modo corto (play mode)", false, 4)]
+    public static void EjecutarCorto() => Lanzar(true);
+
     [MenuItem("NanoLab/Probar misiones 1 y 2 (play mode)", false, 4)]
-    public static void Ejecutar()
+    public static void Ejecutar() => Lanzar(false);
+
+    static void Lanzar(bool corto)
     {
+        SessionState.SetBool(ClaveCorto, corto);
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
         SessionState.SetBool(Clave, true);
         SessionState.SetFloat(ClaveT0, (float)EditorApplication.timeSinceStartup);
@@ -43,7 +50,7 @@ public static class PruebaReto
         var d = new GameObject("PruebaReto").AddComponent<DebugReto>();
         DebugReto.Momento -= Capturar;
         DebugReto.Momento += Capturar;
-        d.StartCoroutine(d.Simular(true));
+        d.StartCoroutine(SessionState.GetBool(ClaveCorto, false) ? d.SimularCorto() : d.Simular(true));
     }
 
     static void Vigilar()
@@ -55,7 +62,7 @@ public static class PruebaReto
 
         string informe = DebugReto.Terminado ? DebugReto.Informe : "TIEMPO AGOTADO: la simulación no terminó.\n" + DebugReto.Informe;
         bool ok = DebugReto.Terminado && DebugReto.Correcto;
-        File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "Logs", "prueba_reto.txt"), (ok ? "RESULTADO: CORRECTO\n" : "RESULTADO: CON FALLOS\n") + informe);
+        File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "Logs", SessionState.GetBool(ClaveCorto, false) ? "prueba_reto_corto.txt" : "prueba_reto.txt"), (ok ? "RESULTADO: CORRECTO\n" : "RESULTADO: CON FALLOS\n") + informe);
         Debug.Log($"[PruebaReto] Terminado. Correcto: {ok}");
         SessionState.SetBool(Clave, false);
         EditorApplication.update -= Vigilar;
@@ -101,7 +108,14 @@ public static class PruebaReto
                 v = RecorridoCentro.Vista("6_Prensa", new Vector3(15.5f, 0f, 15.86f), 180f, new Vector3(14.95f, 1.42f, 15.6f), new Vector3(0f, -0.3f, 1f));
                 ML.Capturar(dir, nombre + "_pantalla", v.desde, v.dir);
             }
-            else if (nombre == "tincion_lupa" || nombre == "recuerdo_baymax")
+            else if (nombre == "recuerdo_baymax")
+            {
+                // Indicador anclado a la vista: lo que ve el jugador (desde sus ojos, mirando al frente).
+                var ojo = ManosRig.Cabeza;
+                if (ojo == null) return;
+                ML.Capturar(dir, nombre, ojo.position, ojo.forward);
+            }
+            else if (nombre == "tincion_lupa")
             {
                 // Holograma junto a lo que lo produjo (lupa de la tinción o recuerdo de Baymax), visto de frente.
                 string n = nombre == "tincion_lupa" ? "LupaTincion" : "RecuerdoBaymax";
@@ -110,6 +124,44 @@ public static class PruebaReto
                 float d = nombre == "tincion_lupa" ? 0.45f : 1.6f;
                 var desde = l.position - l.forward * d + Vector3.up * 0.04f;
                 ML.Capturar(dir, nombre, desde, l.position - desde);
+            }
+            else if (nombre.StartsWith("revision_"))
+            {
+                // Revisión del playtest: insignia vista por detrás, espejos, tótem de bienvenida y manos.
+                var todos = Object.FindObjectsOfType<Transform>();
+                Transform T(string n) => todos.FirstOrDefault(x => x.name == n && x.gameObject.activeInHierarchy);
+                if (nombre == "revision_insignia")
+                {
+                    var ins = T("Insignia");
+                    if (ins == null) return;
+                    var c = ins.position + Vector3.up * 1.2f;
+                    var f = Vector3.ProjectOnPlane(ins.forward, Vector3.up).normalized;
+                    ML.Capturar(dir, nombre + "_lado1", c + f * 1.3f, -f);
+                    ML.Capturar(dir, nombre + "_lado2", c - f * 1.3f, f);
+                }
+                else if (nombre == "revision_entrada")
+                {
+                    var desde = new Vector3(11.2f, 1.7f, 6.0f);
+                    ML.Capturar(dir, nombre, desde, new Vector3(7.2f, 1.4f, 7.0f) - desde);
+                    var esp = T("EspejoCentro");
+                    if (esp != null) { var d2 = new Vector3(10.0f, 1.7f, 8.4f); ML.Capturar(dir, "revision_espejo_centro", d2, esp.position + Vector3.up * 1.1f - d2); }
+                }
+                else if (nombre == "revision_recibidor")
+                {
+                    var esp = T("EspejoRecibidor");
+                    var spawn = new Vector3(-3.3f, 1.6f, 2.24f);
+                    if (esp != null) ML.Capturar(dir, nombre, spawn, esp.position + Vector3.up * 1.1f - spawn);
+                }
+                else if (nombre == "revision_manos")
+                {
+                    var m = Object.FindObjectsOfType<SkinnedMeshRenderer>().FirstOrDefault(r => r.name == "Manos");
+                    if (m == null) return;
+                    var c = m.bounds.center;
+                    var cab = ManosRig.Cabeza;
+                    var f = cab != null ? Vector3.ProjectOnPlane(cab.forward, Vector3.up).normalized : Vector3.forward;
+                    var desde = c + f * 0.55f + Vector3.up * 0.15f;
+                    ML.Capturar(dir, nombre, desde, c - desde);
+                }
             }
             else if (nombre == "presencia_brazalete")
             {

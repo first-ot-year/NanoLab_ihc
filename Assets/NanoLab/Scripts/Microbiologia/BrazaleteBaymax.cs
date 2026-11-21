@@ -19,6 +19,9 @@ using K = KitVacuna;
 public class BrazaleteBaymax : MonoBehaviour
 {
     public static BrazaleteBaymax Instancia { get; private set; }
+    // Demo (revisión: "ese reloj que está en la mano, mejor elimínalo"): el reloj no se monta. Los avisos que iban a la
+    // muñeca salen como etiqueta delante (Aviso.EnMuneca) y el recuerdo, en el indicador de la derecha de la vista.
+    public const bool Activo = false;
 
     // Pose sobre el mando izquierdo (local al leftHandAnchor): encima del dorso, hacia la muñeca, con la pantalla
     // mirando hacia arriba y un poco hacia el usuario. El texto se lee "hacia la mano", como la esfera de un reloj.
@@ -29,7 +32,14 @@ public class BrazaleteBaymax : MonoBehaviour
     const float AnchoReloj = 0.055f, AltoReloj = 0.042f;
     const float Ancho = 0.15f, Alto = 0.095f;   // holograma: a ~0,35 m de los ojos se lee como un cartel a 0,8 m
     const float AlturaHolograma = 0.085f;       // encima de la esfera
-    const float DistanciaLectura = 0.65f;
+    const float DistanciaLectura = 0.6f;
+    // Revisión (playtest: "ese reloj, haz que no se vea cerca"): en el simulador el mando queda a ~25 cm de los ojos
+    // y el reloj y su holograma salían pegados a la cara. Ahora el reloj se esconde por debajo de DistanciaMinima,
+    // solo despierta al mirarlo de verdad y el holograma se lee a ≥ DistanciaHolograma (guía de Meta: 0,5-0,8 m
+    // incomoda; UI de lectura a partir de ~0,4 m), escalado para que las letras se vean del mismo tamaño.
+    const float DistanciaMinima = 0.22f;
+    const float DistanciaHolograma = 0.45f;
+    const float DistanciaDiseno = 0.35f;   // distancia para la que se pensó el tamaño del holograma
     const float SegundosLeido = 4f;
 
     static readonly Color Pantalla = new Color(0.03f, 0.08f, 0.13f, 0.97f);
@@ -47,7 +57,6 @@ public class BrazaleteBaymax : MonoBehaviour
     string cabTxt = "NANOLAB";
     string objTxt = "Ve al CENTRO DE EXPERIMENTACIÓN y sigue la LUZ GUÍA de Baymax.";
     string corto = "";
-    string rumbo;   // brújula: hacia dónde queda la estación del paso (lo pone GuiaReto)
     int paso, total;
     string pendiente;
     Aviso.Tipo tipoPendiente;
@@ -59,10 +68,6 @@ public class BrazaleteBaymax : MonoBehaviour
     public string Pendiente => pendiente;
     public string Objetivo_ => objTxt;
     public bool Montado => raiz != null;
-    public string Rumbo_ => rumbo;
-
-    // Y: además de encender el reloj, la LUZ GUÍA vuelve a salir junto al jugador (guía bajo demanda).
-    public static event System.Action Llamado;
 
     void Awake() => Instancia = this;
     void OnDestroy() { if (Instancia == this) Instancia = null; }
@@ -80,15 +85,6 @@ public class BrazaleteBaymax : MonoBehaviour
         total = totalN;
         corto = totalN > 0 ? $"{Abreviar(cabTxt)} · {pasoN}/{totalN}" : Abreviar(cabTxt);
         Refrescar();
-    }
-
-    // Brújula (idea 4 de la revisión del profesor): una línea con la estación, los metros y hacia dónde girarse.
-    // null cuando ya se ha llegado o no hay destino.
-    public void Rumbo(string texto)
-    {
-        if (texto == rumbo) return;
-        rumbo = texto;
-        if (despierto) Refrescar();
     }
 
     // Novedad: vibra, late el LED y suena. Con texto, queda pendiente en la pantalla hasta que se mira.
@@ -111,7 +107,6 @@ public class BrazaleteBaymax : MonoBehaviour
         StopCoroutine(nameof(Vibrar));
         StartCoroutine(nameof(Vibrar), 1);
         if (raiz != null) Sonidos.Clic(raiz.position);
-        Llamado?.Invoke();
     }
 
     // ------------------------------------------------------------------ cada frame
@@ -125,8 +120,11 @@ public class BrazaleteBaymax : MonoBehaviour
             Montar(m);
         }
         bool micro = MicroscopioOptico.AlgunoActivo;
-        if (raiz.gameObject.activeSelf == micro) raiz.gameObject.SetActive(!micro);   // con la cara en el ocular no se ve
-        if (micro) { if (holograma != null && holograma.gameObject.activeSelf) holograma.gameObject.SetActive(false); return; }
+        var cabeza = ManosRig.Cabeza;
+        bool pegado = cabeza != null && (cabeza.position - raiz.position).sqrMagnitude < DistanciaMinima * DistanciaMinima;
+        bool ocultar = micro || pegado;   // con la cara en el ocular o con la muñeca pegada a los ojos no se ve
+        if (raiz.gameObject.activeSelf == ocultar) raiz.gameObject.SetActive(!ocultar);
+        if (ocultar) { if (holograma != null && holograma.gameObject.activeSelf) holograma.gameObject.SetActive(false); brillo = 0f; return; }
 
         bool tutorial = AvisoInicio.Instancia != null && AvisoInicio.Instancia.Abierto;   // ahí Y es "atrás"
         if (!tutorial && OVRInput.GetDown(OVRInput.Button.Four)) Llamar();
@@ -139,7 +137,7 @@ public class BrazaleteBaymax : MonoBehaviour
             var hacia = cab.position - raiz.position;
             float d = hacia.magnitude;
             float dot = d > 1e-3f ? Vector3.Dot(-raiz.forward, hacia / d) : 0f;
-            mirando = d < DistanciaLectura && dot > (despierto ? 0.4f : 0.55f);   // histéresis
+            mirando = d < DistanciaLectura && d > DistanciaMinima && dot > (despierto ? 0.6f : 0.78f);   // histéresis
         }
         bool antes = despierto;
         despierto = mirando || Time.time < forzarHasta;
@@ -166,14 +164,22 @@ public class BrazaleteBaymax : MonoBehaviour
         if (holograma.gameObject.activeSelf != ver) holograma.gameObject.SetActive(ver);
         if (!ver) return;
         var p = raiz.position + Vector3.up * AlturaHolograma * e;
-        if (cab != null) p += (cab.position - raiz.position).normalized * 0.03f;
+        float escala = 1f;
+        if (cab != null)
+        {
+            // Nunca encima de la cara: a lo largo de la vista hasta DistanciaHolograma, más grande en proporción.
+            var v = p - cab.position;
+            float d = v.magnitude;
+            if (d > 1e-3f && d < DistanciaHolograma) { p = cab.position + v / d * DistanciaHolograma; d = DistanciaHolograma; }
+            escala = Mathf.Max(1f, d / DistanciaDiseno);
+        }
         holograma.position = p;
         if (cab != null)
         {
             var d = p - cab.position;
             if (d.sqrMagnitude > 1e-4f) holograma.rotation = Quaternion.LookRotation(d, Vector3.up);
         }
-        holograma.localScale = Vector3.one * Mathf.Lerp(0.15f, 1f, e);
+        holograma.localScale = Vector3.one * Mathf.Lerp(0.15f, 1f, e) * escala;
     }
 
     void AplicarBrillo()
@@ -208,9 +214,7 @@ public class BrazaleteBaymax : MonoBehaviour
         cabecera.text = pendiente != null ? $"<color=#FFD25A>NUEVO</color>  ·  {cabTxt}" : cabTxt;
         cuerpo.text = pendiente ?? objTxt;
         cuerpo.color = pendiente != null ? (tipoPendiente == Aviso.Tipo.Ok ? Verde : Color.white) : Color.white;
-        pie.text = rumbo != null
-            ? $"<color=#FFD25A>{rumbo}</color>   <color=#7F93A8>Y: guía</color>"
-            : $"Recuerdos de Baymax {n}/{RecuerdosBaymax.Total}   <color=#7F93A8>Y: ¿adónde voy?</color>";
+        pie.text = $"Recuerdos de Baymax {n}/{RecuerdosBaymax.Total}   <color=#7F93A8>Y: avisar</color>";
         if (total > 0)
         {
             float t = Mathf.Clamp01(paso / (float)total);

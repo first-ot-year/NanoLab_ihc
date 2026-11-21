@@ -13,6 +13,10 @@ public class Platina : MonoBehaviour
 
     public void Recibir(Portaobjetos p) { Actual = p; Cambio?.Invoke(p); }
 
+    public static readonly System.Collections.Generic.List<Platina> Todas = new System.Collections.Generic.List<Platina>();
+    void OnEnable() { if (!Todas.Contains(this)) Todas.Add(this); }
+    void OnDisable() => Todas.Remove(this);
+
     public void Liberar(Portaobjetos p)
     {
         if (Actual != p) return;

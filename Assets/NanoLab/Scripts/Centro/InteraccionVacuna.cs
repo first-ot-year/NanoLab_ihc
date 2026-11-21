@@ -68,6 +68,40 @@ public static class AgarreRuntime
         return e;
     }
 
+    // Asa invisible para agarrar algo que no debe caer ni encajar (el virus holográfico): esfera trigger + Grabbable
+    // del Interaction SDK (mano y mando de cerca; con 'distancia', también el rayo verde), sin física. Quien la usa
+    // lee el punto de agarre (el virus lo usa para girar como un globo, sin moverse).
+    public static Grabbable Asa(GameObject go, float radio, bool distancia = false)
+    {
+        bool activo = go.activeSelf;
+        go.SetActive(false);
+        var sc = go.AddComponent<SphereCollider>();
+        sc.radius = radio;
+        sc.isTrigger = true;   // no tapa el rayo de los Apuntables (las partes del virus se siguen señalando)
+        var rb = go.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;
+        var grab = go.AddComponent<Grabbable>();
+        grab.InjectOptionalRigidbody(rb);
+        var gi = go.AddComponent<GrabInteractable>();
+        gi.InjectAllGrabInteractable(rb);
+        gi.InjectOptionalPointableElement(grab);
+        var hgi = go.AddComponent<HandGrabInteractable>();
+        hgi.InjectRigidbody(rb);
+        hgi.InjectOptionalPointableElement(grab);
+        if (distancia)
+        {
+            var dgi = go.AddComponent<DistanceGrabInteractable>();
+            dgi.InjectAllGrabInteractable(rb);
+            dgi.InjectOptionalPointableElement(grab);
+            var dhgi = go.AddComponent<DistanceHandGrabInteractable>();
+            dhgi.InjectRigidbody(rb);
+            dhgi.InjectOptionalPointableElement(grab);
+        }
+        go.SetActive(activo);
+        return grab;
+    }
+
     // Zona de encaje con su anclaje, un trigger pequeño (lo detecta Encajable) y una silueta que se ve
     // mientras se lleva en la mano un objeto de su tipo.
     public static ZonaEncaje Zona(Transform padre, string nombre, string tipo, Vector3 pos, Quaternion rot, Renderer fantasma, bool aceptaSoltar = true)

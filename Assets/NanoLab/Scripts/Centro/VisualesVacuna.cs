@@ -47,6 +47,7 @@ public class VirusVacuna : MonoBehaviour
     public bool Holograma => holo;
     public Vector3 Centro => modelo != null ? modelo.position : transform.position;
     public void Girar(Quaternion delta) { if (modelo != null) modelo.rotation = delta * modelo.rotation; }
+    public Transform Modelo => modelo;
 
     public static VirusVacuna CrearHolograma(Transform padre, Vector3 pos, Quaternion rot)
     {
@@ -73,18 +74,14 @@ public class VirusVacuna : MonoBehaviour
         modelo.localRotation = Quaternion.Euler(15f, 0f, 0f);
         const float r = 0.2f;
 
-        if (holo)
-        {
-            // Media envoltura (la mitad de -z, la que mira al usuario, se corta) con las dos caras visibles.
-            envoltura = K.Pieza(modelo, "Envoltura", PrimitiveType.Cube, Vector3.zero, Vector3.one * r, K.Vidrio(new Color(0.55f, 0.8f, 1f, 0.28f)));
-            envoltura.GetComponent<MeshFilter>().sharedMesh = MediaEsfera();
-        }
-        else envoltura = K.Esfera(modelo, "Envoltura", Vector3.zero, r * 2f, K.Vidrio(new Color(0.55f, 0.8f, 1f, 0.28f)));
+        // Revisión del playtest ("parece que está cortado, complétalo"): el holograma ya no corta la mitad delantera de
+        // la envoltura. Es la esfera completa, más transparente, y el ARN y la proteína N se siguen viendo dentro.
+        envoltura = K.Esfera(modelo, "Envoltura", Vector3.zero, r * 2f, K.Vidrio(new Color(0.55f, 0.8f, 1f, holo ? 0.18f : 0.28f)));
         partes[(int)Parte.Envoltura].Add(envoltura);
         // Proteínas M de la membrana (puntos oscuros en la envoltura).
         var puntos = Fibonacci(40);
         for (int i = 0; i < puntos.Length; i += 2)
-            if (!holo || puntos[i].z > 0f) partes[(int)Parte.Envoltura].Add(K.Esfera(modelo, "ProteinaM", puntos[i] * r * 0.99f, 0.018f, K.Plano(new Color(0.35f, 0.55f, 0.8f))));
+            partes[(int)Parte.Envoltura].Add(K.Esfera(modelo, "ProteinaM", puntos[i] * r * 0.99f, 0.018f, K.Plano(new Color(0.35f, 0.55f, 0.8f))));
 
         // Espigas S (tallo + cabeza): en la superficie, la "llave" del virus.
         var dirs = Fibonacci(22);
