@@ -270,35 +270,48 @@ public class Portaobjetos : MonoBehaviour
         Refrescar();
     }
 
+    // Mensajes de los goteros: check n/4 a la derecha de la vista (ProgresoTincion, como RECUERDO RECUPERADO), no
+    // junto al portaobjetos (se lleva en la mano: el aviso quedaba delante de la cara). Va al check de la derecha de la vista.
+    void AvisoTincion(string texto, Vector3 pos, Aviso.Tipo tipo, float duracion = -1f)
+    {
+        if (!ProgresoTincion.Mostrar(this, texto, tipo)) Aviso.Mostrar(texto, pos, tipo, duracion);
+    }
+
     // Toca un gotero de la tinción de Gram (1 cristal violeta, 2 lugol, 3 alcohol-acetona, 4 safranina).
     public void AplicarReactivo(int r)
     {
         var aviso = transform.position + Vector3.up * 0.12f;
         if (muestra == null)
         {
-            Aviso.Mostrar("Primero haz el frotis: toca la placa de la muestra con este portaobjetos.", aviso, Aviso.Tipo.Falta);
+            AvisoTincion("Primero haz el frotis: toca la placa de la muestra con este portaobjetos.", aviso, Aviso.Tipo.Falta);
             Sonidos.Pista(transform.position);
             return;
         }
         if (Despues) return;
-        // Modo corto (revisión de la demo: "no se puede usar el tincón"): tocar CUALQUIER gotero hace la tinción de Gram
-        // entera, paso a paso y a la vista (violeta > lugol > alcohol > safranina), sin poder equivocarse de orden.
+        // Modo corto: PASO A PASO (revisión de la demo). Cada toque a un gotero aplica UN reactivo, en el orden
+        // 1 > 2 > 3 > 4 (antes un solo toque hacía la tinción entera). En este modo no se puede estropear: si se toca un
+        // gotero que aún no toca, se dice cuál va antes y la tinción sigue siendo válida.
         if (Misiones.ModoCorto && !TincionErronea)
         {
-            if (TincionCompleta) { Aviso.Mostrar("Ya está teñida: llévala al MICROSCOPIO.", aviso, Aviso.Tipo.Info, 2.5f); return; }
-            if (!tiñendo) StartCoroutine(TenirAnimado());
-            return;
+            if (TincionCompleta) { AvisoTincion("Ya está teñida: llévala al MICROSCOPIO.", aviso, Aviso.Tipo.Info, 2.5f); return; }
+            int siguiente = PasosTincion + 1;
+            if (r > siguiente)
+            {
+                AvisoTincion($"Aún no toca el gotero {r}. Primero el gotero {siguiente}: {Reactivos[siguiente]}.", aviso, Aviso.Tipo.Falta);
+                Sonidos.Pista(transform.position);
+                return;
+            }
         }
         if (TincionErronea)
         {
-            Aviso.Mostrar("Tinción NO válida. Límpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
+            AvisoTincion("Tinción NO válida. Límpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
             Sonidos.Error(transform.position);
             return;
         }
         int esperado = PasosTincion + 1;
         if (r < esperado)
         {
-            Aviso.Mostrar(esperado <= 4 ? $"Ese reactivo ya está aplicado. Ahora toca el gotero {esperado}: {Reactivos[esperado]}." : "La tinción ya está completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Info);
+            AvisoTincion(esperado <= 4 ? $"Ese reactivo ya está aplicado. Ahora toca el gotero {esperado}: {Reactivos[esperado]}." : "La tinción ya está completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Info);
             return;
         }
         if (r > esperado)
@@ -307,7 +320,7 @@ public class Portaobjetos : MonoBehaviour
             string porQue = r == 3 && esperado <= 2 ? "Sin cristal violeta fijado con lugol, el alcohol decolora TODAS las células y el resultado engaña."
                           : r == 4 ? "La safranina va al final, después de decolorar con alcohol."
                           : $"Te saltaste el paso {esperado} ({Reactivos[esperado]}).";
-            Aviso.Mostrar($"Orden incorrecto. {porQue}\nLímpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
+            AvisoTincion($"Orden incorrecto. {porQue}\nLímpialo con el desinfectante, vuelve a tomar la muestra y repite 1 > 2 > 3 > 4.", aviso, Aviso.Tipo.Error);
             Sonidos.Error(transform.position);
             ManosRig.Vibrar(transform.position, 0.8f, 0.2f);
             TincionVisible.De(this).Aplicar(r, false);
@@ -316,7 +329,7 @@ public class Portaobjetos : MonoBehaviour
         {
             PasosTincion = r;
             TincionVisible.De(this).Aplicar(r, true);
-            Aviso.Mostrar(r < 4 ? $"Paso {r}/4: {Reactivos[r]} - correcto\nSigue con el gotero {r + 1}." : "Paso 4/4: Safranina - correcto\nTinción de Gram completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Ok);
+            AvisoTincion(r < 4 ? $"Paso {r}/4: {Reactivos[r]} - correcto\nSigue con el gotero {r + 1}." : "Paso 4/4: Safranina - correcto\nTinción de Gram completa. Llévalo al microscopio.", aviso, Aviso.Tipo.Ok);
             Sonidos.Gota(transform.position);
             ManosRig.Vibrar(transform.position, 0.4f, 0.06f);
         }

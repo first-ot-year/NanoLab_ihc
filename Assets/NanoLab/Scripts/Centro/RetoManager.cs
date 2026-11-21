@@ -388,7 +388,6 @@ public class RetoManager : MonoBehaviour
                     var pa = PortaCon(reto.muestra);
                     if (pa == null) return "Tu portaobjetos está limpio: vuelve a tocar la MUESTRA A en el BANCO (1).";
                     if (pa.TincionErronea) return "Tinción no válida: límpialo con el DESINFECTANTE de TINCIÓN (2).";
-                    if (Corto) return pa.Tiñendo ? "Tiñendo… mira cómo cambia de color tu MUESTRA A." : "Tiñe la MUESTRA A: toca con ella un GOTERO de la mesa de TINCIÓN (2).";
                     return $"Tiñe la MUESTRA A: goteros 1 > 2 > 3 > 4 (vas {pa.PasosTincion}/4).";
                 }
                 case EtapaReto.Observacion when Corto:
@@ -595,7 +594,7 @@ public class RetoManager : MonoBehaviour
             metricas.Empezar();
             metricas.Actividad();
             Avanzar(EtapaReto.Tincion);
-            // Modo corto: ya no sale teñido solo; un toque a cualquier gotero de TINCIÓN (2) hace la tinción entera.
+            // Modo corto: ya no sale teñido solo; se tiñe en TINCIÓN (2) tocando los goteros uno a uno (1 > 2 > 3 > 4).
         }
         else if (f.reactivo == 0 && !f.esDesinfectante && p != null && (f.muestra == muestraHongo || f.muestra == muestraVirus))
         {

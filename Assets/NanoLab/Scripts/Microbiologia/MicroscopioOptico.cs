@@ -10,6 +10,8 @@ public class MicroscopioOptico : MonoBehaviour
     public GameObject ayuda;          // "Coloca un portaobjetos con muestra"
     public GameObject ayudaMirar;     // "Acerca la vista al ocular"
     public float distancia = 0.22f;
+    [Tooltip("Basta con echar la cabeza hacia atrás (o a un lado) esta distancia en horizontal para dejar de mirar (m).")]
+    public float retrocesoSalida = 0.1f;
     [Tooltip("Microscopio del Centro de Experimentación: el RetoManager decide qué se ve.")]
     public bool modoReto;
 
@@ -20,6 +22,7 @@ public class MicroscopioOptico : MonoBehaviour
     static MicroscopioOptico activo;
     Material holoAzul;
     float ejeAnterior;
+    float masCerca;   // menor distancia horizontal cabeza-ocular desde que se empezó a mirar
 
     void Start() => holoAzul = Resources.Load<Material>("NanoLab/Holograma_Azul");
 
@@ -35,14 +38,35 @@ public class MicroscopioOptico : MonoBehaviour
         if (ayudaMirar != null) ayudaMirar.SetActive(activo == null && m != null && d < 1.2f);
 
         if (activo == null && m != null && d < distancia) Entrar(m, ojo);
-        else if (activo == this && (m == null || d > distancia * 1.35f)) Salir();
+        else if (activo == this && (m == null || d > distancia * 1.35f || Retrocedio(ojo))) Salir();
 
         if (activo == this) Controles();
+    }
+
+    // Revisión de la demo: para salir había que LEVANTAR la cabeza (la salida era solo por distancia 3D al ocular, y al
+    // retroceder la cabeza seguía casi a la misma distancia). Ahora basta con retroceder: si la cabeza se aparta en
+    // horizontal 'retrocesoSalida' respecto al punto más cercano al ocular al que llegó, se sale (subirla sigue sirviendo).
+    // Solo cuenta ALEJARSE del ocular: seguir acercándose o inclinarse hacia él después de entrar no saca del microscopio
+    // (la primera versión medía cualquier movimiento desde el punto de entrada y, al seguir acercando la cara, el HUD
+    // se cerraba y se volvía a abrir).
+    bool Retrocedio(Transform ojo)
+    {
+        float h = DistanciaHorizontal(ojo);
+        if (h < masCerca) masCerca = h;
+        return h > masCerca + retrocesoSalida;
+    }
+
+    float DistanciaHorizontal(Transform ojo)
+    {
+        var v = ojo.position - ocular.position;
+        v.y = 0f;
+        return v.magnitude;
     }
 
     void Entrar(MuestraData m, Transform ojo)
     {
         activo = this;
+        masCerca = DistanciaHorizontal(ojo);
         var hud = HUDMicroscopio.Obtener(ojo, holoAzul);
         // Sin teñir = examen en fresco: las bacterias se ven vivas y moviéndose.
         var pa = platina.Actual;

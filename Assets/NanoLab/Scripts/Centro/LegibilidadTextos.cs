@@ -14,7 +14,9 @@ using UnityEngine;
 public class LegibilidadTextos : MonoBehaviour
 {
     public const int ColaMinima = 3100;
-    public const float Escala = 1.25f;
+    // Revisión (noviembre): "las letras auméntalas un poquito": de 1,25 a 1,35 (+8 %). Si un texto ya no cabe en su
+    // recuadro, Ajustar lo encoge solo.
+    public const float Escala = 1.35f;
     // Revisión de la demo ("las letras de los paneles azules de la sala de experimentación, un poquito más grandes"):
     // los carteles de estación y los tableros informativos del centro crecen un 15 % más.
     public const float EscalaSala = 1.15f;
